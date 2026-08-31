@@ -1,0 +1,88 @@
+.master-volume {
+  display: grid;
+  grid-template-columns: auto minmax(48px, 76px) 30px;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: .52rem;
+  letter-spacing: .08em;
+}
+
+.master-volume input {
+  width: 100%;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--signal);
+  cursor: ew-resize;
+}
+
+.master-volume output { color: var(--signal); text-align: right; }
+
+.audio-init {
+  display: grid;
+  justify-items: start;
+  width: min(660px, 100%);
+  gap: 14px;
+  color: var(--text);
+}
+
+.audio-init > span,
+.audio-init > small {
+  color: var(--muted);
+  font-size: .58rem;
+  letter-spacing: .16em;
+}
+
+.audio-init h1 {
+  margin: clamp(20px, 7vh, 70px) 0 0;
+  font-size: clamp(1.4rem, 5vw, 4rem);
+  font-weight: 400;
+  letter-spacing: .12em;
+}
+
+.audio-init p { max-width: 480px; color: var(--muted); font-size: .72rem; }
+
+.audio-init__button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: min(280px, 100%);
+  min-height: 52px;
+  margin-block: 18px;
+  padding: 12px 18px;
+  border: 1px solid var(--line-hot);
+  background: #080d0b;
+  color: var(--signal);
+  font: .72rem var(--mono);
+  letter-spacing: .14em;
+  text-align: left;
+}
+
+.audio-init__button i {
+  width: 10px;
+  height: 10px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  background: #111a16;
+  box-shadow: 0 0 10px rgba(168,200,193,.16);
+}
+
+.audio-init__button:hover,
+.audio-init__button:focus-visible { background: #0e1713; box-shadow: inset 3px 0 var(--signal); }
+.audio-init__button[aria-busy="true"] { color: var(--muted); cursor: wait; }
+.audio-init__button[aria-busy="true"] i { animation: audio-init-pulse var(--motion-slow) steps(2, end) infinite; }
+
+@keyframes audio-init-pulse {
+  50% { background: var(--signal); box-shadow: 0 0 18px var(--signal); }
+}
+
+@media (max-width: 650px) {
+  .scene-tools--compact .master-volume { display: none; }
+  .scene-header .scene-tools { max-width: 150px; }
+  .scene-header .master-volume { grid-column: 1 / -1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .audio-init__button[aria-busy="true"] i { animation: none; background: var(--signal); }
+}

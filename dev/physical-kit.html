@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Kit físico // RECUPERACAO_1010</title>
+  <link rel="stylesheet" href="../css/reset.css">
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="./physical-kit.css">
+</head>
+<body>
+  <main class="kit-shell">
+    <header class="kit-header">
+      <div><span>ÁREA DEV // NÃO ENTREGAR À JOGADORA</span><h1>Kit físico RECUPERACAO_1010</h1></div>
+      <button type="button" class="kit-print" data-print>IMPRIMIR KIT</button>
+    </header>
+
+    <section class="kit-config" aria-labelledby="config-title">
+      <div><span id="config-title">ENDEREÇO DA EXPERIÊNCIA</span><p>Informe a URL em que o projeto ficará disponível. Nenhum endereço residencial é armazenado.</p></div>
+      <label>URL base <input type="url" data-base-url spellcheck="false"></label>
+      <button type="button" data-regenerate>ATUALIZAR QR CODES</button>
+    </section>
+
+    <section class="kit-cards" data-qr-cards aria-label="Cartões imprimíveis"></section>
+
+    <section class="kit-manifest" aria-labelledby="manifest-title">
+      <header><span id="manifest-title">MANIFESTO DE PREPARAÇÃO</span><strong>3 NÓS</strong></header>
+      <div class="kit-table-wrap"><table>
+        <thead><tr><th>ORDEM</th><th>PUZZLE</th><th>ID / TEXTO</th><th>ONDE ESCONDER</th><th>CONTEÚDO CODIFICADO</th><th>USADO</th></tr></thead>
+        <tbody data-manifest></tbody>
+      </table></div>
+      <p class="kit-safety">SEGURANÇA // Use apenas locais privados, acessíveis e previamente preparados. Não esconda nada na rua, em altura, perto de eletricidade ou onde seja necessário desmontar objetos.</p>
+    </section>
+  </main>
+  <script src="../js/vendor/qrcode.min.js"></script>
+  <script src="./physical-kit.js"></script>
+</body>
+</html>

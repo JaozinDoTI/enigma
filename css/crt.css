@@ -1,0 +1,127 @@
+/* Camada optica global. Nao recebe interacao e nao substitui o design das cenas. */
+.crt-overlay {
+  position: fixed;
+  z-index: 70;
+  inset: 0;
+  overflow: hidden;
+  border: 1px solid rgba(168,200,193,.07);
+  border-radius: 1.2% / .8%;
+  box-shadow: inset 0 0 90px rgba(0,0,0,.48), inset 2px 0 rgba(102,182,175,.018), inset -2px 0 rgba(213,139,139,.014);
+  pointer-events: none;
+}
+
+.crt-overlay::before,
+.crt-overlay::after,
+.crt-overlay__grain {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.crt-overlay::before {
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 2px, rgba(0,0,0,.15) 3px 4px),
+    radial-gradient(ellipse at center, transparent 49%, rgba(0,0,0,.17) 78%, rgba(0,0,0,.52) 118%);
+  opacity: .54;
+}
+
+.crt-overlay::after {
+  inset: -18% 0 auto;
+  height: 16%;
+  background: linear-gradient(to bottom, transparent, rgba(190,224,215,.035), transparent);
+  opacity: 0;
+  animation: crt-scan-pass 13s linear infinite;
+}
+
+.crt-overlay__grain {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 140 140' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.72' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)' opacity='.34'/%3E%3C/svg%3E");
+  mix-blend-mode: soft-light;
+  opacity: .05;
+}
+
+body:not(.is-recovered) #app { text-shadow: 0 0 12px rgba(168,200,193,.03); }
+
+.crt-event--tear #app { animation: crt-screen-tear var(--motion-fast) steps(2, end) both; }
+.crt-event--tear .crt-overlay__grain { animation: crt-tear-band var(--motion-fast) steps(2, end) both; }
+.crt-event--roll #app { animation: crt-horizontal-roll var(--motion-slow) cubic-bezier(.7,0,.3,1) both; }
+.crt-event--desync #app { animation: crt-vertical-desync var(--motion-normal) steps(3, end) both; }
+.crt-event--loss #app { animation: crt-signal-loss var(--motion-dramatic) steps(4, end) both; }
+.crt-event--ghost #app { animation: crt-frame-ghost var(--motion-normal) steps(2, end) both; }
+.crt-event--burn .crt-overlay { animation: crt-phosphor-burn var(--motion-slow) var(--ease-exit) both; }
+.crt-event--recovery #app { animation: crt-signal-recovery var(--motion-slow) var(--ease-enter) both; }
+.crt-event--hard-reset #app { animation: crt-hard-reset var(--motion-dramatic) steps(4, end) both; }
+[data-motion-scope].crt-event--ghost { animation: crt-frame-ghost var(--motion-normal) steps(2, end) both; }
+[data-motion-scope="scene"].crt-event--desync { animation: crt-vertical-desync var(--motion-normal) steps(3, end) both; }
+
+@keyframes crt-scan-pass {
+  0%, 83% { opacity: 0; transform: translateY(0); }
+  85% { opacity: .7; }
+  92% { opacity: .18; }
+  96%, 100% { opacity: 0; transform: translateY(850%); }
+}
+
+@keyframes crt-screen-tear {
+  0%, 100% { transform: none; filter: none; }
+  24% { transform: translateX(2px); filter: contrast(1.12); }
+  48% { transform: translateX(-3px); filter: contrast(1.35) saturate(.75); }
+  72% { transform: translateX(1px); }
+}
+
+@keyframes crt-tear-band {
+  0%, 100% { background: transparent; }
+  35% { background: linear-gradient(to bottom, transparent 0 42%, rgba(220,242,235,.16) 42% 45%, transparent 45%); transform: translateX(3px); }
+  68% { background: linear-gradient(to bottom, transparent 0 68%, rgba(0,0,0,.55) 68% 74%, transparent 74%); transform: translateX(-4px); }
+}
+
+@keyframes crt-horizontal-roll {
+  0%, 100% { transform: none; }
+  28% { transform: translateY(4px); }
+  52% { transform: translateY(-2px); }
+}
+
+@keyframes crt-vertical-desync {
+  0%, 100% { transform: none; filter: none; }
+  32% { transform: scaleY(.975) translateY(2px); filter: contrast(1.2); }
+  62% { transform: scaleY(1.01) translateY(-1px); filter: drop-shadow(2px 0 rgba(213,139,139,.16)); }
+}
+
+@keyframes crt-signal-loss {
+  0%, 100% { opacity: 1; filter: none; transform: none; }
+  18% { opacity: .72; filter: grayscale(1) contrast(1.8); transform: scaleY(.96); }
+  38% { opacity: .08; filter: brightness(2.4); transform: scaleY(.035); }
+  62% { opacity: .28; filter: contrast(2); transform: scaleY(.015); }
+  82% { opacity: .9; transform: scaleY(1.008); }
+}
+
+@keyframes crt-frame-ghost {
+  0%, 100% { filter: none; transform: none; }
+  35% { filter: drop-shadow(3px 0 rgba(213,139,139,.18)) drop-shadow(-3px 0 rgba(92,174,182,.18)); transform: translateX(1px); }
+  68% { filter: drop-shadow(-2px 0 rgba(213,139,139,.12)); }
+}
+
+@keyframes crt-phosphor-burn {
+  0%, 100% { filter: none; }
+  30% { filter: brightness(1.75) contrast(1.25); box-shadow: inset 0 0 110px rgba(190,224,215,.18); }
+  72% { filter: brightness(.72); }
+}
+
+@keyframes crt-signal-recovery {
+  from { opacity: .18; filter: grayscale(1) contrast(1.8); transform: scaleY(.05); }
+  55% { opacity: .84; transform: scaleY(1.012); }
+  to { opacity: 1; filter: none; transform: none; }
+}
+
+@keyframes crt-hard-reset {
+  0%, 100% { opacity: 1; filter: none; transform: none; }
+  18% { filter: contrast(1.8); transform: translateX(2px); }
+  38%, 55% { opacity: .04; filter: brightness(2); transform: scaleY(.018); }
+  72% { opacity: .34; filter: grayscale(1); transform: scaleY(.94); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crt-overlay::after { animation: none; }
+  :where(.crt-event--tear,.crt-event--roll,.crt-event--desync,.crt-event--loss,.crt-event--ghost,.crt-event--burn,.crt-event--recovery,.crt-event--hard-reset) #app,
+  :where(.crt-event--tear,.crt-event--burn) .crt-overlay,
+  .crt-event--tear .crt-overlay__grain { animation: none !important; opacity: 1; filter: none; transform: none; }
+}

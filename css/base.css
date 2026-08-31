@@ -1,0 +1,146 @@
+html {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-x: clip;
+  background:
+    radial-gradient(circle at 50% 0, #11181b 0, transparent 42rem),
+    var(--bg);
+}
+
+/* Scroll da página é incidental; áreas extensas mantêm uma pista visual própria. */
+:where(html, body) {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+:where(html, body)::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+:where(
+  .side-panel,
+  .long-document,
+  .dev-state,
+  .puzzle-brief__drawer,
+  .investigation-surface,
+  .investigation-notes,
+  .document-scene__desk,
+  .document-scene__paper,
+  .reconstruction-scene__field,
+  .override-scene__content
+) {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 200, 193, .34) transparent;
+}
+
+:where(
+  .side-panel,
+  .long-document,
+  .dev-state,
+  .puzzle-brief__drawer,
+  .investigation-surface,
+  .investigation-notes,
+  .document-scene__desk,
+  .document-scene__paper,
+  .reconstruction-scene__field,
+  .override-scene__content
+)::-webkit-scrollbar { width: 3px; height: 3px; }
+
+:where(
+  .side-panel,
+  .long-document,
+  .dev-state,
+  .puzzle-brief__drawer,
+  .investigation-surface,
+  .investigation-notes,
+  .document-scene__desk,
+  .document-scene__paper,
+  .reconstruction-scene__field,
+  .override-scene__content
+)::-webkit-scrollbar-track { background: transparent; }
+
+:where(
+  .side-panel,
+  .long-document,
+  .dev-state,
+  .puzzle-brief__drawer,
+  .investigation-surface,
+  .investigation-notes,
+  .document-scene__desk,
+  .document-scene__paper,
+  .reconstruction-scene__field,
+  .override-scene__content
+)::-webkit-scrollbar-thumb {
+  border-radius: 0;
+  background: rgba(168, 200, 193, .3);
+}
+
+button,
+a,
+input,
+summary {
+  outline-color: var(--signal);
+  outline-offset: 3px;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+:where(button, a, input, summary):focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 3px;
+  box-shadow: var(--focus-ring);
+}
+
+.noise {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  pointer-events: none;
+  opacity: .06;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.6'/%3E%3C/svg%3E");
+}
+
+::selection {
+  background: var(--signal);
+  color: var(--bg);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.muted { color: var(--muted); }
+.faint { color: var(--faint); }
+.good { color: var(--good); }
+.warn { color: var(--warn); }
+.error { color: var(--error); }
+.mono { font-family: var(--mono); }
+.hidden { display: none !important; }

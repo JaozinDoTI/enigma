@@ -1,0 +1,24 @@
+# Segredos e configuração local
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Dependências e saídas temporárias
+node_modules/
+coverage/
+*.log
+*.tmp
+
+# Perfis locais de navegador e QA
+.qa-chrome-probe/
+
+# Editor e sistema operacional
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini

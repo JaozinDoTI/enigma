@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080b0d">
+  <meta name="description" content="RECUPERACAO_1010 — terminal de reconstrução de arquivos">
+  <title>RECUPERACAO_1010</title>
+  <link rel="stylesheet" href="./css/reset.css">
+  <link rel="stylesheet" href="./css/variables.css">
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/terminal.css">
+  <link rel="stylesheet" href="./css/tv.css">
+  <link rel="stylesheet" href="./css/puzzles.css">
+  <link rel="stylesheet" href="./css/transitions.css">
+  <link rel="stylesheet" href="./css/experience.css">
+  <link rel="stylesheet" href="./css/corruption.css">
+  <link rel="stylesheet" href="./css/scenes.css">
+  <link rel="stylesheet" href="./css/crt.css">
+  <link rel="stylesheet" href="./css/audio.css">
+  <link rel="stylesheet" href="./css/spotify.css">
+  <link rel="stylesheet" href="./css/final.css">
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+  <div class="crt-overlay" aria-hidden="true"><span class="crt-overlay__grain"></span></div>
+  <div id="app"></div>
+  <div class="screen-feedback" data-screen-feedback aria-live="assertive" aria-atomic="true" aria-hidden="true">
+    <div class="screen-feedback__vignette" aria-hidden="true"></div>
+    <div class="screen-feedback__message">
+      <span data-screen-feedback-kicker></span>
+      <strong data-screen-feedback-message></strong>
+    </div>
+  </div>
+  <div class="boot-layer" data-boot-layer aria-live="polite" aria-hidden="true">
+    <div class="boot-layer__crt" aria-hidden="true"></div>
+    <div class="boot-layer__log">
+      <span>MEMÓRIA ........ OK</span>
+      <span>ARMAZENAMENTO .. OK</span>
+      <span>RECEPTOR ........ DESCONHECIDO</span>
+      <span class="error">EVENTO_1010 .... CORROMPIDO</span>
+      <strong>recuperando interface...</strong>
+    </div>
+  </div>
+  <div class="merge-layer" data-merge-layer aria-live="polite" aria-hidden="true">
+    <section><span>ENTIDADE A</span><strong>MEMÓRIAS DE JOÃO</strong></section>
+    <div class="merge-layer__log">
+      <span>MEMÓRIA DUPLICADA</span>
+      <span>FONTE COMPARTILHADA DETECTADA</span>
+      <span>COLISÃO DE RELAÇÃO</span>
+      <strong>RELAÇÃO: NÓS · ESTADO: ATIVO</strong>
+    </div>
+    <section><span>ENTIDADE B</span><strong>PRESENÇA IDENTIFICADA</strong></section>
+  </div>
+  <div class="toast-region" data-toast-region aria-live="polite" aria-atomic="false"></div>
+  <aside class="spotify-dock" aria-label="Trilha de mistério do Spotify">
+    <details>
+      <summary>
+        <span>TRILHA DE MISTÉRIO</span>
+        <span class="spotify-dock__source">SPOTIFY</span>
+      </summary>
+      <div class="spotify-dock__content">
+        <p>Pressione reproduzir uma vez. A trilha continuará enquanto você explora os registros.</p>
+        <iframe
+          src="https://open.spotify.com/embed/album/0h0KN7Wfd3ocz4RR7eeiKe?utm_source=generator&theme=0"
+          title="Player da trilha de mistério no Spotify"
+          width="100%"
+          height="152"
+          frameborder="0"
+          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+          loading="lazy"
+          referrerpolicy="strict-origin-when-cross-origin"
+        ></iframe>
+      </div>
+    </details>
+  </aside>
+  <noscript>Este arquivo precisa de JavaScript para reconstruir os registros.</noscript>
+  <script defer src="./js/app.bundle.js"></script>
+</body>
+</html>
