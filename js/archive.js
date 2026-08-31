@@ -13,20 +13,20 @@ const ARCHIVE_RECORDS = Object.freeze([
       ? [['INDEXADO', '10.10 · 10:10:00'], ['SOMA ANTERIOR', '54F1-A09C'], ['SOMA ATUAL', '54F1-B771'], ['DIVERGÊNCIA', '3 LINHAS ADICIONADAS']]
       : [['INDEXADO', '10.10 · 10:10:00'], ['SOMA DE VERIFICAÇÃO', '54F1-A09C'], ['INTEGRIDADE', '62%'], ['ORIGEM', 'NÃO RESOLVIDA']],
     content: (version) => version === 2
-      ? ['ENTIDADE A // origem local', 'CONVERSA PROLONGADA // 10:10', 'ENTIDADE B // origem externa', 'PRESENÇA CONFIRMADA DURANTE O EVENTO', 'FONTE COMPARTILHADA // CLASSIFICAÇÃO PENDENTE']
-      : ['ENTIDADE A // origem local', 'CONVERSA PROLONGADA // 10:10', '[ 3 LINHAS NÃO RECUPERADAS ]']
+      ? ['AUTOR // J. // origem local', 'CONVERSA PROLONGADA // 10:10', 'DESTINATÁRIA // identidade removida', 'PRESENÇA DELA CONFIRMADA DURANTE O EVENTO', 'MOTIVO DO ARQUIVO // CLASSIFICAÇÃO PENDENTE']
+      : ['AUTOR // assinatura removida', 'CONVERSA PROLONGADA // 10:10', 'DESTINATÁRIA // não informada', '[ 3 LINHAS RETIDAS PELO AUTOR ]']
   }),
   record({
     id: 'transmissao-04', code: 'TRANSMISSÃO_04', type: 'INTERCEPTAÇÃO',
     discovered: (state) => state.completed.includes('04'),
     metadata: () => [['PORTADORA', 'CANAL 04'], ['CODIFICAÇÃO', 'MORSE'], ['INTEGRIDADE', '81%']],
-    content: () => ['PADRÃO // -- . ... .-', 'INTERPRETAÇÃO REGISTRADA // MESA', 'DESTINO // AMBIENTE FÍSICO']
+    content: () => ['PADRÃO // -- . ... .-', 'LEITURA // MESA', 'RECADO // A TELA ERA APENAS O COMEÇO']
   }),
   record({
     id: 'documento-06', code: 'DOCUMENTO_06', type: 'COMPARAÇÃO DE VERSÕES',
     discovered: (state) => state.completed.includes('06'),
     metadata: () => [['VERSÕES', '02'], ['DIVERGÊNCIA', 'EXTENSA'], ['INVARIANTE', 'RECUPERADO']],
-    content: () => ['CONTEÚDO PRESERVADO ENTRE VERSÕES:', 'A DATA ABRE O ARQUIVO']
+    content: () => ['TRECHO QUE O AUTOR NÃO ALTEROU:', 'A DATA ABRE O ARQUIVO']
   }),
   record({
     id: 'pacote-24', code: 'PACOTE_24', type: 'DUMP BINÁRIO',
@@ -62,7 +62,7 @@ const ARCHIVE_RECORDS = Object.freeze([
     id: 'portadora-1010', code: 'PORTADORA_1010', type: 'INTERCEPTAÇÃO',
     discovered: (state) => state.completed.includes('17'),
     metadata: () => [['CANAL', '10'], ['NÍVEL', '10'], ['SINCRONIA', 'FIXADA']],
-    content: () => ['EVENTO_1010 // PORTADORA ESTÁVEL', 'DADOS ESPACIAIS ENCAMINHADOS À RECONSTRUÇÃO']
+    content: () => ['EVENTO_1010 // PORTADORA ESTÁVEL', 'A FREQUÊNCIA RESPONDE À MESMA DATA', 'PRÓXIMO BLOCO // UMA LEMBRANÇA SEM NOME']
   }),
   record({
     id: 'reconstrucao-18', code: 'RECONSTRUÇÃO_18', type: 'MEMÓRIA ESPACIAL',

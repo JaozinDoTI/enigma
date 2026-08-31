@@ -167,7 +167,7 @@ export function syncHintPanel(id, state) {
     panel.open = true;
     const message = panel.querySelector('[data-hint-message]');
     if (message) {
-      message.textContent = HINTS[id]?.[used - 1] || 'JOÃO SERÁ NOTIFICADO.';
+      message.textContent = HINTS[id]?.[used - 1] || 'O AUTOR SABERÁ QUE VOCÊ PEDIU.';
       message.classList.toggle('muted', !used);
     }
     const action = panel.querySelector('[data-action="hint"]');

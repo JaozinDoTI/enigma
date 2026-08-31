@@ -34,13 +34,14 @@
 }
 
 .audio-init h1 {
-  margin: clamp(20px, 7vh, 70px) 0 0;
+  margin: clamp(10px, 4vh, 40px) 0 0;
   font-size: clamp(1.4rem, 5vw, 4rem);
   font-weight: 400;
   letter-spacing: .12em;
 }
 
 .audio-init p { max-width: 480px; color: var(--muted); font-size: .72rem; }
+.audio-init .voice-message { width: min(480px, 100%); margin: 0; }
 
 .audio-init__button {
   position: relative;
@@ -49,7 +50,7 @@
   gap: 12px;
   min-width: min(280px, 100%);
   min-height: 52px;
-  margin-block: 18px;
+  margin-block: 10px;
   padding: 12px 18px;
   border: 1px solid var(--line-hot);
   background: #080d0b;

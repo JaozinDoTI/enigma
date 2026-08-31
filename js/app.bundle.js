@@ -406,31 +406,31 @@ exports.PUZZLE_SOLUTIONS = PUZZLE_SOLUTIONS;
 },
 "data/hints.js": function(module, exports, __require) {
 const HINTS = {
-  '01': ['Nem toda falha é texto.', 'A linha interrompida espera alguma coisa pequena.', 'Clique no cursor quadrado no fim da última linha.'],
-  '02': ['Horários repetidos costumam ser ruído. Quase sempre.', 'Compare o horário com o nome do evento.', 'Abra o registro que contém 10:10.'],
-  '03': ['Nem todo canal transmite imagem.', 'Tente mais de uma vez; um número não se comporta como os outros.', 'Mude a TV para o canal 4.'],
-  '04': ['A luz fala pelo tempo que permanece acesa.', 'Curto e longo podem ser escritos como ponto e traço.', 'Reproduza, anote e traduza “-- . ... .-”: MESA.'],
-  '05': ['O sinal não terminou na tela.', 'MESA pode ser um objeto real, não outra resposta para digitar.', 'Levanta. Procure o NÓ na escrivaninha e traga o código de retorno.'],
-  '06': ['O texto está longo para cansar seus olhos. Não deixe.', 'Algumas palavras recusam a mesma margem e tipografia.', 'Leia apenas as palavras deslocadas: A DATA ABRE O ARQUIVO.'],
-  '07': ['O nome dos arquivos é pouco confiável.', 'Compare o evento, os horários e os tamanhos.', 'Abra final_agora_vai.txt, modificado às 10:10.'],
-  '08': ['Há divisões que o próprio quadro já desenhou.', 'Leia cada grupo de oito como uma letra.', '01001100 01010101 01000001 forma LUA.'],
-  '09': ['Alguns objetos do arquivo existem fora dele.', 'Há uma lua que não está no céu nem na tela.', 'Examine com segurança o pano de lua no quarto.'],
-  '10': ['Você já viu o conteúdo que mudou.', 'O ARQUIVO marca versões que não correspondem à última leitura.', 'Procure o estado ALTERADO, compare os checksums e leia o documento.'],
-  '11': ['Uma descrição de cabelo pode ter nome próprio.', 'Laterais curtas e comprimento atrás descrevem um corte.', 'O conflito descreve um MULLET.'],
-  '12': ['A resposta é o nome do corte.', 'A entidade B provavelmente vai continuar negando.', 'Digite MULLET.'],
-  '13': ['Um aparelho aparentemente inútil mudou enquanto você estava fora.', 'Volte a observar a TV.', 'Ligue a TV e passe pelo canal 11 para ver 2–5–1.'],
-  '14': ['Posições podem apontar para objetos que já possuem uma ordem.', 'O que está acima da cama costuma ficar em sequência.', 'Use os livros 2, 5 e 1 da esquerda para a direita.'],
-  '15': ['A cama é uma interpretação rápida demais.', 'A frase aponta para algo ao lado do fim do dia.', 'Ordene: ONDE / A NOITE / DEIXA / O QUE VOCÊ PRECISA.'],
-  '16': ['Perto do sono não significa sobre o colchão.', 'Procure o móvel que acompanha a cama.', 'A pista está na mesa de cabeceira.'],
-  '17': ['A calibração não está na TV. Comece pelo limite seguro da casa.', 'Procure na área externa privada preparada, sem sair para a rua. O NÓ devolve uma regra, não a solução.', 'O fragmento manda repetir o evento: use o número que aparece duas vezes em EVENTO_1010 nos dois controles.'],
-  '18': ['Não procure uma palavra escondida; reconstrua um lugar.', 'Água, bancos, brinquedos e vento coexistem em um ponto conhecido.', 'Digite PARQUINHO DA BEIRA-MAR.'],
-  '19': ['O sistema quer saber se registros separados pertencem à mesma história.', 'Forme pares de causa e memória.', 'Ligue 1010/conversa, cabelo/mullet, margem/local.'],
-  '20': ['A planta representa um quarto específico, não um quarto ideal.', 'Arraste cada objeto até as relações da lista ficarem verdes; coordenadas exatas não importam.', 'A TV não possui âncora física. Posicione os outros objetos e valide quando todas as relações estiverem confirmadas.'],
-  '21': ['A conclusão chegou antes de a integridade alcançar cem por cento.', 'Use o comando de encerramento para testar se o sistema realmente terminou.', 'Encerre o sistema; quando ele falhar em 99%, use VOLTAR AO ARQUIVO.'],
-  '22': ['Histórias ficam acima do lugar onde se dorme.', 'Abaixo delas existe uma superfície discreta.', 'Procure o QR sob a estante de livros.'],
-  '23': ['Você já visitou o observador silencioso.', 'A segunda pista estava separada da primeira desde o início.', 'Volte à lua e procure o segundo fragmento, sem remover nem danificar o pano.'],
-  '24': ['Os códigos VX nunca foram coordenadas; eram uma ordem de retorno.', 'Associe VX-04, VX-11 e VX-02 aos registros que os carregaram.', 'Selecione LUA, TV e MULLET nessa ordem; os resíduos formam NÓS.'],
-  '25': ['Não há mais nada a recuperar.', 'Agora é permitido lembrar.', 'Este registro é o final.']
+  '01': ['A interrupção foi deixada de propósito.', 'Olhe para o ponto em que a última linha parou.', 'Use o cursor quadrado no fim da linha.'],
+  '02': ['Quem montou isso queria que um registro chamasse atenção sem parecer óbvio.', 'Compare nomes e horários. Um deles repete a própria identidade.', 'Abra EVENTO_1010, registrado às 10:10.'],
+  '03': ['Não existe sintonia automática. Você precisa procurar.', 'O canal certo reage diferente antes mesmo de mostrar alguma coisa.', 'Leve o receptor até o canal 04.'],
+  '04': ['Não tente entender o som como fala.', 'Duração curta e longa pode ser anotada como ponto e traço.', 'O padrão “-- . ... .-” escreve MESA.'],
+  '05': ['Você já resolveu a mensagem. Agora obedeça ao que ela disse.', 'A palavra nomeia uma coisa que está no mesmo ambiente que você.', 'Levanta. O NÓ está na escrivaninha.'],
+  '06': ['O tamanho do texto é uma distração.', 'Procure palavras que não respeitam exatamente o mesmo alinhamento.', 'As palavras deslocadas formam A DATA ABRE O ARQUIVO.'],
+  '07': ['Se alguém chama cinco arquivos de final, o nome deixou de ser prova.', 'O evento já ensinou qual horário importa.', 'Abra final_agora_vai.txt, modificado às 10:10.'],
+  '08': ['A própria tela já separou o ruído em partes úteis.', 'Cada grupo de oito bits representa uma letra.', '01001100 / 01010101 / 01000001 forma LUA.'],
+  '09': ['Não é outra palavra para digitar. É uma instrução de busca.', 'Existe uma lua no quarto que você consegue examinar sem mexer em nada perigoso.', 'Procure a primeira marca no pano de lua.'],
+  '10': ['Você não precisa descobrir um arquivo novo.', 'Alguma coisa que você já leu agora aparece como ALTERADA.', 'Reabra EVENTO_1010 e compare as somas de verificação.'],
+  '11': ['As duas versões discordam, mas a geometria não sabe mentir.', 'Cruze volume, laterais e comprimento antes de confiar em qualquer relato.', 'Selecione pelo menos quatro camadas e calcule a forma do corte.'],
+  '12': ['Você já reconstruiu a resposta; falta usar o nome comum dela.', 'Laterais curtas e comprimento atrás descrevem um corte bem específico.', 'Digite MULLET. Sim, mesmo que a segunda versão negue.'],
+  '13': ['A TV não voltou igual depois que você saiu dela.', 'Encontre o canal vazio e pense no que uma tela antiga guarda depois de desligada.', 'No canal 11, desligue a TV para revelar 02 · 05 · 01.'],
+  '14': ['Três números podem ser posições em vez de uma combinação.', 'Procure uma coleção ordenada perto da cama.', 'Leia os livros 2, 5 e 1 da esquerda para a direita.'],
+  '15': ['Não monte uma frase bonita. Monte uma frase que dê uma instrução clara.', '“A noite” precisa de um lugar, e “o que você precisa” precisa de um verbo.', 'ONDE / A NOITE / DEIXA / O QUE VOCÊ PRECISA.'],
+  '16': ['Você tá complicando. A resposta não é a cama.', 'Pense no móvel que continua ao alcance quando você já deitou.', 'Procure a marca na mesa de cabeceira.'],
+  '17': ['A próxima parte foi deixada onde a casa termina sem você precisar ir para a rua.', 'Procure apenas na área externa privada preparada. O QR traz uma regra incompleta.', '“Repita o evento” significa usar 10 em CANAL e 10 em VOLUME.'],
+  '18': ['Isso não é uma cifra. São lembranças de um lugar.', 'Água, vento, bancos e brinquedos precisam existir juntos.', 'O lugar é o PARQUINHO DA BEIRA-MAR.'],
+  '19': ['Cada lembrança aparece duas vezes, descrita por lados diferentes.', 'Selecione uma origem e depois a consequência correspondente.', 'Ligue evento/conversa, cabelo/mullet e margem/local.'],
+  '20': ['Quem deixou o arquivo conhece um quarto específico.', 'Faça as relações da lista ficarem verdes; não tente copiar coordenadas exatas.', 'Posicione os cinco objetos reais. A TV é a única peça sem lugar no quarto.'],
+  '21': ['Noventa e nove não é cem. O erro está tentando passar por conclusão.', 'Aceite o encerramento apenas para ver onde ele quebra.', 'Use ENCERRAR SISTEMA e, depois da falha, VOLTAR AO ARQUIVO.'],
+  '22': ['O recado fala de histórias como objetos, não como lembranças.', 'Olhe abaixo de onde os livros ficam guardados.', 'O QR está sob a estante, em um ponto seguro e acessível.'],
+  '23': ['O objeto certo já foi encontrado. A leitura é que ficou incompleta.', 'Na primeira vez você viu um lado porque era o único que fazia sentido.', 'Volte ao pano de lua e procure a segunda marca. Ela estava lá desde o começo.'],
+  '24': ['Os três códigos VX não eram respostas isoladas.', 'Leia VX-04, VX-11 e VX-02 como uma ordem para recuperar as fontes.', 'Selecione LUA, TV e MULLET. As letras restantes formam NÓS.'],
+  '25': ['Não tem outra armadilha.', 'Agora o arquivo pode dizer por que escolheu você.', 'Leia. O resto não precisa ser resolvido.']
 };
 
 exports.HINTS = HINTS;
@@ -458,17 +458,17 @@ const answerForm = (id, placeholderFallback = 'resposta necessária', buttonFall
 
 const voiceMessage = (voice, label, text) => `<blockquote class="voice-message voice-message--${voice}"><span>${escapeHtml(label)}</span><p>${escapeHtml(text)}</p></blockquote>`;
 
-const externalStep = (fact, humanText = '') => `<aside class="external-step" aria-label="Transição para o ambiente físico">
+const externalStep = (fact, humanText = '', humanLabel = 'AUTOR NÃO IDENTIFICADO') => `<aside class="external-step" aria-label="Transição para o ambiente físico">
   <span>PRÓXIMA AÇÃO FORA DA TELA</span><strong>A RESPOSTA NÃO ESTÁ NESTA TELA</strong><p>${escapeHtml(fact)}</p>
-  ${humanText ? voiceMessage('human', 'JOÃO', humanText) : ''}
+  ${humanText ? voiceMessage('human', humanLabel, humanText) : ''}
 </aside>`;
 
 const yardNodeGate = (state) => {
   if (state.flags.yardNodeValidated) {
-    return `${voiceMessage('system', 'SISTEMA', 'NÓ_17 AUTENTICADO // FRAGMENTO DE CALIBRAÇÃO VINCULADO')}${voiceMessage('human', 'JOÃO', 'Eu sabia que você ia voltar com isso.')}${renderTV(state, { mode: 'tuning' })}<div class="feedback" data-feedback></div>`;
+    return `${voiceMessage('system', 'SISTEMA', 'NÓ_17 AUTENTICADO // FRAGMENTO DE CALIBRAÇÃO VINCULADO')}${voiceMessage('human', 'J.', 'Eu sabia que você ia voltar com isso.')}${renderTV(state, { mode: 'tuning' })}<div class="feedback" data-feedback></div>`;
   }
   return `<section class="external-auth" data-external-auth="yard">
-    ${externalStep('A instrução aponta para o limite privado entre a casa e a área externa segura.', 'Tá. Agora você vai precisar sair daí.')}
+    ${externalStep('A instrução aponta para o limite privado entre a casa e a área externa segura.', 'Tá. Agora você vai precisar sair daí.', 'J.')}
     ${voiceMessage('system', 'SISTEMA', 'IDENTIFICAR NÓ DE LIMIAR // ÁREA PRIVADA // NÃO SAIR PARA A RUA')}
     ${voiceMessage('interference', 'INTERFERÊNCIA', '...ela já encontrou?')}
     <p class="external-auth__clue">O arquivo chama de limiar o lugar onde a casa termina sem deixar de ser sua. O NÓ preparado nesse ponto contém apenas uma parte da calibração.</p>
@@ -481,12 +481,12 @@ const yardNodeGate = (state) => {
 };
 
 function boot(state) {
-  if (!state.completed.includes('01')) return `<section class="audio-init" data-audio-init><span>RECUPERACAO_1010</span><h1>${state.flags.initialized ? 'SEQUÊNCIA INTERROMPIDA' : 'SISTEMA INATIVO'}</h1><p>Nenhum canal de áudio será aberto antes da inicialização manual.</p><button type="button" class="audio-init__button" data-action="boot-fragment"><i aria-hidden="true"></i>${state.flags.initialized ? 'RETOMAR INICIALIZAÇÃO' : 'INICIALIZAR'}</button><small>AO CONTINUAR, O TERMINAL ATIVARÁ O EQUIPAMENTO DE RECUPERAÇÃO</small></section>`;
+  if (!state.completed.includes('01')) return `<section class="audio-init" data-audio-init><span>RECUPERACAO_1010 // ORIGEM NÃO RASTREADA</span><h1>${state.flags.initialized ? 'CONEXÃO INTERROMPIDA' : 'ARQUIVO DEIXADO ABERTO'}</h1>${voiceMessage('human', 'AUTOR NÃO IDENTIFICADO', 'Se você abriu isso, funcionou. Não fecha ainda.')}<p>O restante do conteúdo só responde depois de uma inicialização manual.</p><button type="button" class="audio-init__button" data-action="boot-fragment"><i aria-hidden="true"></i>${state.flags.initialized ? 'RETOMAR CONEXÃO' : 'ENTRAR'}</button><small>NENHUM DADO EXTERNO SERÁ ENVIADO // SESSÃO LOCAL</small></section>`;
   return `<div class="terminal"><p class="terminal-line">NÓ DE RECUPERAÇÃO .... ATIVO</p><p class="terminal-line">INTEGRIDADE DO ARQUIVO  0%</p><p class="terminal-line">CANAL DE ÁUDIO .... ABERTO</p></div>`;
 }
 
 function logs(state) {
-  return `<p class="system-message">Seis registros sobreviveram à interrupção. Um deles não compartilha o mesmo relógio.</p><div class="log-list">${SYSTEM_LOGS.map(([time,name,status]) => {
+  return `<p class="system-message">SEIS REGISTROS FORAM DEIXADOS NESTA SESSÃO. UM DELES QUEBRA A ORDEM DO RELÓGIO.</p>${voiceMessage('human', 'AUTOR NÃO IDENTIFICADO', 'Eu deixei uma coisa fora do lugar. Começa por ela.')}<div class="log-list">${SYSTEM_LOGS.map(([time,name,status]) => {
     const isEvent = name === 'EVENTO_1010';
     const indexed = isEvent && (state.flags.event1010Seen || state.completed.includes('02'));
     const action = isEvent ? (indexed ? 'open-archive-record' : 'open-event') : 'inspect-log';
@@ -513,12 +513,12 @@ function documentScene() {
 }
 
 function files() {
-  return `<p class="muted">PROPRIETÁRIO DO DIRETÓRIO: J. Os nomes são definidos pelo usuário. Os metadados não.</p><div class="file-stack">${RECOVERED_FILES.map((file) => `<button type="button" class="file-row" data-action="open-file" data-file="${file.name}"><span>${file.name}</span><span>${file.modified}</span><span>${file.size}</span></button>`).join('')}</div><div class="system-message hidden" data-file-preview></div>`;
+  return `<p class="muted">PROPRIETÁRIO DO DIRETÓRIO: J. O nome de um arquivo pode ser uma isca. A hora em que ele foi tocado deixa rastro.</p>${voiceMessage('human', 'J.', 'Eu nunca soube dar nome pra arquivo. Dessa vez isso ajuda.') }<div class="file-stack">${RECOVERED_FILES.map((file) => `<button type="button" class="file-row" data-action="open-file" data-file="${file.name}"><span>${file.name}</span><span>${file.modified}</span><span>${file.size}</span></button>`).join('')}</div><div class="system-message hidden" data-file-preview></div>`;
 }
 
 function binary() {
   const bits = '010011000101010101000001'.split('');
-  return `<p>A LARGURA DO PACOTE foi preservada mesmo depois que seus cabeçalhos desapareceram.</p><div class="binary-board" aria-label="24 bits agrupados visualmente de oito em oito">${bits.map((bit) => `<span class="bit">${bit}</span>`).join('')}</div>${answerForm('08','objeto recuperado')}`;
+  return `<p>Alguém apagou o cabeçalho, mas deixou os 24 bits separados em três blocos legíveis.</p><div class="binary-board" aria-label="24 bits agrupados visualmente de oito em oito">${bits.map((bit) => `<span class="bit">${bit}</span>`).join('')}</div>${answerForm('08','objeto recuperado')}`;
 }
 
 function conflict(state) {
@@ -542,20 +542,20 @@ function conflict(state) {
 }
 
 function books() {
-  return `${externalStep('Fato registrado: imagem residual 02 · 05 · 01.')}<p>O receptor transmitiu três índices. Nenhum arquivo digital possui essa quantidade de posições estáveis.</p><div class="sequence-list">${GAME_CONFIG.bookPositions.map((position) => `<span class="sequence-chip">${String(position).padStart(2,'0')}</span>`).join('')}</div><p class="muted">ORDEM: esquerda → direita. ALTURA DE REFERÊNCIA: acima do restante. Há três partes da soma de verificação junto aos fragmentos.</p>${answerForm('14','soma de verificação dos fragmentos')}`;
+  return `${externalStep('A imagem residual preservou 02 · 05 · 01.', 'Você já tem os números. Eles só não são uma senha.', 'J.')}<p>O conjunto procurado tem ordem física e fica acima do restante do quarto.</p><div class="sequence-list">${GAME_CONFIG.bookPositions.map((position) => `<span class="sequence-chip">${String(position).padStart(2,'0')}</span>`).join('')}</div><p class="muted">LEITURA: esquerda → direita. Cada posição guarda uma parte do mesmo código.</p>${answerForm('14','soma de verificação dos fragmentos')}`;
 }
 
 function fragments(state) {
   const selected = state.fragments || [];
   const piece = (fragment, placed) => `<button type="button" class="fragment ${placed ? 'is-placed' : ''}" data-action="${placed ? 'fragment-remove' : 'fragment'}" data-fragment="${escapeHtml(fragment)}" aria-pressed="${placed}">${escapeHtml(fragment)}</button>`;
-  return `<p>Quatro partes compartilham papel, pressão e idade. Restaure a sintaxe.</p><div class="fragment-tray" aria-label="Fragmentos disponíveis">${BOOK_FRAGMENTS.filter((fragment) => !selected.includes(fragment)).map((fragment) => piece(fragment, false)).join('')}</div><div class="fragment-target" aria-label="Área de montagem">${selected.map((fragment) => piece(fragment, true)).join('')}</div><button type="button" class="primary-button" data-action="check-fragments">VERIFICAR SINTAXE</button><div class="feedback" data-feedback></div>`;
+  return `<p>Os quatro papéis são partes de uma frase comum. Monte algo que uma pessoa realmente usaria para indicar um lugar.</p><div class="fragment-tray" aria-label="Fragmentos disponíveis">${BOOK_FRAGMENTS.filter((fragment) => !selected.includes(fragment)).map((fragment) => piece(fragment, false)).join('')}</div><div class="fragment-target" aria-label="Área de montagem">${selected.map((fragment) => piece(fragment, true)).join('')}</div><button type="button" class="primary-button" data-action="check-fragments">LER FRASE</button><div class="feedback" data-feedback></div>`;
 }
 
 function identity(state) {
   const selected = state.relationSelection || [];
   const linked = state.relationLinks || [];
   const linkedPairs = Math.floor(linked.length / 2);
-  return `<p>O sistema não pede respostas. Ele pede vínculos. Selecione dois registros que descrevem a mesma lembrança.</p><div class="identity-link-status">MEMÓRIAS COMPARTILHADAS <strong>${linkedPairs} / 3</strong></div><div class="relation-board identity-board" data-relations>
+  return `<p>As duas fontes nunca contam a mesma lembrança do mesmo jeito. Ligue os registros que só fazem sentido quando ficam lado a lado.</p><div class="identity-link-status">MEMÓRIAS COMPARTILHADAS <strong>${linkedPairs} / 3</strong></div><div class="relation-board identity-board" data-relations>
     <svg class="identity-connections" viewBox="0 0 100 150" preserveAspectRatio="none" aria-hidden="true">${Array.from({ length: linkedPairs }, (_, index) => `<path d="M42 ${25 + index * 50} C50 ${8 + index * 50} 50 ${42 + index * 50} 58 ${25 + index * 50}" pathLength="1"></path>`).join('')}</svg>
     ${IDENTITY_RECORDS.map((record) => `<button type="button" class="record-chip ${selected.includes(record.id) ? 'is-selected' : ''} ${linked.includes(record.id) ? 'is-linked' : ''}" data-action="relation" data-record="${record.id}" data-pair="${record.pair}" aria-pressed="${selected.includes(record.id) || linked.includes(record.id)}" ${linked.includes(record.id) ? 'disabled' : ''}>${record.label}</button>`).join('')}</div><div class="feedback" data-feedback></div>`;
 }
@@ -568,7 +568,7 @@ function locationScene(state) {
     const from = selectedPoints[index];
     return `<path d="M${from[0]} ${from[1]} L${to[0]} ${to[1]}" pathLength="1"></path>`;
   }).join('');
-  return `<p>Os dados espaciais não conseguem nomear o local. Reconstrua-o pela coexistência.</p>
+  return `<p>O nome do lugar foi apagado. O que sobrou foi o tipo de coisa que alguém lembraria depois de estar lá.</p>
     <div class="spatial-reconstruction" data-location-map style="--location-progress:${selected.length / LOCATION_FRAGMENTS.length}">
       <svg viewBox="0 0 280 170" role="img" aria-label="Mapa abstrato formado pelas relações selecionadas">
         <path class="spatial-contour" d="M20 82 C54 20 136 8 202 30 C252 48 274 90 244 140 C198 164 91 162 34 129Z" pathLength="1"></path>
@@ -590,7 +590,7 @@ function room(state) {
     const position = positions[key] || { x: 4 + (index * 14), y: 84, moved:false };
     return `<button type="button" class="room-object ${position.moved && key !== 'tv' ? 'is-verified' : ''}" data-action="room-object" data-object="${key}" data-material="${material}" style="left:${position.x}%;top:${position.y}%">${label}<span data-room-object-state ${position.moved && key !== 'tv' ? '' : 'hidden'}>VERIFICADO</span></button>`;
   }).join('');
-  return `<p>Reconstrua relações aproximadas do ambiente observado. O sistema não exige coordenadas exatas.</p>
+  return `<p>O arquivo conhece este quarto pelas relações entre os objetos. Refaça essas relações; posição exata não importa.</p>
     <div class="room-analysis"><strong data-room-score>COMPATIBILIDADE DO QUARTO: ${evaluation.score}%</strong><span data-room-relation-count>${evaluation.verifiedRelations.length} / ${evaluation.relations.length} RELAÇÕES VÁLIDAS</span></div>
     <div class="room-grid" data-room><svg class="room-relations" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><g data-room-relations>${evaluation.verifiedRelations.map((relation,index) => `<path d="M${12 + index * 12} 84 L${20 + index * 13} 18" pathLength="1" data-relation="${relation.id}"></path>`).join('')}</g></svg>${renderedObjects}</div>
     <ul class="room-relation-list">${evaluation.relations.map((relation) => `<li data-room-relation="${relation.id}" class="${evaluation.verifiedRelations.includes(relation) ? 'is-valid' : ''}">${relation.label}</li>`).join('')}</ul>
@@ -602,7 +602,7 @@ function meta(state) {
   const residues = { lua:'N', tv:'O', mullet:'S' };
   const classifications = [['AMIGO',1],['CONTATO',2],['FONTE DE MEMÓRIA',3],['DEPENDÊNCIA',3]];
   const coherent = selected.join(',') === 'lua,tv,mullet';
-  return `<div class="terminal"><p class="terminal-line" data-kind="system">RECUPERAÇÃO CONCLUÍDA</p><div class="fake-progress"><span></span></div><p class="terminal-line error">INTEGRIDADE: 99%</p><p class="terminal-line">1 RELAÇÃO NÃO RESOLVIDA</p></div><p>Três índices órfãos sobreviveram desde a inicialização: <strong>VX-04 / VX-11 / VX-02</strong>. Reconecte os registros que os carregaram, nessa ordem.</p>
+  return `<div class="terminal"><p class="terminal-line" data-kind="system">RECUPERAÇÃO CONCLUÍDA</p><div class="fake-progress"><span></span></div><p class="terminal-line error">INTEGRIDADE: 99%</p><p class="terminal-line">1 RELAÇÃO NÃO RESOLVIDA</p></div>${voiceMessage('human', 'J.', 'Se chegou nessa parte, você já sabe que eu não deixaria três códigos sem motivo.')}<p>As marcas <strong>VX-04 / VX-11 / VX-02</strong> são uma ordem. Reconecte os registros que carregaram cada uma.</p>
     <div class="merge-classifier" data-merge-classifier><div class="classification-log">${classifications.map(([label,threshold]) => `<p data-classification-threshold="${threshold}" class="${selected.length >= threshold ? 'is-processed' : ''}">${label}<strong>${selected.length >= threshold ? 'INVÁLIDO' : 'AGUARDANDO'}</strong></p>`).join('')}<p class="relation-result">RELAÇÃO<strong>${coherent ? 'RESÍDUO COERENTE' : 'NÃO RESOLVIDA'}</strong></p></div>
     <div class="meta-console">${META_ITEMS.map((item) => `<button type="button" class="meta-key ${selected.includes(item.key) ? 'is-active' : ''}" data-action="meta-item" data-key="${item.key}" aria-pressed="${selected.includes(item.key)}"><span>${item.label}</span><strong>${item.value}</strong></button>`).join('')}</div></div>
     <div class="system-message" data-meta-residue>RESÍDUO: ${selected.map((key) => residues[key] || '·').join(' ') || '· · ·'}</div><div class="meta-answer-slot ${coherent ? 'is-ready' : ''}" data-meta-answer ${coherent ? '' : 'inert'} aria-hidden="${!coherent}">${answerForm('24','significado da relação')}</div>`;
@@ -630,27 +630,27 @@ function renderScene(puzzle, state) {
     case 'logs': return logs(state);
     case 'tv-intro': return renderTV(state, { mode: state.unlocked.includes('13') ? 'sequence' : 'intro' });
     case 'morse': return `<div class="receiver-puzzle receiver-puzzle--morse">${renderTV(state,{mode:'morse'})}<div class="receiver-puzzle__answer">${answerForm('04','interpretação do sinal')}</div></div>`;
-    case 'desk-node': return `${externalStep('Fato registrado: a PORTADORA 04 foi interpretada como MESA.', 'Antes que você reclame: sim, eu escondi coisa pela casa.')}<div class="terminal"><p class="terminal-line">proximidade do NÓ_02: não resolvida</p><p class="terminal-line">limite do navegador: atravessado</p></div>${state.flags.deskNodeScanned ? '<p class="good">NÓ EXTERNO DETECTADO. BUFFER DE CÓDIGO ABERTO.</p>' : '<p class="muted">Aguardando nó externo…</p>'}${answerForm('05','código do nó')}`;
+    case 'desk-node': return `${externalStep('O sinal nomeou MESA e encerrou a transmissão.', 'Antes que você reclame: sim, tem coisa escondida pela casa.')}<div class="terminal"><p class="terminal-line">NÓ_02: fora do alcance do navegador</p><p class="terminal-line">próximo dado exige retorno físico</p></div>${state.flags.deskNodeScanned ? '<p class="good">NÓ EXTERNO DETECTADO. CÓDIGO DISPONÍVEL.</p>' : '<p class="muted">Esperando você voltar com o código…</p>'}${answerForm('05','código do nó')}`;
     case 'document': return documentScene();
     case 'files': return files();
     case 'binary': return binary();
-    case 'moon-one': return `${externalStep('Fato registrado: o pacote de 24 bits identificou o objeto LUA.')}<div class="terminal"><p class="terminal-line">OBJETO: L_U_A</p><p class="terminal-line">localização: fora do arquivo</p><p class="terminal-line">estado do observador: presente</p></div><p>A primeira camada contém um registro curto.</p>${answerForm('09','código do fragmento físico')}`;
+    case 'moon-one': return `${externalStep('Os três blocos formaram LUA.', 'Não é a do céu. Você sabe qual é.')}<div class="terminal"><p class="terminal-line">OBJETO: L_U_A</p><p class="terminal-line">localização: ambiente próximo</p><p class="terminal-line">camadas detectadas: 02</p></div><p>Nesta visita, apenas a primeira marca possui contexto.</p>${answerForm('09','código do fragmento físico')}`;
     case 'return-event': return (state.archive?.reads?.['evento-1010'] || 0) >= 2
       ? `<div class="terminal"><p class="terminal-line">DIVERGÊNCIA LIDA</p><p class="terminal-line">3 linhas adicionadas após a indexação</p><p class="terminal-line">duas fontes presentes no mesmo evento</p></div>${voiceMessage('interference', 'INTERFERÊNCIA', '...ela já encontrou?')}<button type="button" class="primary-button" data-action="resolve-event-revision">PROCESSAR DIVERGÊNCIA</button><div class="feedback" data-feedback></div>`
       : `<div class="terminal"><p class="terminal-line error">SOMA DE VERIFICAÇÃO DIVERGENTE</p><p class="terminal-line">um registro previamente indexado não corresponde mais à última leitura</p><p class="terminal-line faint">AÇÃO REQUERIDA // localize no ARQUIVO o registro alterado</p></div><div class="feedback" data-feedback></div>`;
     case 'conflict': return conflict(state);
-    case 'mullet': return `<p>A geometria possui um identificador comum. Resolva o conflito sem confiar na ENTIDADE B.</p>${answerForm('12','identificador da memória')}`;
+    case 'mullet': return `${voiceMessage('human', 'J.', 'Uma das duas pessoas vai negar isso até o fim. A forma não muda por causa disso.')}<p>Dê o nome comum ao corte reconstruído.</p>${answerForm('12','identificador da memória')}`;
     case 'tv-sequence': return renderTV(state, { mode: 'sequence' });
     case 'books': return books();
     case 'fragments': return fragments(state);
-    case 'bedside': return `${externalStep('Instrução registrada: ONDE A NOITE DEIXA O QUE VOCÊ PRECISA.', 'Você tá complicando. Não é a cama.')}<div class="clue-grid"><div class="clue-card"><span class="clue-card__tag">falso positivo</span><p>superfície onde o dia termina</p></div><div class="clue-card"><span class="clue-card__tag">proximidade</span><p>ao alcance antes de dormir</p></div></div>${answerForm('16','código do fragmento físico')}`;
+    case 'bedside': return `${externalStep('Instrução recuperada: ONDE A NOITE DEIXA O QUE VOCÊ PRECISA.', 'Você tá complicando. Não é a cama.', 'J.')}<div class="clue-grid"><div class="clue-card"><span class="clue-card__tag">resposta óbvia / errada</span><p>a superfície onde você dorme</p></div><div class="clue-card"><span class="clue-card__tag">relação correta</span><p>o que continua ao alcance depois de deitar</p></div></div>${answerForm('16','código do fragmento físico')}`;
     case 'tv-tuning': return yardNodeGate(state);
     case 'location': return locationScene(state);
     case 'identity': return identity(state);
     case 'room': return room(state);
-    case 'impossible': return state.flags.fakeFinalSeen ? `<div class="terminal glitch-once"><p class="terminal-line error">INTEGRIDADE: 99%</p><p class="terminal-line">1 RELAÇÃO NÃO RESOLVIDA</p><p class="terminal-line">OBJETO PERTENCE AO SISTEMA</p><p class="terminal-line">CANAL EXTERNO RESTAURADO</p></div><button type="button" class="primary-button" data-action="continue-after-fake">VOLTAR AO ARQUIVO</button>` : `<section class="final-stage false-final"><div class="date">RECUPERAÇÃO CONCLUÍDA</div><p class="faint">OBJETO NÃO PERTENCE À MEMÓRIA<br>OBJETO PERTENCE AO SISTEMA</p><h1>arquivo restaurado.</h1><p>Eu achei que lembrar seria a parte difícil. Era só encontrar o caminho de volta.</p><div class="fake-progress"><span></span></div><button type="button" class="primary-button" data-action="fake-end">ENCERRAR SISTEMA</button></section>`;
-    case 'books-node': return `${externalStep('Fato registrado: o canal externo aponta para baixo de onde as histórias ficam.', 'Eu sabia que você ia olhar nos livros primeiro.')}<p class="muted">O nó pode já ter sido detectado. Agora há contexto suficiente.</p>${state.flags.booksNodeScanned ? '<p class="good">NÓ_11 DETECTADO.</p>' : ''}<div class="system-message">CABEÇALHO DE ÁUDIO PARCIAL: “TÃO FÁCIL SE APAIXONAR…”</div>${answerForm('22','código do nó')}`;
-    case 'moon-two': return `${externalStep('Referência registrada: OBSERVADOR / LUA · primeira camada já recuperada.', 'Você já passou por isso antes. Só não desse jeito.')}<div class="terminal"><p class="terminal-line">O OBSERVADOR GUARDOU OS DOIS LADOS</p><p class="terminal-line">a primeira visita recuperou apenas uma camada</p><p class="terminal-line">ela permaneceu atrás de você</p></div>${answerForm('23','segundo fragmento físico')}`;
+    case 'impossible': return state.flags.fakeFinalSeen ? `<div class="terminal glitch-once"><p class="terminal-line error">INTEGRIDADE: 99%</p><p class="terminal-line">1 RELAÇÃO NÃO RESOLVIDA</p><p class="terminal-line">A TV NÃO PERTENCE AO QUARTO</p><p class="terminal-line">A TV PERTENCE AO SISTEMA</p></div>${voiceMessage('human', 'J.', 'Não. Ainda não acabou.')}<button type="button" class="primary-button" data-action="continue-after-fake">VOLTAR AO ARQUIVO</button>` : `<section class="final-stage false-final"><div class="date">RECUPERAÇÃO CONCLUÍDA</div><p class="faint">OBJETO SEM ÂNCORA FÍSICA<br>INTEGRIDADE DECLARADA: 99%</p><h1>arquivo restaurado.</h1><p>O sistema quer que você aceite uma conclusão que não explica tudo.</p><div class="fake-progress"><span></span></div><button type="button" class="primary-button" data-action="fake-end">TESTAR ENCERRAMENTO</button></section>`;
+    case 'books-node': return `${externalStep('O canal externo deixou a frase: abaixo de onde as histórias ficam.', 'Eu sabia que você ia olhar nos livros primeiro.', 'JOÃO')}<p class="muted">Talvez o NÓ já tenha sido encontrado antes. Só agora o código possui contexto.</p>${state.flags.booksNodeScanned ? '<p class="good">NÓ_11 DETECTADO.</p>' : ''}<div class="system-message">CABEÇALHO DE ÁUDIO PARCIAL: “TÃO FÁCIL SE APAIXONAR…”</div>${answerForm('22','código do nó')}`;
+    case 'moon-two': return `${externalStep('A LUA foi registrada com duas camadas; apenas uma foi lida.', 'Você já passou por isso antes. Só não desse jeito.', 'JOÃO')}<div class="terminal"><p class="terminal-line">OBJETO CONHECIDO // LEITURA INCOMPLETA</p><p class="terminal-line">camada 01: recuperada</p><p class="terminal-line">camada 02: presente desde o início</p></div>${answerForm('23','segundo fragmento físico')}`;
     case 'meta': return meta(state);
     case 'final': return finalScene(state);
     default: return '<p>TIPO DE REGISTRO DESCONHECIDO</p>';
@@ -693,17 +693,17 @@ exports.LOCATION_FRAGMENTS = LOCATION_FRAGMENTS;
 },
 "data/memories.js": function(module, exports, __require) {
 const HAIR_CONFLICT = {
-  entityA: ['pedido recorrente confirmado', 'laterais curtas', 'comprimento preservado atrás', 'frequência: mais de uma vez'],
-  entityB: ['registro negado', 'frase provável: “eu nunca pedi isso”', 'confiança declarada: 97%', 'confiança do arquivo: 99.4%']
+  entityA: ['o pedido aconteceu mais de uma vez', 'laterais curtas', 'comprimento mantido atrás', 'testemunha insiste que lembra direito'],
+  entityB: ['“eu nunca pedi isso”', 'negação repetida sem detalhe novo', 'certeza declarada: 97%', 'compatibilidade com o arquivo: 99,4%']
 };
 
 const IDENTITY_RECORDS = [
   { id: 'date', label: 'EVENTO_1010', pair: 'conversation' },
-  { id: 'conversation', label: 'CONVERSA QUE MUDOU O ESTADO', pair: 'date' },
-  { id: 'hair', label: 'ARQUIVO CAPILAR NEGADO', pair: 'mullet' },
-  { id: 'mullet', label: 'MEMÓRIA CONFIRMADA / ENTIDADE B NEGA', pair: 'hair' },
+  { id: 'conversation', label: 'A CONVERSA QUE COMEÇOU TUDO', pair: 'date' },
+  { id: 'hair', label: 'UM PEDIDO QUE ELA NEGA', pair: 'mullet' },
+  { id: 'mullet', label: 'O CORTE QUE O ARQUIVO CONFIRMOU', pair: 'hair' },
   { id: 'shore', label: 'ÁGUA + VENTO + BRINQUEDOS', pair: 'place' },
-  { id: 'place', label: 'LOCAL DO EVENTO INICIAL', pair: 'shore' }
+  { id: 'place', label: 'ONDE OS DOIS ESTAVAM EM 10.10', pair: 'shore' }
 ];
 
 exports.HAIR_CONFLICT = HAIR_CONFLICT;
@@ -711,14 +711,14 @@ exports.IDENTITY_RECORDS = IDENTITY_RECORDS;
 },
 "data/puzzles.js": function(module, exports, __require) {
 const DOCUMENT_PARAGRAPHS = [
-  'Este relatório descreve um processo automático de recuperação. Blocos foram recompostos a partir de redundâncias, relógios imperfeitos e versões produzidas em momentos diferentes. Nenhum nome de arquivo deve ser tratado como evidência definitiva.',
-  'O sistema comparou 418 fragmentos. Sete possuíam carimbos posteriores ao conteúdo que alegavam preservar. Três continham promessas de encerramento e, ainda assim, foram seguidos por novas versões.',
-  'Quando um arquivo se chama final, há apenas quarenta e dois por cento de chance de que realmente seja o último. Quando se chama final_real_agora, essa chance diminui. A nomenclatura humana não possui integridade verificável.',
-  'Registros espaciais foram removidos. A posição sobreviveu como ruído: vento, margem, estruturas pequenas, duas presenças e uma conversa. O sistema ainda não possui contexto suficiente para unir esses dados.',
-  'Um índice repetido aparece nos pacotes. Não está claro se 1010 é quantidade, coordenada, sequência ou erro do relógio. A DATA permanece estável mesmo quando a descrição muda.',
-  'A entidade responsável criou múltiplas cópias preventivas, frequentemente sem apagar as anteriores. ABRE processos, abandona-os, retorna horas depois e acrescenta a palavra real ao nome como se isso resolvesse alguma coisa.',
-  'Há um receptor externo no conjunto, embora o inventário físico não registre o objeto. O ARQUIVO trata esse aparelho inexistente como testemunha, distração e canal de retorno.',
-  'Conclusão provisória: não confiar em títulos, não descartar versões antigas e não presumir que uma tela visitada permaneça igual. O relatório termina aqui, embora seu tamanho sugira importância maior do que realmente possui.'
+  'Se você está lendo isto, a recuperação passou do primeiro bloqueio. Este relatório foi deixado em duas versões porque confiar em um único arquivo seria facilitar demais.',
+  'O sistema comparou 418 fragmentos. Sete foram alterados depois de prontos. Três diziam que tudo havia terminado e receberam novas linhas horas depois.',
+  'Um arquivo chamado final possui quarenta e dois por cento de chance de ser o último. Quando alguém acrescenta real_agora ao nome, a chance fica ainda menor.',
+  'As referências de lugar foram removidas. Sobraram vento, margem, estruturas pequenas, duas presenças e uma conversa que durou mais do que deveria.',
+  'O número 1010 reaparece em horários, nomes e frequências. Pode ser coincidência. Também pode ser a única parte que o autor fez questão de não esconder. A DATA continua igual nas duas versões.',
+  'O proprietário deste diretório começa coisas, faz cópias e volta depois. Às vezes abandona uma ideia. Às vezes ABRE de novo só para mudar uma linha.',
+  'Existe uma TV nos registros, mas não no inventário do quarto. Isso não é um erro de cadastro. O ARQUIVO usa o aparelho como caminho entre o que está na tela e o que foi deixado fora dela.',
+  'Se chegou até aqui, já entendeu a regra: nomes mentem, versões mudam e uma tela antiga pode guardar coisa nova. O resto foi deixado para quem prestar atenção.'
 ];
 
 const BOOK_FRAGMENTS = ['A NOITE', 'O QUE VOCÊ PRECISA', 'ONDE', 'DEIXA'];
@@ -922,31 +922,31 @@ const clarity = (narrative, objective, actionHint, interaction, successMeaning, 
 });
 
 const PUZZLE_CLARITY = Object.freeze({
-  '01': clarity('O processo automático falhou antes de abrir o arquivo.', 'Ative manualmente o equipamento de recuperação.', 'Use o único comando físico disponível.', 'acionar inicialização', 'O sistema passa a reconhecer o operador.', { status: (state) => state.flags.initialized ? 'BOOT PARCIAL DETECTADO' : 'SISTEMA INATIVO' }),
-  '02': clarity('Seis registros sobreviveram, mas um deles não compartilha o mesmo relógio.', 'Localize e abra o registro temporalmente anômalo.', 'As linhas do índice podem ser inspecionadas.', 'abrir registro', 'O EVENTO_1010 entra no arquivo ativo.', { status: (state) => state.flags.event1010Seen ? 'EVENTO INDEXADO' : '6 REGISTROS DISPONÍVEIS' }),
-  '03': clarity('Uma portadora sem origem atravessa o receptor.', 'Percorra os canais até encontrar uma transmissão diferente do ruído comum.', 'CANAL é o controle primário. O ruído estático muda conforme a sintonia se aproxima.', 'operar seletor de canal', 'Uma portadora anômala é isolada.', { status: (state) => `${state.tv.power ? 'RECEPTOR ATIVO' : 'RECEPTOR DESLIGADO'} · CAN ${String(state.tv.channel).padStart(2, '0')}` }),
-  '04': clarity('A transmissão encontrada repete durações deliberadas.', 'Reproduza o sinal e identifique o objeto nomeado pelo padrão.', 'A interface permite ouvir e interpretar a portadora recuperada.', 'ouvir Morse e interpretar', 'O sinal passa a apontar para um objeto físico.', { status: () => 'SINAL DISPONÍVEL PARA LEITURA', inputLabel: 'Objeto identificado no sinal', placeholder: 'nome do objeto interpretado', submitLabel: 'INTERPRETAR SINAL', wrongFeedback: 'A interpretação foi recebida, mas não nomeia o objeto transmitido.' }),
-  '05': clarity('O sinal terminou na MESA, não no navegador.', 'Encontre a versão física desse objeto e traga o código de volta.', 'O NÓ existe fora desta tela. O registro anterior continua disponível no ARQUIVO.', 'encontrar nó físico e informar código', 'O primeiro objeto da casa é vinculado ao arquivo.', { status: (state) => state.flags.deskNodeScanned ? 'NÓ EXTERNO DETECTADO · CÓDIGO LIBERADO' : 'AGUARDANDO DETECÇÃO DO NÓ', inputLabel: 'Código impresso no NÓ_02', placeholder: 'VX-OBJETO-0000', submitLabel: 'VALIDAR NÓ', format: /^VX[-\s][A-Z0-9-]+$/i, formatHint: 'Use o identificador completo iniciado por VX.', wrongFeedback: 'O formato foi aceito, mas o código não corresponde ao NÓ_02.' }),
-  '06': clarity('Duas versões ocupam o mesmo documento e discordam em quase tudo.', 'Compare as versões e extraia o conteúdo que permanece invariável.', 'Desloque o limite de comparação e informe a frase preservada.', 'comparar documento e transcrever invariante', 'O arquivo reconhece uma regra de abertura.', { status: () => 'DUAS VERSÕES SOBREPOSTAS', inputLabel: 'Conteúdo invariável', placeholder: 'frase preservada nas duas versões', submitLabel: 'EXTRAIR INVARIANTE', wrongFeedback: 'A frase foi recebida, mas não permanece intacta nas duas versões.' }),
-  '07': clarity('O diretório contém nomes convincentes e horários incompatíveis.', 'Abra os arquivos e identifique qual metadado é confiável.', 'Compare nome, horário e resposta de consistência.', 'inspecionar arquivos', 'Um registro legítimo é separado dos falsos positivos.', { status: () => 'ARQUIVOS AGUARDANDO INSPEÇÃO' }),
-  '08': clarity('Os cabeçalhos sumiram, mas a largura do pacote sobreviveu.', 'Agrupe os bits visualmente e identifique o objeto codificado.', 'A divisão em blocos faz parte da leitura.', 'decodificar pacote binário', 'Um segundo objeto físico entra no índice.', { status: () => '24 BITS · CABEÇALHO AUSENTE', inputLabel: 'Objeto decodificado', placeholder: 'nome do objeto recuperado', submitLabel: 'CONFIRMAR OBJETO', wrongFeedback: 'O valor foi recebido, mas não corresponde ao objeto codificado pelo pacote.' }),
-  '09': clarity('O objeto decodificado possui um correspondente fora do arquivo.', 'Encontre o correspondente e informe o identificador associado à primeira camada.', 'Use a evidência registrada pelo puzzle anterior como referência física.', 'consultar ambiente e inserir identificador', 'O resíduo VX-04 ganha origem conhecida.', { status: (state) => state.flags.moonFirstFound ? 'PRIMEIRA CAMADA REGISTRADA' : 'AGUARDANDO FRAGMENTO EXTERNO', inputLabel: 'Identificador da primeira camada', placeholder: 'identificador encontrado no ambiente', submitLabel: 'VALIDAR FRAGMENTO', wrongFeedback: 'O identificador informado não pertence à primeira camada do observador.' }),
-  '10': clarity('Um registro previamente indexado não corresponde mais à última leitura.', 'Localize no ARQUIVO o registro alterado e examine a versão atual.', 'Estados e somas de verificação identificam documentos que mudaram.', 'consultar registro alterado', 'A presença de duas entidades torna-se explícita.', { status: (state) => (state.archive?.reads?.['evento-1010'] || 0) >= 2 ? 'DIVERGÊNCIA LIDA · PROCESSAMENTO DISPONÍVEL' : 'SOMA DE VERIFICAÇÃO DIVERGENTE' }),
-  '11': clarity('Dois relatos descrevem geometrias incompatíveis.', 'Reconstrua camadas suficientes para calcular a forma registrada.', 'Selecione ao menos quatro camadas e execute o cálculo.', 'selecionar camadas forenses', 'O conflito deixa de ser opinião e vira geometria.', { status: (state) => `${(state.forensicSelections || []).length} / 4 CAMADAS MÍNIMAS` }),
-  '12': clarity('A geometria calculada possui um nome comum que a ENTIDADE B rejeita.', 'Nomeie a memória indicada pelo modelo, sem confiar na negação.', 'Informe o identificador cotidiano da geometria reconstruída.', 'interpretar evidência e responder', 'O sistema confirma uma memória compartilhada.', { status: () => 'CONFLITO DE DECLARAÇÃO ATIVO', inputLabel: 'Identificador comum da memória', placeholder: 'nome associado à geometria', submitLabel: 'CONFRONTAR MEMÓRIA', wrongFeedback: 'A memória foi consultada, mas o identificador não corresponde à geometria.' }),
-  '13': clarity('O receptor agora carrega uma portadora que não estabiliza ligada.', 'Investigue a portadora instável e recupere o que o receptor preserva.', 'Observe como o equipamento reage aos diferentes estados do sinal.', 'operar receptor e observar persistência', 'Uma sequência física sobrevive ao sinal.', { status: (state) => state.flags.tvChannel11Primed ? 'PORTADORA AUSENTE · NOVA OBSERVAÇÃO DISPONÍVEL' : `VARRENDO CAN ${String(state.tv.channel).padStart(2, '0')}` }),
-  '14': clarity('A imagem residual contém três posições, não uma senha digital.', 'Use as posições no conjunto físico indicado e reúna a soma de verificação.', 'A ordem observada deve ser preservada.', 'consultar posições físicas e inserir soma', 'Fragmentos de uma instrução são recuperados.', { status: () => 'ÍNDICES 02 · 05 · 01 REGISTRADOS', inputLabel: 'Soma de verificação dos fragmentos', placeholder: 'token reunido nas três posições', submitLabel: 'VALIDAR SEQUÊNCIA', format: /^NIGHT[-\s]?\d{3}$/i, formatHint: 'Informe o token completo encontrado junto aos fragmentos.', wrongFeedback: 'A sequência possui formato reconhecível, mas não corresponde aos três fragmentos.' }),
-  '15': clarity('Quatro partes compartilham papel, pressão e idade.', 'Monte os fragmentos em uma instrução gramatical.', 'Selecione as partes na ordem de leitura; elas podem ser removidas da área de montagem.', 'ordenar fragmentos', 'Uma localização indireta passa a existir.', { status: (state) => `${(state.fragments || []).length} / 4 FRAGMENTOS POSICIONADOS` }),
-  '16': clarity('A instrução reconstruída aponta para algo perto da hora de dormir.', 'Descubra qual móvel ela descreve e procure o identificador junto dele.', 'A frase é orientação, não resposta. Não precisa desmontar nem danificar nada.', 'interpretar instrução e consultar objeto', 'O resíduo VX-11 recebe uma âncora física.', { status: (state) => state.flags.bedsideFound ? 'NÓ NOTURNO VALIDADO' : 'AGUARDANDO IDENTIFICADOR FÍSICO', inputLabel: 'Identificador encontrado no local indicado', placeholder: 'identificador junto ao objeto', submitLabel: 'VALIDAR IDENTIFICADOR', wrongFeedback: 'O identificador foi recebido, mas não pertence ao local descrito pela instrução.' }),
-  '17': clarity('Falta uma regra para calibrar o receptor. Ela foi removida da casa, mas não da área privada.', 'Autentique o NÓ do limiar e cruze o fragmento recuperado com o EVENTO_1010.', 'Depois da autenticação, aplique a regra nos dois controles do receptor.', 'deduzir local, recuperar fragmento e calibrar receptor', 'A portadora do evento é fixada.', { status: (state) => state.flags.yardNodeValidated ? `NÓ_17 VALIDADO · CAN ${String(state.tv.channel).padStart(2, '0')} · NÍVEL ${String(state.tv.volume).padStart(2, '0')}` : 'NÓ DE LIMIAR AINDA NÃO AUTENTICADO' }),
-  '18': clarity('Os dados espaciais descrevem coexistência, mas recusam um nome.', 'Selecione as evidências espaciais e identifique o lugar formado por elas.', 'Cada documento adiciona um ponto ao contorno; depois nomeie o local.', 'selecionar evidências e nomear local', 'Uma memória espacial compartilhada é registrada.', { status: (state) => `${(state.locationFragments || []).length} / 6 EVIDÊNCIAS ESPACIAIS`, inputLabel: 'Local reconstruído', placeholder: 'nome do lugar formado pelas evidências', submitLabel: 'CONFIRMAR LOCAL', wrongFeedback: 'O local informado não explica a coexistência das evidências selecionadas.' }),
-  '19': clarity('Registros de duas fontes descrevem as mesmas lembranças.', 'Ligue cada registro ao outro documento que representa a mesma memória.', 'Selecione um documento de cada vez; o segundo deve completar o par.', 'formar pares de memória', 'A ENTIDADE B passa a compartilhar a fonte do arquivo.', { status: (state) => `${Math.floor((state.relationLinks || []).length / 2)} / 3 PARES CONFIRMADOS` }),
-  '20': clarity('O ambiente lembrado possui relações, não coordenadas exatas.', 'Posicione os objetos para satisfazer as relações listadas e valide o modelo.', 'Arraste os objetos e confronte o resultado com as relações apresentadas.', 'reconstruir relações espaciais', 'O modelo expõe uma incompatibilidade residual.', { status: (state) => `${Object.values(state.room || {}).filter((item) => item?.moved).length} OBJETOS ANCORADOS` }),
-  '21': clarity('O sistema apresenta uma conclusão antes de atingir integridade total.', 'Verifique a integridade antes de aceitar o encerramento.', 'Observe se a conclusão explica todos os elementos recuperados.', 'questionar encerramento', 'A inconsistência restante ganha contexto.', { status: (state) => state.flags.fakeFinalSeen ? '1 RELAÇÃO NÃO RESOLVIDA' : 'ENCERRAMENTO AGUARDANDO CONFIRMAÇÃO' }),
-  '22': clarity('O canal externo deixou uma direção simples: abaixo de onde as histórias ficam.', 'Volte ao ambiente físico e traga o código completo do NÓ encontrado ali.', 'O cabeçalho de áudio confirma que você chegou ao contexto certo.', 'reencontrar objeto físico e informar código', 'O armazenamento de livros é autenticado.', { status: (state) => state.flags.booksNodeScanned ? 'NÓ_11 DETECTADO' : 'AGUARDANDO NÓ EXTERNO', inputLabel: 'Código impresso no NÓ_11', placeholder: 'VX-OBJETO-0000', submitLabel: 'VALIDAR NÓ', format: /^VX[-\s][A-Z0-9-]+$/i, formatHint: 'Use o identificador completo iniciado por VX.', wrongFeedback: 'O formato foi aceito, mas o código não corresponde ao NÓ_11.' }),
-  '23': clarity('A primeira visita ao observador recuperou apenas um dos lados.', 'Consulte novamente a mesma referência física e informe a segunda camada.', 'Cruze o novo fragmento com o conflito de identidade já registrado.', 'retornar à evidência física', 'O resíduo VX-02 deixa de ser órfão.', { status: (state) => state.flags.moonSecondFound ? 'SEGUNDA CAMADA REGISTRADA' : 'RETORNO FÍSICO NECESSÁRIO', inputLabel: 'Identificador da segunda camada', placeholder: 'fragmento encontrado na nova leitura', submitLabel: 'CRUZAR CAMADAS', wrongFeedback: 'O fragmento informado não corresponde à segunda leitura do observador.' }),
-  '24': clarity('Três resíduos órfãos carregam uma relação que o sistema não classifica.', 'Selecione as três fontes na ordem indicada pelos índices e nomeie a relação formada.', 'Primeiro reconecte os resíduos; o campo de relação só abre quando a sequência é coerente.', 'ordenar evidências e classificar relação', 'As duas entidades deixam de ser tratadas como fontes separadas.', { status: (state) => `${(state.metaSelections || []).length} / 3 RESÍDUOS CONECTADOS`, inputLabel: 'Relação formada pelos resíduos', placeholder: 'nome da relação recuperada', submitLabel: 'CONFIRMAR RELAÇÃO', wrongFeedback: 'A relação informada não explica o vínculo produzido pelos três resíduos.' }),
-  '25': clarity('O arquivo não tenta mais separar as duas fontes de memória.', 'Explore o registro final e acione o sinal recuperado quando desejar.', 'Não existe uma nova trava nesta tela.', 'conclusão narrativa', 'A recuperação permanece ativa.', { status: () => 'INTEGRIDADE 100% · ESTADO ESTÁVEL' })
+  '01': clarity('Alguém abriu uma porta neste sistema e deixou um arquivo esperando por você.', 'Termine a inicialização que essa pessoa interrompeu.', 'Só existe um ponto ainda ativo na tela.', 'continuar a inicialização', 'O arquivo aceita sua presença e começa a responder.', { status: (state) => state.flags.initialized ? 'SESSÃO PARCIALMENTE ABERTA' : 'CONEXÃO INTERROMPIDA' }),
+  '02': clarity('Quem deixou o arquivo marcou seis registros. Um deles está fora do relógio de propósito.', 'Descubra qual registro não pertence à sequência normal.', 'Você pode abrir cada linha; nome e horário importam.', 'inspecionar o índice', 'O primeiro recado escondido entra no ARQUIVO.', { status: (state) => state.flags.event1010Seen ? 'EVENTO_1010 GUARDADO' : '6 REGISTROS · 1 FORA DO LUGAR' }),
+  '03': clarity('O registro aponta para um receptor que não aparece no inventário da casa.', 'Procure uma frequência que não seja apenas estática.', 'Gire CANAL. O ruído muda quando você se aproxima.', 'varrer os canais', 'Uma transmissão deixada por alguém é isolada.', { status: (state) => `${state.tv.power ? 'RECEPTOR ATIVO' : 'RECEPTOR DESLIGADO'} · CAN ${String(state.tv.channel).padStart(2, '0')}` }),
+  '04': clarity('A frequência não traz voz. Ela pisca em intervalos curtos e longos.', 'Reproduza o padrão e descubra qual objeto ele escreve.', 'Você não precisa adivinhar: anote ponto e traço.', 'ouvir, anotar e interpretar', 'A investigação sai do computador pela primeira vez.', { status: () => 'PADRÃO REPETÍVEL DISPONÍVEL', inputLabel: 'Objeto escrito pelo sinal', placeholder: 'nome do objeto', submitLabel: 'ENVIAR LEITURA', wrongFeedback: 'Esse objeto não corresponde aos pulsos transmitidos.' }),
+  '05': clarity('MESA não era a resposta final. Era o primeiro lugar para onde mandaram você olhar.', 'Encontre o NÓ escondido no objeto real e traga o código de volta.', 'Não adianta procurar outro botão aqui. O ARQUIVO continua disponível se você precisar conferir.', 'procurar no ambiente e retornar', 'O sistema reconhece que o arquivo alcança a casa.', { status: (state) => state.flags.deskNodeScanned ? 'NÓ_02 DETECTADO · CÓDIGO DISPONÍVEL' : 'ESPERANDO RETORNO DO AMBIENTE', inputLabel: 'Código encontrado no NÓ_02', placeholder: 'VX-OBJETO-0000', submitLabel: 'AUTENTICAR NÓ', format: /^VX[-\s][A-Z0-9-]+$/i, formatHint: 'Digite o identificador completo iniciado por VX.', wrongFeedback: 'O código parece válido, mas não pertence ao NÓ_02.' }),
+  '06': clarity('O documento foi alterado duas vezes. Quase tudo mudou, menos uma frase.', 'Compare as duas versões e recupere somente o trecho que ficou intacto.', 'Arraste o limite. Ignore o volume de texto e observe o que se recusa a mudar.', 'comparar duas versões', 'Uma instrução escondida sobrevive à adulteração.', { status: () => '2 VERSÕES · 1 TRECHO INTACTO', inputLabel: 'Frase que não mudou', placeholder: 'transcreva apenas o trecho preservado', submitLabel: 'EXTRAIR TRECHO', wrongFeedback: 'Essa frase também muda entre as versões.' }),
+  '07': clarity('A pasta está cheia de arquivos chamados “final”. Alguém sabia que você desconfiaria disso.', 'Descubra qual arquivo tem um horário que combina com o evento.', 'Nomes podem mentir. Metadados são mais difíceis de falsificar sem deixar rastro.', 'comparar arquivos e horários', 'Uma cópia legítima é separada das iscas.', { status: () => '5 ARQUIVOS · 4 ISCAS PROVÁVEIS' }),
+  '08': clarity('Dentro da cópia correta sobrou uma linha de zeros e uns, já separada em três blocos.', 'Leia cada bloco como uma letra e descubra o próximo objeto.', 'A divisão de oito em oito já foi feita para você.', 'converter três blocos binários', 'Outro objeto da casa entra no caminho.', { status: () => '3 BLOCOS DE 8 BITS', inputLabel: 'Palavra formada pelos três blocos', placeholder: 'objeto decodificado', submitLabel: 'REGISTRAR OBJETO', wrongFeedback: 'As três letras não formam esse objeto.' }),
+  '09': clarity('A palavra encontrada não serve para preencher outra tela. Ela existe no quarto.', 'Ache o objeto correspondente e leia a primeira marca deixada nele.', 'Procure sem desmontar, subir ou danificar nada.', 'examinar um objeto físico', 'A primeira assinatura VX ganha uma origem real.', { status: (state) => state.flags.moonFirstFound ? 'PRIMEIRA MARCA REGISTRADA' : 'ESPERANDO LEITURA FORA DA TELA', inputLabel: 'Marca encontrada no objeto', placeholder: 'identificador físico', submitLabel: 'REGISTRAR MARCA', wrongFeedback: 'Essa marca não pertence à primeira camada do objeto.' }),
+  '10': clarity('O EVENTO_1010 mudou depois que você o leu. Arquivos não deveriam fazer isso sozinhos.', 'Volte ao ARQUIVO, encontre o registro alterado e leia o que apareceu.', 'O estado ALTERADO e as duas somas mostram exatamente onde mexeram.', 'reabrir um registro conhecido', 'Você descobre que o autor estava observando outra pessoa.', { status: (state) => (state.archive?.reads?.['evento-1010'] || 0) >= 2 ? 'NOVAS LINHAS LIDAS · PROCESSAMENTO LIBERADO' : 'UM ARQUIVO CONHECIDO FOI ALTERADO' }),
+  '11': clarity('Duas versões da mesma lembrança chegaram ao sistema. Uma delas está tentando apagar um detalhe.', 'Selecione evidências suficientes para reconstruir a forma descrita.', 'Quatro camadas bastam. Quanto mais você cruza, menos a negação importa.', 'cruzar camadas de evidência', 'Uma lembrança deixa de depender da palavra de quem a contou.', { status: (state) => `${(state.forensicSelections || []).length} / 4 CAMADAS NECESSÁRIAS` }),
+  '12': clarity('A reconstrução tem um nome comum. A segunda pessoa insiste que isso nunca aconteceu.', 'Dê um nome ao corte mostrado pelo modelo.', 'Confie na forma reconstruída, não na negação do relato.', 'nomear a memória', 'O sistema confirma que duas pessoas lembram da mesma coisa.', { status: () => 'RELATO B EM CONFLITO COM A EVIDÊNCIA', inputLabel: 'Nome do corte reconstruído', placeholder: 'nome comum do corte', submitLabel: 'CONFIRMAR MEMÓRIA', wrongFeedback: 'Esse nome não descreve a forma reconstruída.' }),
+  '13': clarity('Enquanto você estava fora da TV, alguém mudou o sinal.', 'Descubra o que o receptor guarda quando a transmissão desaparece.', 'Passe pelos canais e teste mais de um estado do aparelho.', 'operar e observar o receptor', 'Uma sequência fica gravada na tela mesmo sem sinal.', { status: (state) => state.flags.tvChannel11Primed ? 'CANAL 11 ENCONTRADO · SINAL INSTÁVEL' : `VARRENDO CAN ${String(state.tv.channel).padStart(2, '0')}` }),
+  '14': clarity('A marca 02 · 05 · 01 não é uma senha. São posições em uma coleção real.', 'Use a ordem nos objetos físicos indicados e reúna o código deixado neles.', 'Leia da esquerda para a direita. As três partes foram feitas para se juntar.', 'consultar posições e reunir fragmentos', 'Você recupera os pedaços de uma instrução maior.', { status: () => 'POSIÇÕES 02 · 05 · 01 REGISTRADAS', inputLabel: 'Código formado pelos três fragmentos', placeholder: 'código completo', submitLabel: 'JUNTAR FRAGMENTOS', format: /^NIGHT[-\s]?\d{3}$/i, formatHint: 'Digite o código completo formado pelas três partes.', wrongFeedback: 'As partes existem, mas não formam esse código nessa ordem.' }),
+  '15': clarity('Os papéis vieram do mesmo conjunto, mas foram separados para esconder uma frase.', 'Monte uma instrução que alguém realmente poderia ter escrito.', 'Toque nas partes na ordem de leitura. Toque de novo para remover.', 'montar a frase', 'O autor entrega um lugar sem dizer o nome dele.', { status: (state) => `${(state.fragments || []).length} / 4 PARTES NA FRASE` }),
+  '16': clarity('A frase aponta para uma coisa perto de onde a noite termina todos os dias.', 'Descubra qual móvel ela descreve e procure a marca deixada ali.', 'A cama é a primeira resposta óbvia. É também a errada.', 'interpretar e procurar no quarto', 'Uma nova assinatura física é ligada ao receptor.', { status: (state) => state.flags.bedsideFound ? 'MARCA NOTURNA VALIDADA' : 'ESPERANDO IDENTIFICADOR FÍSICO', inputLabel: 'Identificador encontrado perto da cama', placeholder: 'marca encontrada no móvel', submitLabel: 'VALIDAR MARCA', wrongFeedback: 'Essa marca não estava no lugar descrito pela frase.' }),
+  '17': clarity('A próxima regra foi colocada além do quarto, no último ponto seguro antes de sair de casa.', 'Encontre e autentique o NÓ do limiar; depois cruze o recado com o EVENTO_1010.', 'O QR entrega uma regra incompleta. O valor continua guardado no ARQUIVO.', 'encontrar o nó, cruzar pistas e sintonizar', 'A frequência do autor finalmente fica estável.', { status: (state) => state.flags.yardNodeValidated ? `NÓ_17 VALIDADO · CAN ${String(state.tv.channel).padStart(2, '0')} · NÍVEL ${String(state.tv.volume).padStart(2, '0')}` : 'NÓ DO LIMIAR AINDA NÃO AUTENTICADO' }),
+  '18': clarity('A frequência abriu seis lembranças de um lugar, mas removeu o nome dele.', 'Selecione o que pertence à mesma cena e diga onde tudo isso coexistiu.', 'Não procure cifra: água, vento, bancos e brinquedos são lembranças concretas.', 'reunir lembranças e nomear o lugar', 'O sistema localiza onde as duas pessoas estiveram juntas.', { status: (state) => `${(state.locationFragments || []).length} / 6 LEMBRANÇAS SELECIONADAS`, inputLabel: 'Lugar formado pelas lembranças', placeholder: 'nome do local', submitLabel: 'CONFIRMAR LUGAR', wrongFeedback: 'Esse lugar não reúne todas as lembranças selecionadas.' }),
+  '19': clarity('Agora há provas de que registros separados contam a mesma história por lados diferentes.', 'Ligue cada lembrança ao registro que confirma a outra metade.', 'Escolha um cartão e depois seu par. Um erro desfaz só a tentativa atual.', 'formar três pares', 'A pessoa diante da tela deixa de ser tratada como uma desconhecida.', { status: (state) => `${Math.floor((state.relationLinks || []).length / 2)} / 3 PARES CONFIRMADOS` }),
+  '20': clarity('O arquivo conhece seu quarto sem ter uma fotografia dele. Isso não deveria ser possível.', 'Reconstrua as relações entre os objetos e descubra qual item foi acrescentado.', 'Posição exata não importa. Faça as relações da lista ficarem verdadeiras.', 'reconstruir o quarto', 'Um objeto sem equivalente real denuncia o truque.', { status: (state) => `${Object.values(state.room || {}).filter((item) => item?.moved).length} OBJETOS POSICIONADOS` }),
+  '21': clarity('O sistema diz que acabou, mas ainda mostra 99%. Alguém deixou essa falha para você perceber.', 'Teste o encerramento e recuse a conclusão incompleta.', 'Uma conclusão verdadeira precisa explicar também o objeto impossível.', 'testar o falso encerramento', 'O caminho escondido atrás da TV é reaberto.', { status: (state) => state.flags.fakeFinalSeen ? 'FALSO FINAL ROMPIDO · 1 RELAÇÃO RESTANTE' : 'ENCERRAMENTO INCOMPLETO DISPONÍVEL' }),
+  '22': clarity('Atrás do falso final, uma frase curta aponta para baixo de onde as histórias ficam.', 'Encontre o NÓ físico e traga o código de volta.', 'O trecho de áudio serve para confirmar o objeto, não para resolver sozinho.', 'retornar ao ambiente físico', 'O último NÓ escondido é autenticado.', { status: (state) => state.flags.booksNodeScanned ? 'NÓ_11 DETECTADO' : 'ESPERANDO O ÚLTIMO NÓ', inputLabel: 'Código encontrado no NÓ_11', placeholder: 'VX-OBJETO-0000', submitLabel: 'AUTENTICAR NÓ', format: /^VX[-\s][A-Z0-9-]+$/i, formatHint: 'Digite o identificador completo iniciado por VX.', wrongFeedback: 'O código tem o formato certo, mas não pertence ao NÓ_11.' }),
+  '23': clarity('Você já encontrou a lua uma vez. O autor contou com a possibilidade de você não olhar o outro lado.', 'Volte ao mesmo objeto e procure a segunda marca.', 'Ela já estava lá desde o começo; o contexto é que mudou.', 'revisitar uma evidência antiga', 'A última assinatura órfã encontra sua memória.', { status: (state) => state.flags.moonSecondFound ? 'SEGUNDA MARCA REGISTRADA' : 'RETORNO AO OBJETO NECESSÁRIO', inputLabel: 'Segunda marca encontrada', placeholder: 'fragmento da outra camada', submitLabel: 'CRUZAR AS DUAS MARCAS', wrongFeedback: 'Esse fragmento não corresponde ao outro lado do objeto.' }),
+  '24': clarity('As três marcas VX eram uma ordem de leitura. Juntas, elas dizem por que este arquivo escolheu você.', 'Selecione as fontes na ordem VX-04, VX-11 e VX-02; depois nomeie a relação.', 'O campo final só aparece quando a ordem estiver correta.', 'ordenar rastros e nomear a relação', 'O sistema finalmente entende quem deixou o arquivo e para quem.', { status: (state) => `${(state.metaSelections || []).length} / 3 RASTROS CONECTADOS`, inputLabel: 'Relação revelada pelos três rastros', placeholder: 'uma palavra', submitLabel: 'ABRIR ÚLTIMO REGISTRO', wrongFeedback: 'Essa palavra não explica a relação formada pelos três rastros.' }),
+  '25': clarity('Não foi uma invasão aleatória. Cada falha, objeto e retorno foi deixado para Rayssa encontrar.', 'Leia o último registro e acione o sinal quando quiser.', 'Desta vez não existe outra senha escondida.', 'encerrar a investigação', 'O autor desconhecido finalmente assina o arquivo.', { status: () => 'INTEGRIDADE 100% · AUTOR IDENTIFICADO' })
 });
 
 function clarityFor(id) {
@@ -986,11 +986,11 @@ exports.renderShell = renderShell;
 "js/experience.js": function(module, exports, __require) {
 const { GAME_CONFIG } = __require("js/config.js");
 const ACT_NAMES = {
-  1: 'INTRUSÃO',
-  2: 'O ARQUIVO MENTE',
-  3: 'CONTAMINAÇÃO HUMANA',
-  4: 'RECONHECIMENTO',
-  5: 'RELAÇÃO'
+  1: 'PORTA ABERTA',
+  2: 'ARQUIVO ADULTERADO',
+  3: 'ASSINATURA J.',
+  4: 'O ARQUIVO CONHECE VOCÊ',
+  5: 'AUTOR IDENTIFICADO'
 };
 
 const SYSTEM_STATES = {
@@ -1002,9 +1002,9 @@ const SYSTEM_STATES = {
 };
 
 const OPERATOR_ROLES = {
-  1: 'OPERADOR EXTERNO',
-  2: 'OBSERVADOR',
-  3: 'TESTEMUNHA',
+  1: 'CONEXÃO NÃO IDENTIFICADA',
+  2: 'LEITORA EXTERNA',
+  3: 'PRESENÇA RECORRENTE',
   4: 'RAYSSA? // CORRESPONDÊNCIA PARCIAL',
   5: 'RAYSSA // FONTE RECONHECIDA'
 };
@@ -1120,7 +1120,7 @@ function renderHintPanel(id) {
     <details class="hint-panel" data-hint-panel="${id}" ${used ? 'open' : ''}>
       <summary>SOLICITAR AJUDA? <span class="faint">[ infelizmente ]</span></summary>
       <div class="hint-content">
-        ${current ? `<p data-hint-message>${current}</p>` : '<p class="muted" data-hint-message>JOÃO SERÁ NOTIFICADO.</p>'}
+        ${current ? `<p data-hint-message>${current}</p>` : '<p class="muted" data-hint-message>O AUTOR SABERÁ QUE VOCÊ PEDIU.</p>'}
         ${used < 3 ? `<button type="button" class="micro-button" data-action="hint" data-puzzle="${id}">${used ? 'aprofundar anomalia' : 'solicitar nível 1'}</button>` : '<span class="warn">LIMITE DE AJUDA ATINGIDO</span>'}
       </div>
     </details>`;
@@ -1411,9 +1411,10 @@ function renderColdStorage(state) {
 function renderIdentity(state) {
   const shared = [state.flags.eventChanged, state.flags.mulletConfirmed, state.flags.locationRecovered].filter(Boolean).length;
   const status = state.flags.finalRecovered ? 'RAYSSA' : state.flags.identityLinked ? 'RAYSSA?' : 'DESCONHECIDA';
+  const author = state.flags.booksNodeValidated || state.flags.finalRecovered ? 'JOÃO' : state.flags.eventChanged ? 'J.' : 'DESCONHECIDO';
   return `<div class="identity-register">
-    <div><span>ENTIDADE A</span><strong>JOÃO</strong></div>
-    <div><span>ENTIDADE B</span><strong data-entity-b>${status}</strong></div>
+    <div><span>AUTOR DO ARQUIVO</span><strong>${author}</strong></div>
+    <div><span>DESTINATÁRIA</span><strong data-entity-b>${status}</strong></div>
     <div><span>MEMÓRIAS COMPARTILHADAS</span><strong>${shared} / 3</strong></div>
     <div><span>RELAÇÃO</span><strong>${state.flags.finalRecovered ? 'NÓS' : 'NÃO RESOLVIDA'}</strong></div>
   </div>`;
@@ -1509,20 +1510,20 @@ const ARCHIVE_RECORDS = Object.freeze([
       ? [['INDEXADO', '10.10 · 10:10:00'], ['SOMA ANTERIOR', '54F1-A09C'], ['SOMA ATUAL', '54F1-B771'], ['DIVERGÊNCIA', '3 LINHAS ADICIONADAS']]
       : [['INDEXADO', '10.10 · 10:10:00'], ['SOMA DE VERIFICAÇÃO', '54F1-A09C'], ['INTEGRIDADE', '62%'], ['ORIGEM', 'NÃO RESOLVIDA']],
     content: (version) => version === 2
-      ? ['ENTIDADE A // origem local', 'CONVERSA PROLONGADA // 10:10', 'ENTIDADE B // origem externa', 'PRESENÇA CONFIRMADA DURANTE O EVENTO', 'FONTE COMPARTILHADA // CLASSIFICAÇÃO PENDENTE']
-      : ['ENTIDADE A // origem local', 'CONVERSA PROLONGADA // 10:10', '[ 3 LINHAS NÃO RECUPERADAS ]']
+      ? ['AUTOR // J. // origem local', 'CONVERSA PROLONGADA // 10:10', 'DESTINATÁRIA // identidade removida', 'PRESENÇA DELA CONFIRMADA DURANTE O EVENTO', 'MOTIVO DO ARQUIVO // CLASSIFICAÇÃO PENDENTE']
+      : ['AUTOR // assinatura removida', 'CONVERSA PROLONGADA // 10:10', 'DESTINATÁRIA // não informada', '[ 3 LINHAS RETIDAS PELO AUTOR ]']
   }),
   record({
     id: 'transmissao-04', code: 'TRANSMISSÃO_04', type: 'INTERCEPTAÇÃO',
     discovered: (state) => state.completed.includes('04'),
     metadata: () => [['PORTADORA', 'CANAL 04'], ['CODIFICAÇÃO', 'MORSE'], ['INTEGRIDADE', '81%']],
-    content: () => ['PADRÃO // -- . ... .-', 'INTERPRETAÇÃO REGISTRADA // MESA', 'DESTINO // AMBIENTE FÍSICO']
+    content: () => ['PADRÃO // -- . ... .-', 'LEITURA // MESA', 'RECADO // A TELA ERA APENAS O COMEÇO']
   }),
   record({
     id: 'documento-06', code: 'DOCUMENTO_06', type: 'COMPARAÇÃO DE VERSÕES',
     discovered: (state) => state.completed.includes('06'),
     metadata: () => [['VERSÕES', '02'], ['DIVERGÊNCIA', 'EXTENSA'], ['INVARIANTE', 'RECUPERADO']],
-    content: () => ['CONTEÚDO PRESERVADO ENTRE VERSÕES:', 'A DATA ABRE O ARQUIVO']
+    content: () => ['TRECHO QUE O AUTOR NÃO ALTEROU:', 'A DATA ABRE O ARQUIVO']
   }),
   record({
     id: 'pacote-24', code: 'PACOTE_24', type: 'DUMP BINÁRIO',
@@ -1558,7 +1559,7 @@ const ARCHIVE_RECORDS = Object.freeze([
     id: 'portadora-1010', code: 'PORTADORA_1010', type: 'INTERCEPTAÇÃO',
     discovered: (state) => state.completed.includes('17'),
     metadata: () => [['CANAL', '10'], ['NÍVEL', '10'], ['SINCRONIA', 'FIXADA']],
-    content: () => ['EVENTO_1010 // PORTADORA ESTÁVEL', 'DADOS ESPACIAIS ENCAMINHADOS À RECONSTRUÇÃO']
+    content: () => ['EVENTO_1010 // PORTADORA ESTÁVEL', 'A FREQUÊNCIA RESPONDE À MESMA DATA', 'PRÓXIMO BLOCO // UMA LEMBRANÇA SEM NOME']
   }),
   record({
     id: 'reconstrucao-18', code: 'RECONSTRUÇÃO_18', type: 'MEMÓRIA ESPACIAL',
@@ -1826,7 +1827,12 @@ function progress(id, next, message = 'REGISTRO ACEITO', { delay = null } = {}) 
 
 function wrong(id, answer, message = clarityFor(id).wrongFeedback) {
   recordAttempt(id, answer, false);
-  uiFeedback.error(`RESPOSTA INCORRETA // ${message}`, { critical: getState().attempts[id] % 3 === 0, target: document.activeElement });
+  const attempts = getState().attempts[id];
+  uiFeedback.error(`RESPOSTA INCORRETA // ${message}`, { critical: attempts % 3 === 0, target: document.activeElement });
+  if (attempts === 3) {
+    const sender = Number(id) < 7 ? 'AUTOR NÃO IDENTIFICADO' : 'J.';
+    uiFeedback.schedule(`author-nudge-${id}`, () => uiFeedback.toast(`${sender} // “Não é pra chutar. Volta uma pista e olha de novo.”`, { kind: 'discovery' }), 420);
+  }
 }
 
 function correctAnswer(id, answer) {
@@ -3743,7 +3749,7 @@ function syncHintPanel(id, state) {
     panel.open = true;
     const message = panel.querySelector('[data-hint-message]');
     if (message) {
-      message.textContent = HINTS[id]?.[used - 1] || 'JOÃO SERÁ NOTIFICADO.';
+      message.textContent = HINTS[id]?.[used - 1] || 'O AUTOR SABERÁ QUE VOCÊ PEDIU.';
       message.classList.toggle('muted', !used);
     }
     const action = panel.querySelector('[data-action="hint"]');

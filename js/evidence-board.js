@@ -69,9 +69,10 @@ export function renderColdStorage(state) {
 export function renderIdentity(state) {
   const shared = [state.flags.eventChanged, state.flags.mulletConfirmed, state.flags.locationRecovered].filter(Boolean).length;
   const status = state.flags.finalRecovered ? 'RAYSSA' : state.flags.identityLinked ? 'RAYSSA?' : 'DESCONHECIDA';
+  const author = state.flags.booksNodeValidated || state.flags.finalRecovered ? 'JOÃO' : state.flags.eventChanged ? 'J.' : 'DESCONHECIDO';
   return `<div class="identity-register">
-    <div><span>ENTIDADE A</span><strong>JOÃO</strong></div>
-    <div><span>ENTIDADE B</span><strong data-entity-b>${status}</strong></div>
+    <div><span>AUTOR DO ARQUIVO</span><strong>${author}</strong></div>
+    <div><span>DESTINATÁRIA</span><strong data-entity-b>${status}</strong></div>
     <div><span>MEMÓRIAS COMPARTILHADAS</span><strong>${shared} / 3</strong></div>
     <div><span>RELAÇÃO</span><strong>${state.flags.finalRecovered ? 'NÓS' : 'NÃO RESOLVIDA'}</strong></div>
   </div>`;

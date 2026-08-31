@@ -8,7 +8,7 @@ export function renderHintPanel(id) {
     <details class="hint-panel" data-hint-panel="${id}" ${used ? 'open' : ''}>
       <summary>SOLICITAR AJUDA? <span class="faint">[ infelizmente ]</span></summary>
       <div class="hint-content">
-        ${current ? `<p data-hint-message>${current}</p>` : '<p class="muted" data-hint-message>JOÃO SERÁ NOTIFICADO.</p>'}
+        ${current ? `<p data-hint-message>${current}</p>` : '<p class="muted" data-hint-message>O AUTOR SABERÁ QUE VOCÊ PEDIU.</p>'}
         ${used < 3 ? `<button type="button" class="micro-button" data-action="hint" data-puzzle="${id}">${used ? 'aprofundar anomalia' : 'solicitar nível 1'}</button>` : '<span class="warn">LIMITE DE AJUDA ATINGIDO</span>'}
       </div>
     </details>`;

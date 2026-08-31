@@ -41,7 +41,12 @@ function progress(id, next, message = 'REGISTRO ACEITO', { delay = null } = {}) 
 
 function wrong(id, answer, message = clarityFor(id).wrongFeedback) {
   recordAttempt(id, answer, false);
-  uiFeedback.error(`RESPOSTA INCORRETA // ${message}`, { critical: getState().attempts[id] % 3 === 0, target: document.activeElement });
+  const attempts = getState().attempts[id];
+  uiFeedback.error(`RESPOSTA INCORRETA // ${message}`, { critical: attempts % 3 === 0, target: document.activeElement });
+  if (attempts === 3) {
+    const sender = Number(id) < 7 ? 'AUTOR NÃO IDENTIFICADO' : 'J.';
+    uiFeedback.schedule(`author-nudge-${id}`, () => uiFeedback.toast(`${sender} // “Não é pra chutar. Volta uma pista e olha de novo.”`, { kind: 'discovery' }), 420);
+  }
 }
 
 function correctAnswer(id, answer) {
