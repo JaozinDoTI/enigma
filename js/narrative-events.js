@@ -24,7 +24,7 @@ export function orchestrateNarrative(puzzle, state) {
     }
     if (puzzle.id === '23') {
       runOnce(state, 'old-evidence-return', () => {
-        uiFeedback.toast('EVIDÊNCIAS ANTIGAS REINDEXADAS: VX-04 / VX-11 / VX-02', { kind: 'discovery' });
+        uiFeedback.toast('RELAÇÃO ANTIGA REINDEXADA: FIM / COMEÇO / ADJACÊNCIA', { kind: 'discovery' });
         Motion.play('record-corruption', { target: document.querySelector('.side-panel') });
       });
     }

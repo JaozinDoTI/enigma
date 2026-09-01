@@ -109,6 +109,35 @@ body.is-recovered .primary-button:focus-visible {
   text-align: center;
 }
 
+.final-key-meaning {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  width: min(520px, 100%);
+  gap: 8px 18px;
+  margin: 0 auto 64px;
+  padding: 18px 0;
+  border-block: 1px solid var(--warm-line);
+  font-family: var(--mono);
+  text-align: left;
+}
+.final-key-meaning span { color: var(--warm-accent); font-size: var(--type-md); }
+.final-key-meaning i { color: var(--warm-muted); font-size: var(--type-xs); font-style: normal; letter-spacing: .1em; }
+.final-key-meaning strong { grid-column: 1 / -1; margin-top: 12px; color: var(--warm-text); font: 500 var(--type-base) var(--serif); text-align: center; }
+.final-call { margin: 0 0 28px; color: var(--warm-muted); font-size: var(--type-md); }
+.final-human { color: var(--warm-muted); font-size: var(--type-sm); line-height: 1.7; }
+.final-stage .date { display: grid; gap: 8px; font-size: var(--type-lg); }
+.final-stage .date small { color: var(--warm-muted); font: 400 var(--type-base) var(--serif); letter-spacing: 0; text-transform: none; }
+
+body.is-recovered .override-scene {
+  min-height: 100svh;
+  height: auto;
+  overflow: visible;
+  padding: clamp(28px, 6vw, 84px) 20px;
+}
+body.is-recovered .override-scene__mark,
+body.is-recovered .override-scene__controls { display: none; }
+body.is-recovered .override-scene__content { width: 100%; max-height: none; overflow: visible; }
+
 .final-stage h1 {
   margin: 1.5rem 0;
   font-size: clamp(2.3rem, 7vw, 5.5rem);

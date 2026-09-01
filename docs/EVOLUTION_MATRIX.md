@@ -78,7 +78,7 @@ A matriz foi derivada dos 25 descritores em `js/puzzles/`, das cenas em `js/scen
 - **Nova mecânica / interação:** inspeção de linhas com metadados sob demanda; o painel de evidências registra silenciosamente IDs, confiança e residual.
 - **Animação:** scanner horizontal curto no hover/foco; ao abrir `EVENTO_1010`, a linha é indexada e uma cópia reduzida viaja para EVIDÊNCIAS.
 - **Pista → solução:** horário e nome repetem 1010; abrir `EVENTO_1010` permanece a solução.
-- **Evidência gerada:** `EVT-1010`, mais resíduos antecipados `VX-04`, `VX-11`, `VX-02` sem explicação.
+- **Evidência gerada:** `EVT-1010`, mais referências antecipadas `VX-04`, `VX-11` e `SRC-B` sem explicação completa.
 - **Mutação / retorno:** nenhuma mutação imediata; o próprio registro será reescrito pelo 10.
 - **Evento antecipado:** `VX-04` mostra `RESIDUAL: N` apenas em inspeção profunda, sem destaque.
 - **Classificação:** `MOTION LOW · CORRUPTION 0 · RECEPTOR 1 · MUTATION NO · RETROACTIVE YES`.
@@ -102,22 +102,22 @@ A matriz foi derivada dos 25 descritores em `js/puzzles/`, das cenas em `js/scen
 - **Nova mecânica / interação:** acionar leitura da portadora e acompanhar uma timeline única de luz, traço, áudio e texto.
 - **Animação:** pulso de lâmpada com afterglow curto; cada marca desenha o traço correspondente, e a palavra decodificada é reconstruída em quatro células.
 - **Pista → solução:** curto/longo → ponto/traço → `-- . ... .-`; responder `MESA` ou `ESCRIVANINHA`.
-- **Evidência gerada:** `OBJ-MESA / ÂNCORA FÍSICA PROVÁVEL`.
-- **Mutação / retorno:** sem mutação global; estabelece que o RECEPTOR atravessa a fronteira digital.
-- **Evento antecipado:** no fim do sinal, a TV preserva por poucos frames o contorno de uma mesa; o texto de evidência garante equivalência acessível.
+- **Evidência gerada:** `OBJ-MESA / ÍNDICE DE SISTEMA PROVÁVEL`.
+- **Mutação / retorno:** sem mutação global; estabelece que o RECEPTOR pode nomear estruturas internas do computador.
+- **Evento antecipado:** no fim do sinal, a estação destaca a tabela `MESA`; o texto de evidência garante equivalência acessível.
 - **Classificação:** `MOTION HIGH · CORRUPTION 1 · RECEPTOR 3 · MUTATION NO · RETROACTIVE NO`.
 
-## 05 — NO_02
+## 05 — MOUNT_TABLE
 
-- **Contrato:** Ato I; requer 04, aceita QR antecipado; COLD_STORAGE é introduzido; leitura do token independe da animação.
-- **Puzzle atual → problema:** a ponte física funciona, mas o node aparece como formulário comum e COLD_STORAGE ainda não existe como ambiente.
-- **Nova mecânica / interação:** a interface perde contraste digital, abre um buffer externo e espera a assinatura da escrivaninha; inserir `VX-MESA-1010` valida o node.
-- **Animação:** transição digital→físico, perda gradual de ruído, scanner de proximidade e retorno do token como bloco recuperado. Detecção antecipada usa “acesso negado”, não softlock.
-- **Pista → solução:** MESA é objeto real; escanear o QR e inserir `VX-MESA-1010`.
-- **Evidência gerada:** `NODE-02 / ORIGEM: ESCRIVANINHA / CONFIANÇA: 1.0`.
-- **Mutação / retorno:** cria COLD_STORAGE, marca `deskNodeValidated` e muda a observação do sistema de passiva para dirigida.
-- **Evento antecipado:** QR encontrado cedo aparece como `PORTADORA SEM CONTEXTO` e é reclassificado aqui.
-- **Classificação:** `MOTION HIGH · CORRUPTION 1 · RECEPTOR 1 · MUTATION YES · RETROACTIVE YES`.
+- **Contrato:** Ato I; requer 04; a estação continua totalmente digital e apresenta uma tabela de montagem investigável.
+- **Puzzle atual → problema:** MESA não poderia obrigar uma saída física antes que o computador parecesse um lugar confiável.
+- **Nova mecânica / interação:** comparar unidades, datas e estado de dispositivo para isolar a montagem órfã.
+- **Animação:** realce contido da linha sem dispositivo; propriedades entram no inspetor da estação.
+- **Pista → solução:** `17 / 04 / 91` no formato DDMMYY produz `170491`.
+- **Evidência gerada:** `ARCHIVE_170491 / DISPOSITIVO AUSENTE`.
+- **Mutação / retorno:** o novo registro passa a existir no Archive e poderá ser reencontrado por busca.
+- **Evento antecipado:** o Explorador pode mostrar a entrada antes da resolução, sem revelar a interpretação.
+- **Classificação:** `MOTION LOW · CORRUPTION 1 · COMPUTER 3 · MUTATION YES · RETROACTIVE YES`.
 
 ## 06 — DOC_1708
 
@@ -158,7 +158,7 @@ A matriz foi derivada dos 25 descritores em `js/puzzles/`, das cenas em `js/scen
 ## 09 — OBJETO_L-01
 
 - **Contrato:** Ato II; requer 08, aceita pista física antecipada; COLD_STORAGE volta mais escuro; solução nunca depende de efeito efêmero.
-- **Puzzle atual → problema:** a ida ao pano funciona, mas a primeira e a segunda camada da Lua não são representadas como estrutura persistente.
+- **Puzzle atual → problema:** a ida ao pano funciona, mas a marca da Lua precisa permanecer consultável depois da visita física.
 - **Nova mecânica / interação:** scanner de objeto externo registra uma camada visível e uma área `UNREADABLE`; inserir `VX-04` recupera apenas a primeira.
 - **Animação:** wireframe simples da Lua, varredura, separação em duas lâminas e arquivamento da primeira; a segunda permanece atrás como ghost estático rotulado.
 - **Pista → solução:** procurar a Lua física e inserir `VX-04` ou a frase física aceita atualmente.
@@ -198,7 +198,7 @@ A matriz foi derivada dos 25 descritores em `js/puzzles/`, das cenas em `js/scen
 - **Nova mecânica / interação:** confirmar o identificador calculado; o sistema valida, recebe a negação da entidade B e recalcula antes de aceitar.
 - **Animação:** campo contrai e processa; `CORRETO` surge, sofre character substitution para `INCORRETO`, pausa e termina em `MEMÓRIA CONFIRMADA ... sério?`; sem shake forte.
 - **Pista → solução:** usar o nome `MULLET` já reconstruído.
-- **Evidência gerada:** `MEM-MULLET / CONFIRMADA / ENTITY_B: NEGA`.
+- **Evidência gerada:** `IMG_2019_MULLET / METADATA ANEXADA / ENTITY_B: NEGA`.
 - **Mutação / retorno:** linguagem técnica apresenta a primeira frase humana; papel da jogadora muda para `TESTEMUNHA`.
 - **Evento antecipado:** o RECEPTOR recebe silenciosamente um estado pendente para canal 11.
 - **Classificação:** `MOTION HIGH · CORRUPTION 2 · RECEPTOR 1 · MUTATION YES · RETROACTIVE YES`.
@@ -206,11 +206,11 @@ A matriz foi derivada dos 25 descritores em `js/puzzles/`, das cenas em `js/scen
 ## 13 — RECEPTOR_VX / afterimage
 
 - **Contrato:** Ato III; requer 12 e retorno ao módulo persistente; código também aparece como texto após descoberta para acessibilidade.
-- **Puzzle atual → problema:** canal 11 mostra `02 05 01` diretamente, sem exigir a descoberta por imagem residual descrita no conceito.
+- **Puzzle atual:** canal 11 só deixa a relação `FIM · 01 · COMEÇO` como imagem residual depois de ser desligado.
 - **Nova mecânica / interação:** chegar ao canal 11 parece inconclusivo; desligar a TV revela o afterimage `2 5 1` por aproximadamente um segundo.
 - **Animação:** signature `tv-afterimage`: lock vazio, desligamento CRT, frame residual verde/cinza e dissipação lenta; ao religar, o código não está mais lá.
 - **Pista → solução:** o RECEPTOR mudou em segundo plano; visitar canal 11 e desligar para recuperar 2–5–1.
-- **Evidência gerada:** `RCV-11 / AFTERIMAGE / ÍNDICES 02-05-01`.
+- **Evidência gerada:** `RCV-11 / AFTERIMAGE / FIM-DISTÂNCIA-COMEÇO`.
 - **Mutação / retorno:** TV passa ao estado `AFTERIMAGE`; pode ligar sozinha por 400 ms em outros ambientes, com frequência limitada.
 - **Evento antecipado:** `CH 00` evolui para `CH B` em uma ativação silenciosa posterior.
 - **Classificação:** `MOTION SIGNATURE · CORRUPTION 3 · RECEPTOR 3 · MUTATION YES · RETROACTIVE YES`.
@@ -221,7 +221,7 @@ A matriz foi derivada dos 25 descritores em `js/puzzles/`, das cenas em `js/scen
 - **Puzzle atual → problema:** os índices apontam para livros, porém o painel digital apenas exibe chips estáticos antes do input.
 - **Nova mecânica / interação:** associar visualmente os três índices à coleção `LIVROS`; a ação física continua localizar as posições e combinar o token.
 - **Animação:** linha de índice percorre 02→05→01; EVIDÊNCIAS destaca a dependência entre RECEPTOR e COLD_STORAGE, sem simular os objetos físicos.
-- **Pista → solução:** objetos ordenados acima do descanso; inspecionar livros 2, 5 e 1 e inserir `NIGHT-251`.
+- **Pista → solução:** a afterimage entrega FIM · 01 · COMEÇO; o BOOKSCAN cruza as fotos reais com `EXTREMIDADES / DISTÂNCIA 01`; os insertos de **É Assim que Acaba** e **É Assim que Começa** formam `03:17`.
 - **Evidência gerada:** `BOOK-02`, `BOOK-05`, `BOOK-01` e quatro fragmentos físicos sem ordem.
 - **Mutação / retorno:** nenhuma global; o sistema aprende que `COLD_STORAGE` contém fragmentos deliberadamente removidos.
 - **Evento antecipado:** `VX-11` reaparece como dependência vazia, preparando a cabeceira.
@@ -323,29 +323,29 @@ A matriz foi derivada dos 25 descritores em `js/puzzles/`, das cenas em `js/scen
 - **Evento antecipado:** QR lido cedo é reclassificado retroativamente; RECEPTOR produz um acorde curto apenas após gesto, com texto equivalente.
 - **Classificação:** `MOTION MEDIUM · CORRUPTION 4 · RECEPTOR 2 · MUTATION YES · RETROACTIVE YES`.
 
-## 23 — RETORNO_DO_OBSERVADOR
+## 23 — CLOCK_ORIGIN
 
-- **Contrato:** Ato IV; requer 22 e 09; IDENTIDADE/COLD_STORAGE; não depende de o usuário ter percebido o ghost anterior.
-- **Puzzle atual → problema:** a segunda visita é narrativamente boa, mas a interface só informa que havia outra camada.
-- **Nova mecânica / interação:** reabrir a evidência Lua preservada desde o 09; a camada pendente agora pode ser inspecionada e recebe o token físico `VX-02`.
-- **Animação:** temporal ghost do estado do 09 se alinha ao atual; a segunda lâmina gira para frente, é escaneada e fecha a relação com CONFLITO/MULLET.
-- **Pista → solução:** voltar à Lua física e inserir `VX-02`/`MULLET`/`CONFLITO`.
-- **Evidência gerada:** `VX-02 → CONFLITO → RESIDUAL S`; conjunto N/O/S ainda sem significado explícito.
-- **Mutação / retorno:** IDENTIDADE mostra `ENTITY_B: SOURCE PRESENT`; o sistema para de tratar a operadora como externa.
-- **Evento antecipado:** VX-04 e VX-11 reaparecem ao lado de VX-02 na ordem original dos logs.
-- **Classificação:** `MOTION HIGH · CORRUPTION 4 · RECEPTOR 2 · MUTATION YES · RETROACTIVE YES`.
+- **Contrato:** Ato V; requer 22 e 20; ocorre no mesmo computador e usa um registro antigo.
+- **Puzzle atual → problema:** a estação continua calibrada em `03:17`, mas precisa recuperar sua origem.
+- **Nova mecânica / interação:** revisitar EVENTO_1010 e restaurar `10:10` na janela DATA / HORA.
+- **Animação:** taskbar sincroniza, wallpaper estabiliza e RECUPERAR.exe é reescrito.
+- **Pista → solução:** o nome e a primeira linha do evento repetem `10:10`.
+- **Evidência gerada:** `ORIGEM_TEMPORAL_1010`.
+- **Mutação / retorno:** o relógio deixa de revelar e passa a sincronizar o sistema.
+- **Evento antecipado:** EVENTO_1010 existe desde o início e só depois vira referência temporal.
+- **Classificação:** `MOTION MEDIUM · CORRUPTION 4 · COMPUTER 3 · MUTATION YES · RETROACTIVE YES`.
 
-## 24 — INTEGRIDADE_99 / relação ausente
+## 24 — CHAVE_COMPOSTA
 
-- **Contrato:** Ato V; requer todos os arcos; IDENTIDADE em `MERGE`; seleção reversível e resíduos sempre disponíveis em texto.
-- **Puzzle atual → problema:** selecionar Lua/TV/Mullet e digitar NÓS resolve o meta, mas o sistema aceita o significado sem tentar classificações anteriores.
-- **Nova mecânica / interação:** associar VX-04/11/02 às evidências que os carregaram; depois acompanhar tentativas `AMIGO`, `CONTATO`, `FONTE DE MEMÓRIA`, `DEPENDÊNCIA`, todas inválidas, e fornecer `NÓS` como relação.
-- **Animação:** signature de classificação: cada hipótese reorganiza a estrutura e falha de modo diferente; resíduos N/O/S atravessam o grafo e se alinham no centro. Glitch atinge o nível 5 apenas aqui.
-- **Pista → solução:** `VX-04→LUA→N`, `VX-11→TV→O`, `VX-02→MULLET→S`; selecionar nessa ordem e inserir `NÓS`.
+- **Contrato:** Ato V; requer 23 e as cadeias anteriores; a operação e os fragmentos permanecem disponíveis em texto.
+- **Puzzle atual → problema:** a conclusão precisava nascer de dados vistos antes, sem depender de conhecimento externo.
+- **Nova mecânica / interação:** revisar a cadeia A (`520`) e a cadeia B (`1314`) e concatená-las na ordem indicada.
+- **Animação:** os dois trilhos de evidência convergem sem perder seus limites e formam uma chave de sete dígitos.
+- **Pista → solução:** não somar; `520` seguido de `1314` produz `5201314`.
 - **Evidência gerada:** `RELATION: NÓS / ENTITY_A + ENTITY_B / SHARED SOURCE`.
-- **Mutação / retorno:** remove a distinção funcional entre os painéis A e B e prepara a timeline de MERGE.
-- **Evento antecipado:** todas as evidências antecipadas voltam com a mesma posição/ID, provando que não foram inseridas apenas para o final.
-- **Classificação:** `MOTION SIGNATURE · CORRUPTION 5 · RECEPTOR 3 · MUTATION YES · RETROACTIVE YES`.
+- **Mutação / retorno:** aceita a chave, interpreta os dois fragmentos e prepara a transição humana final.
+- **Evento antecipado:** `520` e `1314` aparecem separadamente no Archive antes desta operação.
+- **Classificação:** `MOTION SIGNATURE · CORRUPTION 5 · COMPUTER 3 · MUTATION YES · RETROACTIVE YES`.
 
 ## 25 — RECUPERACAO_COMPLETA / MERGE
 

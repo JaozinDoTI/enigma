@@ -51,23 +51,23 @@ Os nomes abaixo são internos. Para a jogadora, tudo aparece como um único arqu
 - **Dependências:** 03.
 - **Flags:** `tv.morsePlays`; libera 05.
 - **Dicas:** duração → ponto/traço → tradução explícita.
-- **Pista física:** aponta para escrivaninha.
-- **Retorno futuro:** estabelece a TV como canal entre digital e físico.
-- **Descoberta antecipada:** QR da mesa é tolerado.
+- **Pista de sistema:** MESA também nomeia uma tabela de montagem no computador.
+- **Retorno futuro:** estabelece o Receiver como fonte de índices que atravessam ferramentas.
+- **Descoberta antecipada:** não exige saída física; o ambiente conserva credibilidade antes da primeira busca real.
 
-## 05 — Node da escrivaninha
+## 05 — Tabela de montagem
 
-- **Objetivo:** atravessar a fronteira do navegador.
-- **O que vê:** terminal aguardando contexto externo.
-- **Pista real:** MESA era um objeto, não uma senha.
-- **Distrações:** campo só abre depois da travessia narrativa.
-- **Solução:** escanear o QR e inserir `VX-MESA-1010`.
-- **Dependências:** 04; QR pode vir antes.
-- **Flags:** `deskNodeScanned`, `deskNodeValidated`; libera 06.
-- **Dicas:** fora da tela → objeto real → local e token.
-- **Pista física:** QR na escrivaninha.
-- **Retorno futuro:** padrão de node reaparece na estante.
-- **Descoberta antecipada:** node fica `detected-early` e não causa softlock.
+- **Objetivo:** inspecionar a montagem órfã associada a MESA.
+- **O que vê:** tabela de unidades, datas e um dispositivo ausente.
+- **Pista real:** `17 / 04 / 91` deve conservar a ordem DDMMYY.
+- **Distrações:** unidades plausíveis com outras datas.
+- **Solução:** `170491`.
+- **Dependências:** 04.
+- **Flags:** resposta 05; libera 06 e indexa `ARCHIVE_170491`.
+- **Dicas:** MESA → tabela interna → montagem órfã → data sem separadores.
+- **Pista física:** nenhuma; a primeira busca física obrigatória fica no registro 09.
+- **Retorno futuro:** o índice reaparece como registro histórico no Archive.
+- **Descoberta antecipada:** a entrada pode ser vista no explorador, mas só ganha contexto após o sinal 04.
 
 ## 06 — Documento inflado
 
@@ -146,7 +146,7 @@ Os nomes abaixo são internos. Para a jogadora, tudo aparece como um único arqu
 - **Dependências:** 10.
 - **Flags:** conflito extraído; libera 12.
 - **Dicas:** descrição → nome de corte → mullet.
-- **Retorno futuro:** `CONFLICT` liga ao VX-02 no meta.
+- **Retorno futuro:** `CONFLICT` integra a cadeia de evidências da relação entre as duas fontes.
 - **Descoberta antecipada:** não aplicável.
 
 ## 12 — MULLET
@@ -172,35 +172,35 @@ Os nomes abaixo são internos. Para a jogadora, tudo aparece como um único arqu
 - **Dependências:** 12 e visita anterior à TV.
 - **Flags:** `tvSequenceSeen`; libera 14.
 - **Dicas:** aparelho mudou → TV → canal 11.
-- **Retorno futuro:** sequência 2–5–1.
+- **Retorno futuro:** relação FIM · distância 01 · COMEÇO.
 - **Descoberta antecipada:** canal 11 antes mostra apenas ruído.
 
-## 14 — Livros posicionais
+## 14 — BOOKSCAN / livros adjacentes
 
-- **Objetivo:** projetar 2–5–1 sobre uma coleção ordenada.
-- **O que vê:** índices, direção esquerda→direita e referência “acima do descanso”.
-- **Pista real:** livros acima da cama.
-- **Distrações:** possibilidade de coordenadas digitais.
-- **Solução:** examinar livros 2, 5 e 1, unir os checksums e inserir `NIGHT-251`.
+- **Objetivo:** cruzar as fotos reais, a afterimage e o log de distância.
+- **O que vê:** duas capturas degradadas, FIM · 01 · COMEÇO e títulos candidatos.
+- **Pista real:** **É Assim que Acaba** imediatamente ao lado de **É Assim que Começa**.
+- **Distrações:** outros títulos semanticamente plausíveis, mas não adjacentes.
+- **Solução:** correlacionar FIM · distância 01 · COMEÇO nas fotos, consultar **É Assim que Acaba** e **É Assim que Começa** e retornar ao BOOKSCAN com `03:17`.
 - **Dependências:** 13.
 - **Flags:** `booksFound`; libera 15.
-- **Dicas:** objetos ordenados → acima da cama → posições exatas.
-- **Pista física:** quatro fragmentos nos três livros.
+- **Dicas:** fotografia como posição → extremidades → distância 01 → par exato.
+- **Pista física:** dois insertos removíveis formando `03:17`.
 - **Retorno futuro:** LIVROS aparece no meta como evidência, não solução.
 - **Descoberta antecipada:** fragmentos e token podem ser encontrados cedo e guardados.
 
-## 15 — Frase incompleta
+## 15 — Calibração 03:17
 
-- **Objetivo:** ordenar fisicamente/mentalmente quatro fragmentos.
-- **O que vê:** palavras embaralhadas clicáveis.
-- **Pista real:** única sintaxe natural.
-- **Distrações:** “noite” sugere cama cedo demais.
-- **Solução:** `ONDE / A NOITE / DEIXA / O QUE VOCÊ PRECISA`.
+- **Objetivo:** aplicar no relógio do PC a hora recuperada nos livros.
+- **O que vê:** o mesmo desktop, com o relógio da taskbar destacado.
+- **Pista real:** `03:17` é calibração, não resposta textual.
+- **Distrações:** procurar outro formulário no aplicativo.
+- **Solução:** abrir DATA / HORA e aplicar `03:17`.
 - **Dependências:** 14.
-- **Flags:** ordem de `fragments`; libera 16.
-- **Dicas:** cama é rápida demais → móvel lateral → ordem explícita.
-- **Retorno futuro:** conduz à cabeceira e não ao colchão.
-- **Descoberta antecipada:** ordem errada é reversível clicando nos fragmentos.
+- **Flags:** `clock0317Triggered`; revela `0317.REC` e libera 16.
+- **Dicas:** hora como operação → taskbar → DATA / HORA → 03:17.
+- **Retorno futuro:** o arquivo revelado conduz à cabeceira.
+- **Descoberta antecipada:** o relógio é explorável antes, mas só reage no contexto correto.
 
 ## 16 — Mesa de cabeceira
 
@@ -295,32 +295,32 @@ Os nomes abaixo são internos. Para a jogadora, tudo aparece como um único arqu
 - **Retorno futuro:** abre a fase mais humana e prepara música.
 - **Descoberta antecipada:** node detectado cedo é reaproveitado.
 
-## 23 — Segunda visita à Lua
+## 23 — Adjacência 03:17
 
-- **Objetivo:** criar o momento “estava ali desde o começo”.
-- **O que vê:** observador com duas camadas e referência “atrás de você”.
-- **Pista real:** o pano já visitado continha outra tira.
-- **Distrações:** procurar novo objeto em vez de retornar.
-- **Solução:** encontrar segunda tira e inserir `VX-02`.
-- **Dependências:** 22 e 09.
-- **Flags:** `moonSecondFound`; libera 24.
-- **Dicas:** já visitou → camada separada → segunda borda da lua.
-- **Pista física:** `VX-02 // O CONFLITO QUE A ENTIDADE B AINDA NEGA`.
-- **Retorno futuro:** VX-02 conecta ao MULLET no meta.
-- **Descoberta antecipada:** tira existe desde o início; encontrar cedo não impede inserir depois.
+- **Objetivo:** usar fim, começo e proximidade para reconstruir um horário fragmentado.
+- **O que vê:** digitalizações incompletas de **É Assim que Acaba** e **É Assim que Começa**.
+- **Pista real:** os insertos físicos exibem `03:__` e `__:17`.
+- **Distrações:** o conteúdo literário não é necessário.
+- **Solução:** `03:17`.
+- **Dependências:** 22 e 20.
+- **Flags:** `bookPairResolved`; libera 24.
+- **Dicas:** títulos → ordem fim/começo → volumes adjacentes.
+- **Pista física:** dois insertos removíveis nos livros.
+- **Retorno futuro:** transforma a leitura impossível do Cômodo Zero em índice temporal.
+- **Descoberta antecipada:** os insertos podem ser vistos cedo, mas só ganham significado após o falso final.
 
-## 24 — Registro ausente / meta
+## 24 — Chave composta
 
-- **Objetivo:** recombinar anotações físicas e registros antigos.
-- **O que vê:** 99%, VX-04/11/02 e sete memórias recuperadas.
-- **Pista real:** cada VX esteve fisicamente ligado a um conceito.
-- **Distrações:** 1010, livros, música e parquinho são verdadeiros mas não carregam esses três VX.
-- **Solução:** selecionar LUA (VX-04), TV (VX-11), MULLET (VX-02); resíduos mostram N/O/S; inserir `NÓS`.
-- **Dependências:** todos os arcos principais, especialmente 09, 16 e 23.
-- **Flags:** `metaSelections`, resposta 24, `finalRecovered`; libera 25.
-- **Dicas:** códigos como ordem → associação física → sequência explícita.
-- **Retorno futuro:** toda a recuperação é reinterpretada como história das duas entidades.
-- **Descoberta antecipada:** seleção é reversível; nenhuma tentativa apaga flags.
+- **Objetivo:** confirmar duas cadeias de dados e preservar sua ordem.
+- **O que vê:** cadeia A terminando em `520`, cadeia B terminando em `1314` e a operação autorizada `CONCATENAR A → B`.
+- **Pista real:** os fragmentos aparecem separadamente em registros anteriores do Archive.
+- **Distrações:** somar ou inverter as cadeias.
+- **Solução:** `5201314`.
+- **Dependências:** 23 e os arcos recuperados nas duas cadeias.
+- **Flags:** resposta 24 e `finalRecovered`; libera 25.
+- **Dicas:** não somar → concatenar → A antes de B.
+- **Retorno futuro:** o sistema interpreta `520` e `1314` apenas depois de aceitar a chave.
+- **Descoberta antecipada:** os fragmentos permanecem dados opacos até a conclusão.
 
 ## 25 — Recuperação completa
 
@@ -337,11 +337,12 @@ Os nomes abaixo são internos. Para a jogadora, tudo aparece como um único arqu
 
 # Sistema de dicas
 
-Cada registro possui três níveis persistidos:
+Cada registro possui quatro níveis em memória:
 
 1. chama atenção para a categoria da anomalia;
 2. direciona o raciocínio e elimina a interpretação injusta mais comum;
-3. explica quase todo o mecanismo, preservando apenas a ação final.
+3. indica a operação concreta;
+4. quase resolve, preservando apenas a execução final.
 
 Antes da primeira pista, o painel avisa `JOÃO SERÁ NOTIFICADO`, sem enviar dados. O contador final soma níveis revelados, não apenas registros que pediram ajuda.
 
@@ -354,7 +355,7 @@ Antes da primeira pista, o painel avisa `JOÃO SERÁ NOTIFICADO`, sem enviar dad
 - **Pares de identidade:** acertos persistem; erros limpam apenas a seleção atual.
 - **Quarto virtual:** qualquer posição é aceita depois que os cinco objetos reais foram conscientemente movidos; não depende de uma planta que João ainda não forneceu.
 - **Meta em ordem errada:** a quarta escolha reinicia a sequência sem apagar descobertas.
-- **Atualização/reabertura:** todo estado relevante fica em `localStorage`.
+- **Atualização/reabertura:** o estado existe apenas em memória; recarregar ou fechar a página reinicia a experiência.
 - **Áudio bloqueado/mudo:** nenhuma solução depende apenas de som.
 - **Movimento reduzido:** mensagens e estados continuam legíveis sem animação.
 

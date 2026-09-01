@@ -6,12 +6,12 @@ export function tvPresentation(state, mode = 'normal') {
   if (!tv.power) content = '';
   if (mode === 'intro' && tv.channel === 4) content = '•  —  ••';
   if (mode === 'sequence' && tv.channel === 11 && tv.power) content = 'SEM PORTADORA';
-  if (mode === 'sequence' && tv.channel === 11 && !tv.power && state.flags.tvSequenceSeen) content = '2  5  1';
-  if (mode === 'tuning' && tv.channel === 10 && tv.volume === 10) content = '10 / 10';
+  if (mode === 'sequence' && tv.channel === 11 && !tv.power && state.flags.tvSequenceSeen) content = 'FIM  01  COMEÇO';
+  if (mode === 'tuning' && tv.channel === 10 && tv.volume === 10) content = tv.fine === 3 ? '10 / 10\nFONTE FIXADA' : `PORTADORA ${Math.max(0,72-Math.abs(3-tv.fine)*18)}%`;
   if (mode === 'impossible') content = 'CANAL\nEXTERNO';
   return {
     content,
-    frequency: (184 + tv.channel * .04).toFixed(2),
+    frequency: (184 + tv.channel * .04 + tv.fine * .005).toFixed(3),
     channelAngle: -135 + ((tv.channel - 1) / 11) * 270,
     volumeAngle: -135 + (tv.volume / 10) * 270
   };
@@ -57,6 +57,7 @@ export function renderTV(state, { mode = 'normal' } = {}) {
           <output><span>NÍVEL</span><b data-tv-volume-output>${String(tv.volume).padStart(2, '0')}</b></output>
           <small>${mode === 'tuning' ? 'AJUSTAR PARÂMETRO RECORRENTE' : 'NÃO ALTERA A SINTONIA'}</small>
         </div>
+        ${mode === 'tuning' ? `<div class="tv-fine-control" data-motion-scope="local"><label>AJUSTE FINO</label><div><button type="button" data-action="tv-fine" data-delta="-1" aria-label="Reduzir sintonia fina">−</button><output data-tv-fine-output>${tv.fine>0?'+':''}${tv.fine}</output><button type="button" data-action="tv-fine" data-delta="1" aria-label="Aumentar sintonia fina">+</button></div><small>PROCURE O PICO DO INDICADOR</small></div>` : ''}
         <div class="tv-trim" aria-hidden="true"><span><i></i>AJUSTE FINO</span><span><i></i>SINC. V</span></div>
         <button type="button" class="tv-power" data-action="tv-power"><i aria-hidden="true"></i><span>${tv.power ? 'DESLIGAR' : 'LIGAR'}</span></button>
         <div class="tv-speaker" aria-label="Grade do alto-falante"></div>

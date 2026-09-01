@@ -4,7 +4,7 @@ export const SYSTEM_LOGS = [
   ['10:10:00', 'EVENTO_1010', 'origem desconhecida'],
   ['10:11:08', 'VX-04', 'sem portadora'],
   ['11:02:14', 'VX-11', 'adiado'],
-  ['14:25:10', 'VX-02', 'adiado']
+  ['14:25:10', 'SRC-B', 'correlação adiada']
 ];
 
 export const RECOVERED_FILES = [

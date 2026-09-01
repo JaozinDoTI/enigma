@@ -1,27 +1,4 @@
-export const HINTS = {
-  '01': ['A interrupção foi deixada de propósito.', 'Olhe para o ponto em que a última linha parou.', 'Use o cursor quadrado no fim da linha.'],
-  '02': ['Quem montou isso queria que um registro chamasse atenção sem parecer óbvio.', 'Compare nomes e horários. Um deles repete a própria identidade.', 'Abra EVENTO_1010, registrado às 10:10.'],
-  '03': ['Não existe sintonia automática. Você precisa procurar.', 'O canal certo reage diferente antes mesmo de mostrar alguma coisa.', 'Leve o receptor até o canal 04.'],
-  '04': ['Não tente entender o som como fala.', 'Duração curta e longa pode ser anotada como ponto e traço.', 'O padrão “-- . ... .-” escreve MESA.'],
-  '05': ['Você já resolveu a mensagem. Agora obedeça ao que ela disse.', 'A palavra nomeia uma coisa que está no mesmo ambiente que você.', 'Levanta. O NÓ está na escrivaninha.'],
-  '06': ['O tamanho do texto é uma distração.', 'Procure palavras que não respeitam exatamente o mesmo alinhamento.', 'As palavras deslocadas formam A DATA ABRE O ARQUIVO.'],
-  '07': ['Se alguém chama cinco arquivos de final, o nome deixou de ser prova.', 'O evento já ensinou qual horário importa.', 'Abra final_agora_vai.txt, modificado às 10:10.'],
-  '08': ['A própria tela já separou o ruído em partes úteis.', 'Cada grupo de oito bits representa uma letra.', '01001100 / 01010101 / 01000001 forma LUA.'],
-  '09': ['Não é outra palavra para digitar. É uma instrução de busca.', 'Existe uma lua no quarto que você consegue examinar sem mexer em nada perigoso.', 'Procure a primeira marca no pano de lua.'],
-  '10': ['Você não precisa descobrir um arquivo novo.', 'Alguma coisa que você já leu agora aparece como ALTERADA.', 'Reabra EVENTO_1010 e compare as somas de verificação.'],
-  '11': ['As duas versões discordam, mas a geometria não sabe mentir.', 'Cruze volume, laterais e comprimento antes de confiar em qualquer relato.', 'Selecione pelo menos quatro camadas e calcule a forma do corte.'],
-  '12': ['Você já reconstruiu a resposta; falta usar o nome comum dela.', 'Laterais curtas e comprimento atrás descrevem um corte bem específico.', 'Digite MULLET. Sim, mesmo que a segunda versão negue.'],
-  '13': ['A TV não voltou igual depois que você saiu dela.', 'Encontre o canal vazio e pense no que uma tela antiga guarda depois de desligada.', 'No canal 11, desligue a TV para revelar 02 · 05 · 01.'],
-  '14': ['Três números podem ser posições em vez de uma combinação.', 'Procure uma coleção ordenada perto da cama.', 'Leia os livros 2, 5 e 1 da esquerda para a direita.'],
-  '15': ['Não monte uma frase bonita. Monte uma frase que dê uma instrução clara.', '“A noite” precisa de um lugar, e “o que você precisa” precisa de um verbo.', 'ONDE / A NOITE / DEIXA / O QUE VOCÊ PRECISA.'],
-  '16': ['Você tá complicando. A resposta não é a cama.', 'Pense no móvel que continua ao alcance quando você já deitou.', 'Procure a marca na mesa de cabeceira.'],
-  '17': ['A próxima parte foi deixada onde a casa termina sem você precisar ir para a rua.', 'Procure apenas na área externa privada preparada. O QR traz uma regra incompleta.', '“Repita o evento” significa usar 10 em CANAL e 10 em VOLUME.'],
-  '18': ['Isso não é uma cifra. São lembranças de um lugar.', 'Água, vento, bancos e brinquedos precisam existir juntos.', 'O lugar é o PARQUINHO DA BEIRA-MAR.'],
-  '19': ['Cada lembrança aparece duas vezes, descrita por lados diferentes.', 'Selecione uma origem e depois a consequência correspondente.', 'Ligue evento/conversa, cabelo/mullet e margem/local.'],
-  '20': ['Quem deixou o arquivo conhece um quarto específico.', 'Faça as relações da lista ficarem verdes; não tente copiar coordenadas exatas.', 'Posicione os cinco objetos reais. A TV é a única peça sem lugar no quarto.'],
-  '21': ['Noventa e nove não é cem. O erro está tentando passar por conclusão.', 'Aceite o encerramento apenas para ver onde ele quebra.', 'Use ENCERRAR SISTEMA e, depois da falha, VOLTAR AO ARQUIVO.'],
-  '22': ['O recado fala de histórias como objetos, não como lembranças.', 'Olhe abaixo de onde os livros ficam guardados.', 'O QR está sob a estante, em um ponto seguro e acessível.'],
-  '23': ['O objeto certo já foi encontrado. A leitura é que ficou incompleta.', 'Na primeira vez você viu um lado porque era o único que fazia sentido.', 'Volte ao pano de lua e procure a segunda marca. Ela estava lá desde o começo.'],
-  '24': ['Os três códigos VX não eram respostas isoladas.', 'Leia VX-04, VX-11 e VX-02 como uma ordem para recuperar as fontes.', 'Selecione LUA, TV e MULLET. As letras restantes formam NÓS.'],
-  '25': ['Não tem outra armadilha.', 'Agora o arquivo pode dizer por que escolheu você.', 'Leia. O resto não precisa ser resolvido.']
-};
+import { PUZZLES } from '../js/puzzles/catalog.js';
+
+// Compatibility view derived from the canonical puzzle catalog.
+export const HINTS = Object.freeze(Object.fromEntries(PUZZLES.map((puzzle) => [puzzle.id, puzzle.hints])));

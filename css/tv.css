@@ -458,3 +458,5 @@
   .tv-static { animation: none; }
   .tv-screen.is-off { animation: none; filter: brightness(0); transform: scale(0); }
 }
+.tv-fine-control { display:grid; gap:6px; padding:9px; border:1px solid rgba(80,67,48,.55); background:#b7a987; color:#29271f; }
+.tv-fine-control label,.tv-fine-control small { font-size:.55rem; letter-spacing:.08em; }.tv-fine-control > div { display:grid; grid-template-columns:32px 1fr 32px; align-items:center; gap:5px; }.tv-fine-control button { min-height:30px; border:2px outset #d8caa6; background:#baab86; color:#27251e; }.tv-fine-control output { padding:6px; border:2px inset #d8caa6; background:#ded2b3; font:.75rem var(--mono); text-align:center; }

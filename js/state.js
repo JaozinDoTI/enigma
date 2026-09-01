@@ -1,8 +1,7 @@
 import { GAME_CONFIG } from './config.js';
-import { clearStoredState, loadStoredState, saveStoredState } from './storage.js';
 import { unique } from './utils.js';
 
-const initialState = () => ({
+export const createInitialState = () => ({
   version: GAME_CONFIG.version,
   startedAt: null,
   updatedAt: Date.now(),
@@ -17,13 +16,26 @@ const initialState = () => ({
   pagesVisited: {},
   events: [],
   motionEvents: {},
-  ui: { activePanel: null, archiveView: null },
-  archive: { reads: {} },
+  worldEvents: { scheduled:[], delivered:[] },
+  ui: { activePanel: null, archiveView: null, archiveQuery: '', focusReturn: null },
+  desktopOs: {
+    selectedIcon: null,
+    windows: [],
+    zCounter: 20,
+    startOpen: false,
+    clockHour: 10,
+    clockMinute: 10,
+    clockPanelOpen: false
+  },
+  phone: {
+    open:false, locked:true, app:'home', thread:null, unread:0, battery:73,
+    clock:{ hour:10, minute:12, synchronized:false },
+    delivered:[], events:[], calls:[], notifications:[], galleryItem:null
+  },
+  archive: { reads: {}, searches: [] },
   flags: {
     initialized: false,
     event1010Seen: false,
-    deskNodeScanned: false,
-    deskNodeValidated: false,
     moonFirstFound: false,
     eventChanged: false,
     mulletConfirmed: false,
@@ -31,82 +43,82 @@ const initialState = () => ({
     tvChannel11Primed: false,
     booksFound: false,
     bedsideFound: false,
+    greenNodeScanned: false,
+    greenNodeValidated: false,
     yardNodeScanned: false,
     yardNodeValidated: false,
     tvTuned: false,
     locationRecovered: false,
     identityLinked: false,
     roomRebuilt: false,
+    houseAnomalyRevealed: false,
+    roomNodeScanned: false,
+    roomNodeValidated: false,
     booksNodeScanned: false,
     booksNodeValidated: false,
-    moonSecondFound: false,
+    bookPairResolved: false,
+    bookPairIdentified: false,
+    clock0317Triggered: false,
+    clockOriginRestored: false,
     fakeFinalSeen: false,
     finalRecovered: false,
     assistanceJokeSeen: false
   },
-  tv: { power: true, channel: 1, volume: 3, antenna: 0, unlocked: false, morsePlays: 0 },
-  physicalNodes: { desk: 'unknown', yard: 'unknown', books: 'unknown' },
+  tv: { power: true, channel: 1, volume: 3, fine: 0, antenna: 0, unlocked: false, morsePlays: 0 },
+  physicalNodes: { green: 'unknown', yard: 'unknown', room: 'unknown', books: 'unknown' },
   room: {},
-  fragments: [],
+  documentFragments: [],
+  bookSelections: [],
   forensicSelections: [],
   locationFragments: [],
-  metaSelections: [],
+  relationSelection: [],
+  relationLinks: [],
+  roomPlacement: { selectedObject: null, selectedAnchor: null },
   stats: { tvInteractions: 0, wrongAnswers: 0, returns: 0, clicks: 0 },
   settings: { muted: false, volume: 0.45 },
   lastProgressAt: Date.now()
 });
 
-function mergeState(stored) {
-  const fresh = initialState();
-  if (!stored) return fresh;
-  const settings = {
-    ...fresh.settings,
-    ...(stored.settings || {}),
-    ...((stored.version ?? 0) < 2 ? { muted: false } : {})
-  };
-  return {
-    ...fresh,
-    ...stored,
-    version: fresh.version,
-    flags: { ...fresh.flags, ...(stored.flags || {}) },
-    tv: { ...fresh.tv, ...(stored.tv || {}) },
-    physicalNodes: { ...fresh.physicalNodes, ...(stored.physicalNodes || {}) },
-    motionEvents: { ...fresh.motionEvents, ...(stored.motionEvents || {}) },
-    ui: { ...fresh.ui, ...(stored.ui || {}) },
-    archive: { ...fresh.archive, ...(stored.archive || {}), reads: { ...fresh.archive.reads, ...(stored.archive?.reads || {}) } },
-    stats: { ...fresh.stats, ...(stored.stats || {}) },
-    settings
-  };
+let gameState = createInitialState();
+const ARRAY_FIELDS = Object.freeze(['unlocked','completed','discoveries','events','documentFragments','bookSelections','forensicSelections','locationFragments','relationSelection','relationLinks']);
+
+function normalizeState(state) {
+  ARRAY_FIELDS.forEach((key) => { if (!Array.isArray(state[key])) state[key] = []; });
+  if (!state.ui || typeof state.ui !== 'object') state.ui = { activePanel: null, archiveView: null, archiveQuery: '', focusReturn: null };
+  if (!state.room || typeof state.room !== 'object') state.room = {};
+  if (!state.roomPlacement || typeof state.roomPlacement !== 'object') state.roomPlacement = { selectedObject: null, selectedAnchor: null };
+  if (!state.flags || typeof state.flags !== 'object') state.flags = createInitialState().flags;
+  if (!state.archive || typeof state.archive !== 'object') state.archive = { reads: {}, searches: [] };
+  if (!state.phone || typeof state.phone !== 'object') state.phone = createInitialState().phone;
+  if (!state.phone.clock || typeof state.phone.clock !== 'object') state.phone.clock = { hour:10, minute:12, synchronized:false };
+  ['delivered','events','calls','notifications'].forEach((key) => { if (!Array.isArray(state.phone[key])) state.phone[key] = []; });
+  if (!state.worldEvents || typeof state.worldEvents !== 'object') state.worldEvents = { scheduled:[], delivered:[] };
+  ['scheduled','delivered'].forEach((key)=>{if(!Array.isArray(state.worldEvents[key])) state.worldEvents[key]=[];});
+  state.currentPuzzle = /^\d{2}$/.test(String(state.currentPuzzle)) ? String(state.currentPuzzle) : '01';
+  state.tv.channel = Math.max(1, Math.min(12, Number(state.tv.channel) || 1));
+  state.tv.volume = Math.max(0, Math.min(10, Number(state.tv.volume) || 0));
 }
 
-let gameState = mergeState(loadStoredState());
-const listeners = new Set();
+function sealSchema(state) {
+  ['ui','desktopOs','phone','flags','tv','physicalNodes','stats','settings','archive','roomPlacement','worldEvents'].forEach((key) => Object.seal(state[key]));
+  Object.seal(state.phone.clock);
+  return Object.seal(state);
+}
+
+gameState = sealSchema(gameState);
 
 function commit(progress = false) {
+  normalizeState(gameState);
   gameState.updatedAt = Date.now();
   if (progress) gameState.lastProgressAt = Date.now();
-  saveStoredState(gameState);
-  listeners.forEach((listener) => listener(gameState));
 }
 
 export function getState() { return gameState; }
-export function subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); }
 
 export function updateState(mutator, { progress = false } = {}) {
   mutator(gameState);
   commit(progress);
   return gameState;
-}
-
-export function startGame() {
-  updateState((state) => {
-    state.startedAt ||= Date.now();
-    state.flags.initialized = true;
-  }, { progress: true });
-}
-
-export function unlockPuzzle(id) {
-  updateState((state) => { state.unlocked = unique([...state.unlocked, id]); }, { progress: true });
 }
 
 export function completePuzzle(id, next = []) {
@@ -142,8 +154,7 @@ export function addEvent(type, detail = '') {
 }
 
 export function resetState() {
-  clearStoredState();
-  gameState = initialState();
+  gameState = sealSchema(createInitialState());
   commit();
 }
 

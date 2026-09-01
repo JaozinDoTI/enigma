@@ -7,16 +7,16 @@ const EVIDENCE = [
   { id: 'DOC-1708', type: 'DOCUMENTO', origin: 'ARQUIVO', confidence: '91%', residual: 'DATA', unlock: '06' },
   { id: 'FILE-1010', type: 'METADADO', origin: 'DIRETÓRIO J', confidence: '96%', residual: '10:10', unlock: '07' },
   { id: 'PACKET-24', type: 'PACOTE', origin: 'ARQUIVO', confidence: '94%', residual: 'OBJETO: LUA', unlock: '08' },
-  { id: 'MEM-MULLET', type: 'MEMÓRIA', origin: 'CONFLITO', confidence: '99.4%', residual: 'S', unlock: '12' },
-  { id: 'IMG-251', type: 'IMAGEM RESIDUAL', origin: 'RECEPTOR', confidence: '89%', residual: '02 · 05 · 01', unlock: '13' },
+  { id: 'IMG_2019_MULLET', type: 'MEMÓRIA', origin: 'CELULAR / METADATA', confidence: '99.4%', residual: 'S', unlock: '12' },
+  { id: 'IMG-F01C', type: 'IMAGEM RESIDUAL', origin: 'RECEPTOR', confidence: '89%', residual: 'FIM · 01 · COMEÇO', unlock: '13' },
   { id: 'INST-NOITE', type: 'INSTRUÇÃO', origin: 'FRAGMENTOS', confidence: '93%', residual: 'ONDE A NOITE DEIXA O QUE VOCÊ PRECISA', unlock: '15' },
   { id: 'VX-11', type: 'RESÍDUO', origin: 'SEM PORTADORA', confidence: '18%', residual: 'BLOQUEADO', unlock: '02' },
-  { id: 'NÓ-17', type: 'NÓ FÍSICO', origin: 'LIMIAR PRIVADO', confidence: '100%', residual: 'REPETIR EVENTO', unlock: '17' },
+  { id: 'NÓ-14', type: 'NÓ FÍSICO', origin: 'ASSENTO VERDE', confidence: '100%', residual: '△ ○ ⌁', unlock: '17' },
+  { id: 'NÓ-17', type: 'NÓ FÍSICO', origin: 'MARGEM PRIVADA', confidence: '100%', residual: 'REPETIR EVENTO', unlock: '18' },
   { id: 'PORT-1010', type: 'PORTADORA', origin: 'RECEPTOR', confidence: '99%', residual: 'CAN 10 · NÍVEL 10', unlock: '17' },
   { id: 'LOC-1010', type: 'LOCAL', origin: 'PARQUINHO', confidence: '94%', residual: '—', unlock: '18' },
-  { id: 'ROOM-99', type: 'MODELO', origin: 'ARMAZENAMENTO FRIO', confidence: '99%', residual: 'TV', unlock: '20' },
+  { id: 'ROOM-00', type: 'VOLUME AUSENTE', origin: 'NÃO INDEXADA', confidence: '99%', residual: '+11,2 m² · 03:17', unlock: '20' },
   { id: 'NÓ-11', type: 'NÓ FÍSICO', origin: 'ESTANTE', confidence: '100%', residual: 'VALIDADO', unlock: '22' },
-  { id: 'VX-02', type: 'RESÍDUO', origin: 'SEM PORTADORA', confidence: '16%', residual: 'BLOQUEADO', unlock: '02' },
   { id: 'REL-NÓS', type: 'RELAÇÃO', origin: 'ENTIDADES A/B', confidence: '100%', residual: 'NÓS', unlock: '24' }
 ];
 
@@ -28,7 +28,6 @@ export function knownEvidence(state) {
   return EVIDENCE.filter((item) => isKnown(state, item)).map((item) => {
     if (item.id === 'VX-04' && state.flags.moonFirstFound) return { ...item, origin: 'LUA', confidence: '74%', residual: 'N' };
     if (item.id === 'VX-11' && state.flags.bedsideFound) return { ...item, origin: 'RECEPTOR', confidence: '82%', residual: 'O' };
-    if (item.id === 'VX-02' && state.flags.moonSecondFound) return { ...item, origin: 'CONFLITO', confidence: '88%', residual: 'S' };
     return item;
   });
 }
@@ -59,8 +58,8 @@ export function renderColdStorage(state) {
   };
   return `<div class="cold-storage-map">
     <p class="workspace-copy">MEMÓRIAS REMOVIDAS DO SISTEMA E PRESERVADAS FISICAMENTE.</p>
-    <ul>${nodeStatus('desk','NÓ 02 / ESCRIVANINHA')}${nodeStatus('yard','NÓ 17 / LIMIAR EXTERNO')}${nodeStatus('books','NÓ 11 / ESTANTE')}
-      <li><span>OBSERVADOR / LUA</span><strong>${state.flags.moonFirstFound ? (state.flags.moonSecondFound ? '2 CAMADAS' : '1 DE 2') : 'NÃO LIDO'}</strong></li>
+    <ul>${nodeStatus('green','NÓ 14 / CADEIRA VERDE')}${nodeStatus('yard','NÓ 17 / QUINTAL')}${nodeStatus('room','NÓ 00 / NÃO INDEXADO')}${nodeStatus('books','NÓ 11 / ESTANTE')}
+      <li><span>OBSERVADOR / LUA</span><strong>${state.flags.moonFirstFound ? 'VX-04 LIDO' : 'NÃO LIDO'}</strong></li>
       <li><span>MODELO DO QUARTO</span><strong>${state.flags.roomRebuilt ? '99%' : 'PENDENTE'}</strong></li>
     </ul>
   </div>`;

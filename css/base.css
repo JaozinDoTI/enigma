@@ -32,7 +32,6 @@ body {
 
 :where(
   .side-panel,
-  .long-document,
   .dev-state,
   .puzzle-brief__drawer,
   .investigation-surface,
@@ -48,7 +47,6 @@ body {
 
 :where(
   .side-panel,
-  .long-document,
   .dev-state,
   .puzzle-brief__drawer,
   .investigation-surface,
@@ -61,7 +59,6 @@ body {
 
 :where(
   .side-panel,
-  .long-document,
   .dev-state,
   .puzzle-brief__drawer,
   .investigation-surface,
@@ -74,7 +71,6 @@ body {
 
 :where(
   .side-panel,
-  .long-document,
   .dev-state,
   .puzzle-brief__drawer,
   .investigation-surface,
@@ -112,7 +108,7 @@ button:disabled {
 
 .noise {
   position: fixed;
-  z-index: 20;
+  z-index: var(--layer-window);
   inset: 0;
   pointer-events: none;
   opacity: .06;
@@ -144,3 +140,18 @@ button:disabled {
 .error { color: var(--error); }
 .mono { font-family: var(--mono); }
 .hidden { display: none !important; }
+
+/* Scroll continua visível nas superfícies investigativas extensas. */
+:where(html, body, .phase-rail > nav, .phase-scenario, .phase-archive, .os-window__body) {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 200, 193, .4) #080b0d;
+}
+
+:where(html, body, .phase-rail > nav, .phase-scenario, .phase-archive, .os-window__body)::-webkit-scrollbar {
+  display: block;
+  width: 8px;
+  height: 8px;
+}
+
+:where(html, body, .phase-rail > nav, .phase-scenario, .phase-archive, .os-window__body)::-webkit-scrollbar-track { background: #080b0d; }
+:where(html, body, .phase-rail > nav, .phase-scenario, .phase-archive, .os-window__body)::-webkit-scrollbar-thumb { background: rgba(168, 200, 193, .4); }

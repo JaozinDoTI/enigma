@@ -14,6 +14,9 @@ body { min-height: 100svh; background: #050807; color: #c8cec1; }
 .node-print-card > header { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid #3a423c; font-size: .65rem; letter-spacing: .12em; }
 .node-print-card__qr { display: grid; place-items: center; align-self: center; width: min(100%, 252px); aspect-ratio: 1; margin: 24px auto; padding: 16px; background: #f2f0df; }
 .node-print-card__qr :is(img, canvas) { display: block; width: 100% !important; height: 100% !important; image-rendering: pixelated; }
+.node-print-card__fragment { align-content: center; gap: 14px; padding: 22px; background: #eee9d9; color: #17201c; text-align: center; }
+.node-print-card__fragment span, .node-print-card__fragment small { font-size: .72rem; letter-spacing: .1em; }
+.node-print-card__fragment strong { font-size: clamp(2rem, 6vw, 4.5rem); font-weight: 500; }
 .node-print-card__identity { display: grid; gap: 7px; padding: 14px 0; border-block: 1px solid #3a423c; }
 .node-print-card__identity span, .node-print-card__identity small, .node-print-card footer { color: #8d978f; font-size: .62rem; letter-spacing: .11em; }
 .node-print-card__identity strong { color: #dce5da; font-size: 1rem; letter-spacing: .08em; overflow-wrap: anywhere; }
@@ -21,7 +24,7 @@ body { min-height: 100svh; background: #050807; color: #c8cec1; }
 .kit-manifest { margin-top: 34px; border: 1px solid var(--line); }
 .kit-manifest > header { padding: 14px 16px; border-bottom: 1px solid var(--line); }
 .kit-table-wrap { overflow-x: auto; }
-table { width: 100%; min-width: 920px; border-collapse: collapse; font-size: .68rem; }
+table { width: 100%; min-width: 1180px; border-collapse: collapse; font-size: .68rem; }
 th, td { padding: 12px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
 th { color: var(--signal); font-size: .56rem; letter-spacing: .1em; }
 td small { display: block; margin-top: 4px; color: var(--muted); }

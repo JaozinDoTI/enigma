@@ -61,17 +61,17 @@ class UIFeedbackController {
   }
 
   clearFieldState(input) {
-    const form = input?.closest('[data-answer]');
+    const form = input?.closest('[data-answer], [data-node-auth]');
     form?.classList.remove('is-error', 'is-success');
     input?.removeAttribute('aria-invalid');
   }
 
   error(message, { critical = false, target } = {}) {
-    const form = target?.closest?.('[data-answer]') || document.querySelector('[data-answer]');
+    const form = target?.matches?.('form') ? target : target?.closest?.('[data-answer], [data-node-auth]');
     const component = form || target;
     component?.classList.remove('is-success');
     component?.classList.add('is-error');
-    const input = form?.querySelector('.answer-input');
+    const input = form?.querySelector('.answer-input') || (target?.matches?.('.answer-input') ? target : null);
     input?.setAttribute('aria-invalid', 'true');
     this.message(message, 'error');
     Motion.emit('motion:error', { message, critical });

@@ -130,7 +130,7 @@ class MotionEngine {
       }, midpoint);
     }), { scope: MOTION_SCOPE.GLOBAL });
     this.register('scene-transition', ({ target, from = 'system', to = 'system', swap, engine }) => new Promise((resolve) => {
-      const family = to === 'system' ? 'return' : to;
+      const family = ['system', 'computer'].includes(to) ? 'return' : to;
       const className = `scene-transition--${family}`;
       target.classList.remove(className);
       requestAnimationFrame(() => target.classList.add(className));

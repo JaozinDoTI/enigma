@@ -9,6 +9,7 @@ export function renderPuzzleBrief(puzzle, state, { compact = false, floating = f
     return `<details class="puzzle-brief puzzle-brief--floating">
       <summary><span>AÇÃO REQUERIDA</span><strong>${escapeHtml(contract.objective)}</strong></summary>
       <div class="puzzle-brief__drawer">
+        <p class="puzzle-brief__intent"><span>INTENÇÃO</span>${escapeHtml(puzzle.intent)}</p>
         <p class="puzzle-brief__narrative">${escapeHtml(contract.narrative)}</p>
         <p class="puzzle-brief__guidance">${escapeHtml(contract.actionHint)}</p>
         <dl class="puzzle-brief__contract"><div><dt>INTERAÇÃO</dt><dd>${escapeHtml(contract.interaction)}</dd></div><div><dt>RESULTADO</dt><dd>${escapeHtml(contract.successMeaning)}</dd></div></dl>
@@ -17,6 +18,7 @@ export function renderPuzzleBrief(puzzle, state, { compact = false, floating = f
     </details>`;
   }
   return `<section class="puzzle-brief ${compact ? 'puzzle-brief--compact' : ''}" aria-label="Orientação operacional da etapa">
+    <p class="puzzle-brief__intent"><span>INTENÇÃO</span>${escapeHtml(puzzle.intent)}</p>
     <p class="puzzle-brief__narrative">${escapeHtml(contract.narrative)}</p>
     <div class="puzzle-brief__objective"><span>AÇÃO REQUERIDA</span><strong>${escapeHtml(contract.objective)}</strong><small>${escapeHtml(contract.actionHint)}</small></div>
     <dl class="puzzle-brief__contract"><div><dt>INTERAÇÃO</dt><dd>${escapeHtml(contract.interaction)}</dd></div><div><dt>RESULTADO</dt><dd>${escapeHtml(contract.successMeaning)}</dd></div></dl>

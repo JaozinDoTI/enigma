@@ -22,10 +22,33 @@
   --warm-line: #d8cab9;
   --warm-accent: #8e5d48;
 
-  --mono: "IBM Plex Mono", "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  --mono: "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --serif: Georgia, "Times New Roman", serif;
   --shadow: 0 24px 80px rgba(0, 0, 0, .42);
   --focus-ring: 0 0 0 3px rgba(168, 200, 193, .24);
+
+  /* Shared foundation. Narrative scenes may theme it without changing behavior. */
+  --type-xs: clamp(.7rem, .67rem + .12vw, .78rem);
+  --type-sm: clamp(.78rem, .74rem + .16vw, .88rem);
+  --type-base: clamp(.88rem, .83rem + .2vw, 1rem);
+  --type-md: clamp(1rem, .93rem + .3vw, 1.18rem);
+  --type-lg: clamp(1.22rem, 1.04rem + .65vw, 1.65rem);
+  --type-display: clamp(2rem, 1.4rem + 2.4vw, 4.5rem);
+  --space-1: .25rem;
+  --space-2: .5rem;
+  --space-3: .75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --control-min: 2.75rem;
+  --layer-base: 0;
+  --layer-window: 10;
+  --layer-popover: 30;
+  --layer-drawer: 50;
+  --layer-narrative: 70;
+  --layer-system: 90;
+  --layer-critical: 110;
 
   /* Motion System: microinteracao -> componente -> tela -> impacto narrativo. */
   --motion-instant: 90ms;

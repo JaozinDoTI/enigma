@@ -19,7 +19,34 @@ const root = document.querySelector('#app');
 let renderedRoute = null;
 let renderedSceneFamily = null;
 
+function focusToken() {
+  const active = document.activeElement;
+  if (!active || active === document.body) return null;
+  return { id: active.id || '', action: active.dataset?.action || '', panel: active.dataset?.panel || '', file: active.dataset?.file || '' };
+}
+
+function restoreFocus(token, routeChanged) {
+  window.requestAnimationFrame(() => {
+    if (routeChanged) {
+      root.querySelector('[data-scene-heading], main h1, .final-stage h1')?.focus({ preventScroll: true });
+      return;
+    }
+    if (!token) return;
+    const selectors = [
+      token.id && `#${CSS.escape(token.id)}`,
+      token.action && `[data-action="${CSS.escape(token.action)}"]${token.panel ? `[data-panel="${CSS.escape(token.panel)}"]` : ''}${token.file ? `[data-file="${CSS.escape(token.file)}"]` : ''}`
+    ].filter(Boolean);
+    const previous = selectors.length ? root.querySelector(selectors.join(',')) : null;
+    const fallbackId = getState().ui.focusReturn;
+    const fallback = fallbackId ? root.querySelector(`[data-record="${CSS.escape(fallbackId)}"]`) : null;
+    (previous || fallback)?.focus({ preventScroll: true });
+    if (fallback) updateState((state) => { state.ui.focusReturn = null; });
+  });
+}
+
 function commitRender(id, animate) {
+  const previousFocus = focusToken();
+  const routeChanged = renderedRoute !== null && renderedRoute !== id;
   const puzzle = PUZZLE_BY_ID[id] || PUZZLE_BY_ID['01'];
   if (renderedRoute !== null && renderedRoute !== puzzle.id && (getState().ui?.activePanel || getState().ui?.archiveView)) {
     updateState((draft) => {
@@ -30,13 +57,19 @@ function commitRender(id, animate) {
   const state = getState();
   const content = renderScene(puzzle, state);
   root.innerHTML = renderShell({ puzzle, puzzles: PUZZLES, state, content, animate });
+  root.querySelectorAll('[data-evidence-source]').forEach((image)=>{
+    const frame=image.closest('[data-evidence-frame]');
+    const update=()=>frame?.classList.toggle('has-source',image.complete&&image.naturalWidth>0);
+    image.addEventListener('load',update,{once:true});image.addEventListener('error',update,{once:true});update();
+  });
   document.title = `${puzzle.code} // ${GAME_CONFIG.systemName}`;
   renderedRoute = puzzle.id;
   renderedSceneFamily = sceneFamilyFor(puzzle);
   const activeArea = state.ui?.activePanel || puzzle.area;
-  const audioFamily = renderedSceneFamily === 'system' && activeArea === 'archive' ? 'archive' : renderedSceneFamily;
+  const audioFamily = renderedSceneFamily === 'computer' && activeArea === 'archive' ? 'archive' : renderedSceneFamily;
   audioManager.transitionToScene(audioFamily, { puzzle, state });
   orchestrateNarrative(puzzle, state);
+  restoreFocus(previousFocus, routeChanged);
 }
 
 function render(id = currentRoute(), { animate = true } = {}) {
@@ -47,7 +80,7 @@ function render(id = currentRoute(), { animate = true } = {}) {
   }
   if (animate && routeChanged) {
     const nextSceneFamily = sceneFamilyFor(PUZZLE_BY_ID[id] || PUZZLE_BY_ID['01']);
-    const immersiveChange = nextSceneFamily !== 'system' || renderedSceneFamily !== 'system';
+      const immersiveChange = nextSceneFamily !== 'computer' || renderedSceneFamily !== 'computer';
     if (immersiveChange) {
       Motion.play('scene-transition', { target: document.body, from: renderedSceneFamily, to: nextSceneFamily, swap: () => commitRender(id, true) });
       return;
@@ -64,8 +97,8 @@ function render(id = currentRoute(), { animate = true } = {}) {
 function processNodeQuery() {
   const params = new URLSearchParams(location.search);
   const node = params.get('node');
-  if (!['desk','yard','books'].includes(node)) return;
-  const required = node === 'desk' ? '05' : node === 'yard' ? '17' : '22';
+  if (!['green','yard','room','books'].includes(node)) return;
+  const required = { green: '17', yard: '18', room: '20', books: '22' }[node];
   const early = !getState().unlocked.includes(required);
   updateState((state) => {
     state.flags[`${node}NodeScanned`] = true;
@@ -117,11 +150,10 @@ const GAME_CONFIG = Object.freeze({
   memoryAliases: ['mullet', 'corte mullet', 'o mullet'],
   finalAnswer: 'nós',
   finalAliases: ['nos', 'nós', 'a gente', 'nós dois'],
-  deskNodeCode: 'VX-MESA-1010',
-  yardNodeCode: 'VX-LIMIAR-1010',
+  greenNodeCode: 'VX-VERDE-0314',
+  yardNodeCode: 'VX-MARGEM-1703',
+  roomNodeCode: 'VX-QUARTO-0317',
   booksNodeCode: 'VX-LIVROS-0214',
-  bookPositions: [2, 5, 1],
-  bookFragmentToken: 'NIGHT-251',
   roomLayout: {
     bed: { x: 32, y: 63 },
     shelf: { x: 33, y: 14 },
@@ -138,13 +170,13 @@ const GAME_CONFIG = Object.freeze({
   gallery: [],
   devMode: false,
   inactivityHintMinutes: 12,
-  storageKey: 'gameState',
   version: 3
 });
 
 const ROUTES = Object.freeze({
-  deskQr: 'node.html?node=desk',
+  greenQr: 'node.html?node=green',
   yardQr: 'node.html?node=yard',
+  roomQr: 'node.html?node=room',
   booksQr: 'node.html?node=books'
 });
 
@@ -152,294 +184,232 @@ exports.GAME_CONFIG = GAME_CONFIG;
 exports.ROUTES = ROUTES;
 },
 "js/puzzles/index.js": function(module, exports, __require) {
-const p01 = __require("js/puzzles/puzzle-01.js").default;
-const p02 = __require("js/puzzles/puzzle-02.js").default;
-const p03 = __require("js/puzzles/puzzle-03.js").default;
-const p04 = __require("js/puzzles/puzzle-04.js").default;
-const p05 = __require("js/puzzles/puzzle-05.js").default;
-const p06 = __require("js/puzzles/puzzle-06.js").default;
-const p07 = __require("js/puzzles/puzzle-07.js").default;
-const p08 = __require("js/puzzles/puzzle-08.js").default;
-const p09 = __require("js/puzzles/puzzle-09.js").default;
-const p10 = __require("js/puzzles/puzzle-10.js").default;
-const p11 = __require("js/puzzles/puzzle-11.js").default;
-const p12 = __require("js/puzzles/puzzle-12.js").default;
-const p13 = __require("js/puzzles/puzzle-13.js").default;
-const p14 = __require("js/puzzles/puzzle-14.js").default;
-const p15 = __require("js/puzzles/puzzle-15.js").default;
-const p16 = __require("js/puzzles/puzzle-16.js").default;
-const p17 = __require("js/puzzles/puzzle-17.js").default;
-const p18 = __require("js/puzzles/puzzle-18.js").default;
-const p19 = __require("js/puzzles/puzzle-19.js").default;
-const p20 = __require("js/puzzles/puzzle-20.js").default;
-const p21 = __require("js/puzzles/puzzle-21.js").default;
-const p22 = __require("js/puzzles/puzzle-22.js").default;
-const p23 = __require("js/puzzles/puzzle-23.js").default;
-const p24 = __require("js/puzzles/puzzle-24.js").default;
-const p25 = __require("js/puzzles/puzzle-25.js").default;
-const { PUZZLE_CONTRACTS, PUZZLE_SOLUTIONS } = __require("js/puzzles/contracts.js");
-const { HINTS } = __require("data/hints.js");
-const descriptors = [p01,p02,p03,p04,p05,p06,p07,p08,p09,p10,p11,p12,p13,p14,p15,p16,p17,p18,p19,p20,p21,p22,p23,p24,p25];
-const PUZZLES = descriptors.map((puzzle) => {
-  const metadata = PUZZLE_CONTRACTS[puzzle.id];
-  return Object.freeze({
-    ...puzzle,
-    ...metadata,
-    contract: Object.freeze({
-      id: puzzle.id,
-      act: metadata.act,
-      requirements: metadata.requirements,
-      initialState: `área ${metadata.area} · corrupção ${metadata.corruption}`,
-      mechanic: puzzle.kind,
-      evidence: metadata.evidence,
-      mutations: metadata.mutatesSystem ? ['estado global do sistema'] : [],
-      animations: [metadata.motion],
-      anticipatedEvents: metadata.retroactive ? ['retorno ou mutação retroativa'] : [],
-      solution: PUZZLE_SOLUTIONS[puzzle.id],
-      futureReturn: metadata.retroactive,
-      hints: HINTS[puzzle.id] || [],
-      accessibility: Object.freeze({ reducedMotion: true, audioIndependent: true, keyboardPath: true })
-    })
-  });
-});
-const PUZZLE_BY_ID = Object.fromEntries(PUZZLES.map((puzzle) => [puzzle.id, puzzle]));
+const { PUZZLES: CATALOG, PUZZLE_BY_ID: CATALOG_BY_ID, puzzleFor: findPuzzle } = __require("js/puzzles/catalog.js");
+const PUZZLES = CATALOG;
+const PUZZLE_BY_ID = CATALOG_BY_ID;
+const puzzleFor = findPuzzle;
 
 exports.PUZZLES = PUZZLES;
 exports.PUZZLE_BY_ID = PUZZLE_BY_ID;
+exports.puzzleFor = puzzleFor;
 },
-"js/puzzles/puzzle-01.js": function(module, exports, __require) {
-const __defaultExport = { id:'01', code:'SEQUENCIA_INICIAL', title:'processo interrompido', kind:'boot', next:['02'], integrity:0 };
+"js/puzzles/catalog.js": function(module, exports, __require) {
+const { GAME_CONFIG } = __require("js/config.js");
+const { COMPUTER_MUTATIONS } = __require("js/worlds/computer-world.js");
+const freeze = (value = []) => Object.freeze([...value]);
 
-exports.default = __defaultExport;
-},
-"js/puzzles/puzzle-02.js": function(module, exports, __require) {
-const __defaultExport = { id:'02', code:'INDICE_DO_ARQUIVO', title:'registros de inicialização', kind:'logs', next:['03'], integrity:4 };
-
-exports.default = __defaultExport;
-},
-"js/puzzles/puzzle-03.js": function(module, exports, __require) {
-const __defaultExport = { id:'03', code:'RECEPTOR_VX', title:'portadora não identificada', kind:'tv-intro', next:['04'], integrity:7 };
-
-exports.default = __defaultExport;
-},
-"js/puzzles/puzzle-04.js": function(module, exports, __require) {
-const __defaultExport = { id:'04', code:'SINAL_04', title:'persistência luminosa', kind:'morse', next:['05'], integrity:9 };
-
-exports.default = __defaultExport;
-},
-"js/puzzles/puzzle-05.js": function(module, exports, __require) {
-const __defaultExport = { id:'05', code:'NO_02', title:'contexto externo ausente', kind:'desk-node', next:['06'], integrity:12 };
-
-exports.default = __defaultExport;
-},
-"js/puzzles/puzzle-06.js": function(module, exports, __require) {
-const __defaultExport = { id:'06', code:'DOC_1708', title:'relatório de integridade', kind:'document', next:['07'], integrity:15 };
-
-exports.default = __defaultExport;
-},
-"js/puzzles/puzzle-07.js": function(module, exports, __require) {
-const __defaultExport = { id:'07', code:'DIRETORIO_J', title:'versões incompatíveis', kind:'files', next:['08'], integrity:19 };
-
-exports.default = __defaultExport;
-},
-"js/puzzles/puzzle-08.js": function(module, exports, __require) {
-const __defaultExport = { id:'08', code:'PACOTE_8BIT', title:'fragmentos sem cabeçalho', kind:'binary', next:['09'], integrity:23 };
-
-exports.default = __defaultExport;
-},
-"js/puzzles/puzzle-09.js": function(module, exports, __require) {
-const __defaultExport = { id:'09', code:'OBJETO_L-01', title:'referência fora do arquivo', kind:'moon-one', next:['10'], integrity:26 };
-
-exports.default = __defaultExport;
-},
-"js/puzzles/puzzle-10.js": function(module, exports, __require) {
-const __defaultExport = { id:'10', code:'SOMA_DIVERGENTE', title:'índice inconsistente', kind:'return-event', next:['11'], integrity:31 };
-
-exports.default = __defaultExport;
-},
-"js/puzzles/puzzle-11.js": function(module, exports, __require) {
-const __defaultExport = { id:'11', code:'CONFLITO_DE_MEMORIA', title:'divergência entre entidades', kind:'conflict', next:['12'], integrity:35 };
-
-exports.default = __defaultExport;
-},
-"js/puzzles/puzzle-12.js": function(module, exports, __require) {
-const __defaultExport = { id:'12', code:'RESOLUCAO_DO_CONFLITO', title:'identificador ausente', kind:'mullet', next:['13'], integrity:39 };
-
-exports.default = __defaultExport;
-},
-"js/puzzles/puzzle-13.js": function(module, exports, __require) {
-const __defaultExport = { id:'13', code:'RECEPTOR_VX', title:'portadora alterada', kind:'tv-sequence', next:['14'], integrity:43 };
-
-exports.default = __defaultExport;
-},
-"js/puzzles/puzzle-14.js": function(module, exports, __require) {
-const __defaultExport = { id:'14', code:'OBJETOS_ORDENADOS', title:'índices 02 / 05 / 01', kind:'books', next:['15'], integrity:47 };
-
-exports.default = __defaultExport;
-},
-"js/puzzles/puzzle-15.js": function(module, exports, __require) {
-const __defaultExport = { id:'15', code:'MONTAGEM_DE_FRAGMENTOS', title:'sintaxe parcial', kind:'fragments', next:['16'], integrity:51 };
-
-exports.default = __defaultExport;
-},
-"js/puzzles/puzzle-16.js": function(module, exports, __require) {
-const __defaultExport = { id:'16', code:'NO_NOTURNO', title:'proximidade sem coordenada', kind:'bedside', next:['17'], integrity:55 };
-
-exports.default = __defaultExport;
-},
-"js/puzzles/puzzle-17.js": function(module, exports, __require) {
-const __defaultExport = { id:'17', code:'CONTROLE_VX', title:'dois parâmetros recorrentes', kind:'tv-tuning', next:['18'], integrity:59 };
-
-exports.default = __defaultExport;
-},
-"js/puzzles/puzzle-18.js": function(module, exports, __require) {
-const __defaultExport = { id:'18', code:'RECONSTRUCAO_ESPACIAL', title:'ambiente de evento', kind:'location', next:['19'], integrity:64 };
-
-exports.default = __defaultExport;
-},
-"js/puzzles/puzzle-19.js": function(module, exports, __require) {
-const __defaultExport = { id:'19', code:'TESTE_DE_ENTIDADE', title:'vínculos de memória', kind:'identity', next:['20'], integrity:69 };
-
-exports.default = __defaultExport;
-},
-"js/puzzles/puzzle-20.js": function(module, exports, __require) {
-const __defaultExport = { id:'20', code:'MODELO_DO_QUARTO', title:'ambiente incompleto', kind:'room', next:['21'], integrity:74 };
-
-exports.default = __defaultExport;
-},
-"js/puzzles/puzzle-21.js": function(module, exports, __require) {
-const __defaultExport = { id:'21', code:'OBJETO_IMPOSSIVEL', title:'canal externo', kind:'impossible', next:['22'], integrity:79 };
-
-exports.default = __defaultExport;
-},
-"js/puzzles/puzzle-22.js": function(module, exports, __require) {
-const __defaultExport = { id:'22', code:'NO_11', title:'histórias suspensas', kind:'books-node', next:['23'], integrity:84 };
-
-exports.default = __defaultExport;
-},
-"js/puzzles/puzzle-23.js": function(module, exports, __require) {
-const __defaultExport = { id:'23', code:'RETORNO_DO_OBSERVADOR', title:'segunda camada', kind:'moon-two', next:['24'], integrity:91 };
-
-exports.default = __defaultExport;
-},
-"js/puzzles/puzzle-24.js": function(module, exports, __require) {
-const __defaultExport = { id:'24', code:'INTEGRIDADE_99', title:'um registro ausente', kind:'meta', next:['25'], integrity:99 };
-
-exports.default = __defaultExport;
-},
-"js/puzzles/puzzle-25.js": function(module, exports, __require) {
-const __defaultExport = { id:'25', code:'RECUPERACAO_COMPLETA', title:'arquivo íntegro', kind:'final', next:[], integrity:100 };
-
-exports.default = __defaultExport;
-},
-"js/puzzles/contracts.js": function(module, exports, __require) {
-const contract = (act, area, motion, corruption, receiverImpact, options = {}) => Object.freeze({
-  act,
-  area,
-  motion,
-  corruption,
-  receiverImpact,
-  mutatesSystem: Boolean(options.mutatesSystem),
-  retroactive: Boolean(options.retroactive),
-  requirements: options.requirements || [],
-  evidence: options.evidence || []
+const PHASE_INTENTS = Object.freeze({
+  '01':'Alguém deixou esta máquina esperando por você.',
+  '02':'Encontre o que não pertence a este sistema.',
+  '03':'Agora é hora de ouvir a máquina ao lado.',
+  '04':'O sinal não está tentando formar uma voz.',
+  '05':'A palavra anterior também existe dentro do computador.',
+  '06':'Descubra o que nenhuma das duas versões conseguiu apagar.',
+  '07':'O nome mente; o momento em que foi tocado, não.',
+  '08':'O arquivo perdeu o cabeçalho, mas não perdeu tudo.',
+  '09':'A palavra recuperada aponta para algo fora da tela.',
+  '10':'Volte ao primeiro arquivo. Ele não ficou parado.',
+  '11':'As duas fontes discordam, mas deixaram o mesmo rastro.',
+  '12':'Talvez o telefone conserve a versão menos técnica disso.',
+  '13':'O Receiver também mudou enquanto você estava fora.',
+  '14':'Há alguma coisa nas fotografias daquela estante.',
+  '15':'A hora recuperada serve para alterar o próprio sistema.',
+  '16':'A resposta está onde a noite deixa as coisas ao alcance.',
+  '17':'Três pistas antigas descrevem a mesma fonte.',
+  '18':'A margem não possui nome até as lembranças se encostarem.',
+  '19':'Algumas memórias só existem quando as duas versões se ligam.',
+  '20':'Há um espaço inteiro ausente entre relações conhecidas.',
+  '21':'Noventa e nove por cento não encerra uma investigação.',
+  '22':'As histórias continuam guardando uma coisa abaixo delas.',
+  '23':'Restaure o momento em que tudo começou.',
+  '24':'As duas cadeias finalmente podem ocupar a mesma linha.',
+  '25':'As classificações já cumpriram seu papel.'
 });
 
-const PUZZLE_CONTRACTS = Object.freeze({
-  '01': contract(1, 'archive', 'signature', 0, 1, { mutatesSystem: true, evidence: ['evento-1010'] }),
-  '02': contract(1, 'archive', 'low', 0, 1, { retroactive: true, requirements: ['01'], evidence: ['evento-1010','vx-04','vx-11','vx-02'] }),
-  '03': contract(1, 'receiver', 'signature', 1, 3, { mutatesSystem: true, retroactive: true, requirements: ['02'], evidence: ['receiver-04'] }),
-  '04': contract(1, 'receiver', 'high', 1, 3, { requirements: ['03'], evidence: ['object-desk'] }),
-  '05': contract(1, 'cold-storage', 'high', 1, 1, { mutatesSystem: true, retroactive: true, requirements: ['04'], evidence: ['node-02'] }),
-  '06': contract(2, 'archive', 'signature', 1, 0, { mutatesSystem: true, requirements: ['05'], evidence: ['document-invariant'] }),
-  '07': contract(2, 'archive', 'high', 2, 1, { mutatesSystem: true, requirements: ['06'], evidence: ['file-1010'] }),
-  '08': contract(2, 'archive', 'medium', 1, 0, { requirements: ['07'], evidence: ['object-moon'] }),
-  '09': contract(2, 'cold-storage', 'high', 2, 1, { mutatesSystem: true, retroactive: true, requirements: ['08'], evidence: ['vx-04-moon'] }),
-  '10': contract(2, 'archive', 'high', 3, 1, { mutatesSystem: true, retroactive: true, requirements: ['09','02'], evidence: ['shared-event'] }),
-  '11': contract(3, 'evidence', 'signature', 2, 1, { mutatesSystem: true, requirements: ['10'], evidence: ['hair-geometry','entity-b-denial'] }),
-  '12': contract(3, 'identity', 'high', 2, 1, { mutatesSystem: true, retroactive: true, requirements: ['11'], evidence: ['memory-mullet'] }),
-  '13': contract(3, 'receiver', 'signature', 3, 3, { mutatesSystem: true, retroactive: true, requirements: ['12','03'], evidence: ['receiver-afterimage'] }),
-  '14': contract(3, 'cold-storage', 'medium', 2, 2, { retroactive: true, requirements: ['13'], evidence: ['book-fragments'] }),
-  '15': contract(3, 'evidence', 'medium', 2, 1, { mutatesSystem: true, requirements: ['14'], evidence: ['night-instruction'] }),
-  '16': contract(3, 'cold-storage', 'medium', 2, 2, { mutatesSystem: true, retroactive: true, requirements: ['15'], evidence: ['vx-11-receiver'] }),
-  '17': contract(3, 'receiver', 'signature', 3, 3, { mutatesSystem: true, retroactive: true, requirements: ['16','evento-1010'], evidence: ['node-17','calibration-fragment','carrier-1010'] }),
-  '18': contract(4, 'evidence', 'signature', 3, 1, { mutatesSystem: true, requirements: ['17'], evidence: ['location-park'] }),
-  '19': contract(4, 'identity', 'high', 4, 1, { mutatesSystem: true, retroactive: true, requirements: ['18','12','10'], evidence: ['shared-memory'] }),
-  '20': contract(4, 'cold-storage', 'signature', 4, 2, { mutatesSystem: true, requirements: ['19'], evidence: ['room-match','impossible-tv'] }),
-  '21': contract(4, 'receiver', 'signature', 4, 3, { mutatesSystem: true, retroactive: true, requirements: ['20'], evidence: ['system-object-tv'] }),
-  '22': contract(4, 'cold-storage', 'medium', 4, 2, { mutatesSystem: true, retroactive: true, requirements: ['21'], evidence: ['node-11','audio-header'] }),
-  '23': contract(4, 'identity', 'high', 4, 2, { mutatesSystem: true, retroactive: true, requirements: ['22','09'], evidence: ['vx-02-conflict'] }),
-  '24': contract(5, 'identity', 'signature', 5, 3, { mutatesSystem: true, retroactive: true, requirements: ['23'], evidence: ['relation-us'] }),
-  '25': contract(5, 'identity', 'signature', 0, 1, { mutatesSystem: true, requirements: ['24'] })
+const PHASE_HINTS = Object.freeze({
+  '01':['A estação ainda não está pedindo investigação.','Procure o único controle da tela de espera.','Inicie o sistema para chegar ao desktop.','Pressione INICIAR SISTEMA.'],
+  '02':['O elemento estranho está dentro da instalação, não nos documentos pessoais.','Abra Meu computador e examine SISTEMA.','Entre em REGISTROS e compare a origem dos índices.','Abra REG_101000.idx e use ISOLAR REGISTRO.'],
+  '03':['Ruído também informa quando muda de comportamento.','Percorra os canais com o controle físico do Receiver.','Procure um canal cuja tela não permaneça em estática comum.','Ligue o aparelho e sintonize o canal 04.'],
+  '04':['A transmissão descreve letras sem usar voz.','Observe a alternância entre pulsos curtos e longos.','Registre ponto e traço e consulte Morse.','-- . ... .- forma MESA.'],
+  '05':['A palavra recuperada nomeia algo dentro do PC.','No desktop, abra MOUNT.exe.','Leia a data da montagem sem dispositivo e use DDMMYY.','17/04/91 vira 170491.'],
+  '06':['As diferenças são ruído; procure o que resistiu.','Compare cada linha da versão A com a mesma linha da B.','Selecione somente os três pares idênticos.','Extraia A DATA / ABRE / O ARQUIVO.'],
+  '07':['Os nomes foram feitos para parecer convincentes.','Abra DIRETORIO_J e compare a coluna MODIFICADO.','Use 10:10 como critério, não a palavra “final”.','Abra final_agora_vai.txt, modificado às 10:10.'],
+  '08':['Os espaços já separam unidades completas.','Abra DUMP_24.exe e trate cada bloco como um byte.','Converta os três bytes para caracteres ASCII.','01001100 01010101 01000001 forma LUA.'],
+  '09':['A resposta anterior é um objeto próximo, não outro arquivo.','Procure no quarto uma lua que possa guardar uma marca.','Examine a borda acessível do pano com lua.','Registre VX-04.'],
+  '10':['Não procure um novo arquivo.','Volte ao caminho usado na primeira investigação do PC.','Abra SISTEMA / REGISTROS / REG_101000.idx.','Leia as linhas novas e use PROCESSAR ALTERAÇÃO.'],
+  '11':['Relatos podem mentir; propriedades geométricas não.','Cruze as duas fontes e descarte opiniões repetidas.','Selecione quatro camadas que descrevam forma e comprimento.','Use VOLUME, LATERAIS, COMPRIMENTO e SILHUETA; depois CALCULAR GEOMETRIA.'],
+  '12':['A reconstrução já terminou; agora procure uma lembrança.','Desbloqueie o celular e abra Mensagens.','Entre na conversa de J. e consulte o anexo antigo.','Em IMG_2019_MULLET.jpg, use ANEXAR METADATA AO ARQUIVO.'],
+  '13':['A ausência de sinal pode deixar uma presença física.','No Receiver, procure o canal vazio que mudou desde a visita anterior.','Deixe o canal 11 ativo e então desligue o aparelho.','Sintonize 11 e use DESLIGAR para revelar FIM · 01 · COMEÇO.'],
+  '14':['A fotografia serve para reconhecer relações entre lombadas.','No PC, abra BOOKSCAN.exe e use FIM, COMEÇO e DISTÂNCIA 01.','Selecione o par de títulos adjacentes e depois consulte esses livros físicos.','É Assim que Acaba + É Assim que Começa fornecem 03:__ e __:17: retorne com 03:17.'],
+  '15':['O horário recuperado deve alterar o ambiente, não ser digitado em um formulário.','Use o relógio da barra inferior do PC.','Abra DATA / HORA, ajuste horas e minutos e aplique.','Defina 03:17; o sistema revelará 0317.REC.'],
+  '16':['A instrução fala de alcance noturno, não da superfície onde se dorme.','Pense no móvel que continua próximo depois de deitar.','Examine a mesa de cabeceira e procure a marca preparada.','Registre VX-11 encontrado na mesa de cabeceira.'],
+  '17':['As pistas antigas descrevem uma fonte antes de descrever números.','Autentique primeiro o NÓ das cadeiras verdes.','Depois use EVENTO_1010 nos controles grandes e procure o pico do ajuste fino.','CAN 10 · NÍVEL 10 · AJUSTE FINO +3.'],
+  '18':['O nome do lugar está distribuído entre lembranças espaciais.','Autentique NODE_17 e selecione todos os fragmentos coerentes.','Ligue as marcas na ordem apresentada e leia o contorno.','A resposta formada é PARQUINHO DA BEIRA-MAR.'],
+  '19':['Cada lembrança possui uma origem e uma consequência.','Procure três pares que falam do mesmo acontecimento.','Selecione dois registros por vez para criar cada vínculo.','Ligue evento/conversa, foto/mullet e margem/parquinho.'],
+  '20':['A planta é verificada por relações, não por decoração exata.','Posicione repouso, armazenamento, trabalho, apoio e observador em suas âncoras.','Complete todas as relações e valide o modelo; depois siga a origem física.','A diferença de +11,2 m² leva ao Cômodo Zero e ao NODE_00.'],
+  '21':['Uma conclusão incompleta é uma nova evidência.','Abra INTEGRIDADE.exe no mesmo computador.','Execute o encerramento e observe qual relação permanece sem âncora.','Use TESTAR ENCERRAMENTO e depois VOLTAR AO ARQUIVO.'],
+  '22':['“Histórias” nomeia um lugar físico de armazenamento.','Procure abaixo da estante, não dentro de um livro.','Autentique o NODE_11 pelo código completo encontrado no QR.','Insira VX-LIVROS-0214.'],
+  '23':['03:17 revelou; agora o sistema pede a origem.','O evento central repete a hora no nome e na primeira linha.','Abra novamente DATA / HORA pela taskbar.','Restaure 10:10 e aplique para sincronizar RECUPERAR.exe.'],
+  '24':['As duas cadeias devem manter identidade e ordem.','Abra RECUPERAR_FINAL.exe e leia os resultados 520 e 1314.','A operação indicada é concatenar, não somar.','Digite 5201314.'],
+  '25':[]
 });
 
-const PUZZLE_SOLUTIONS = Object.freeze({
-  '01': 'acionar o cursor do comando interrompido',
-  '02': 'abrir EVENTO_1010',
-  '03': 'sintonizar o canal 04',
-  '04': 'MESA',
-  '05': 'VX-MESA-1010',
-  '06': 'A DATA ABRE O ARQUIVO',
-  '07': 'final_agora_vai.txt',
-  '08': 'LUA',
-  '09': 'VX-04',
-  '10': 'localizar no ARQUIVO o registro com checksum alterado',
-  '11': 'reconstruir ao menos quatro camadas forenses',
-  '12': 'MULLET',
-  '13': 'canal 11 e desligamento para revelar a imagem residual',
-  '14': 'NIGHT-251',
-  '15': 'ONDE A NOITE DEIXA O QUE VOCÊ PRECISA',
-  '16': 'VX-11',
-  '17': 'autenticar NÓ_17, cruzar “repita o evento” com EVENTO_1010 e ajustar canal 10 + volume 10',
-  '18': 'PARQUINHO DA BEIRA-MAR',
-  '19': 'ligar os três pares de memórias',
-  '20': 'estabelecer ao menos quatro relações espaciais válidas',
-  '21': 'encerrar o falso final e retornar ao arquivo',
-  '22': 'VX-LIVROS-0214',
-  '23': 'VX-02',
-  '24': 'LUA → TV → MULLET → NÓS',
-  '25': 'conclusão narrativa sem nova trava'
+const WORLD_BY_FAMILY = Object.freeze({ computer:'computer', device:'tv', phone:'phone', archive:'document', forensic:'document', reconstruction:'reconstruction', final:'final' });
+const CALLBACKS_BY_PHASE = Object.freeze({
+  '05':['signal:mesa'], '07':['event:1010'], '09':['binary:lua'], '10':['file:event-1010'],
+  '12':['forensic:hair-geometry'], '13':['tv:channel-04'], '14':['tv:afterimage'], '15':['books:0317'],
+  '17':['event:1010','node:green'], '19':['event:two-sources','memory:mullet','location:margin'],
+  '20':['room:relations'], '21':['room:unanchored-tv'], '23':['clock:0317','event:1010'], '24':['chain:520','chain:1314']
 });
 
-exports.PUZZLE_CONTRACTS = PUZZLE_CONTRACTS;
-exports.PUZZLE_SOLUTIONS = PUZZLE_SOLUTIONS;
+function definePuzzle(definition) {
+  const puzzle = {
+    area: 'desktop', controller: 'system', prerequisites: [], discoveries: [], hints: [],
+    archiveEffects: [], worldMutations: [], callbacks: [], physicalEffect: null, audioCue: 'ui.contact', motionCue: 'low',
+    next: [], solution: null, ui: {}, keyboardPath: true, ...definition
+  };
+  puzzle.world = definition.world || WORLD_BY_FAMILY[puzzle.family] || 'computer';
+  puzzle.intent = definition.intent || PHASE_INTENTS[puzzle.id] || puzzle.objective;
+  puzzle.worldMutations = freeze(puzzle.world === 'computer' ? COMPUTER_MUTATIONS.filter((mutation)=>mutation.at===puzzle.id).map((mutation)=>mutation.id) : puzzle.worldMutations);
+  puzzle.callbacks = freeze(CALLBACKS_BY_PHASE[puzzle.id] || puzzle.callbacks);
+  puzzle.corruption = Number.isFinite(puzzle.corruption) ? puzzle.corruption : Math.max(0, Math.min(5, puzzle.act - 1));
+  puzzle.kind = puzzle.renderer;
+  puzzle.requirements = freeze(puzzle.prerequisites);
+  puzzle.evidence = freeze(puzzle.discoveries);
+  puzzle.hints = freeze(PHASE_HINTS[puzzle.id] || puzzle.hints);
+  puzzle.next = freeze(puzzle.next);
+  puzzle.contract = Object.freeze({
+    id: puzzle.id, act: puzzle.act, family: puzzle.family, world: puzzle.world, intent: puzzle.intent,
+    narrative: puzzle.narrative, objective: puzzle.objective,
+    interaction: puzzle.interaction, successMeaning: puzzle.successMeaning,
+    prerequisites: puzzle.requirements, discoveries: puzzle.evidence, hints: puzzle.hints,
+    renderer: puzzle.renderer, controller: puzzle.controller,
+    archiveEffects: freeze(puzzle.archiveEffects), worldMutations: puzzle.worldMutations, callbacks: puzzle.callbacks, physicalEffect: puzzle.physicalEffect,
+    audioCue: puzzle.audioCue, motionCue: puzzle.motionCue,
+    accessibility: Object.freeze({ reducedMotion: true, audioIndependent: true, keyboardPath: puzzle.keyboardPath })
+  });
+  return Object.freeze(puzzle);
+}
+
+const P = definePuzzle;
+
+const PUZZLES = Object.freeze([
+  P({ id:'01', act:1, family:'computer', area:'desktop', code:'ESTACAO_R', title:'computador deixado ligado', renderer:'boot', integrity:0, next:['02'],
+    narrative:'Um computador gráfico antigo foi deixado ligado para uma única leitora.', objective:'Iniciar a estação e observar o ambiente deixado para você.', interaction:'acionar a inicialização manual', successMeaning:'A estação gráfica fica disponível para investigação.', motionCue:'boot-sequence',
+    ui:{ status:(s)=>s.flags.initialized?'DESKTOP DISPONÍVEL':'SISTEMA EM ESPERA' } }),
+  P({ id:'02', act:1, family:'computer', area:'files', code:'INDICE_LOCAL', title:'índice de inicialização', renderer:'logs', integrity:4, next:['03'], controller:'archive', prerequisites:['01'], discoveries:['evento-1010'], archiveEffects:['evento-1010:v1'],
+    narrative:'O computador parece usado: há manutenção, backups e um registro temporal fora da rotina.', objective:'Localizar o registro que não pertence à sequência operacional.', interaction:'inspecionar logs e metadados', successMeaning:'EVENTO_1010 passa a existir no histórico pesquisável.',
+    ui:{status:(s)=>s.flags.event1010Seen?'EVENTO_1010 INDEXADO':'6 LOGS // 1 ANOMALIA'} }),
+  P({ id:'03', act:1, family:'device', area:'receiver', code:'RECEPTOR_VX', title:'portadora não identificada', renderer:'tv-intro', integrity:7, next:['04'], controller:'receiver', prerequisites:['02'], discoveries:['receiver-04'], audioCue:'receiver.static', motionCue:'receiver-channel-lock',
+    narrative:'Um periférico sem fabricante responde a uma faixa que o computador não cataloga.', objective:'Encontrar a portadora que não produz apenas estática.', interaction:'varrer os canais do Receiver', successMeaning:'Uma transmissão específica é isolada.',
+    ui:{status:(s)=>`RECEPTOR ${s.tv.power?'ATIVO':'DESLIGADO'} // CAN ${String(s.tv.channel).padStart(2,'0')}`} }),
+  P({ id:'04', act:1, family:'device', area:'receiver', code:'SINAL_04', title:'persistência luminosa', renderer:'morse', integrity:9, next:['05'], controller:'receiver', prerequisites:['03'], discoveries:['object-desk'],
+    narrative:'A portadora não contém voz; a lâmpada repete pulsos curtos e longos.', objective:'Interpretar o objeto codificado pelo sinal.', interaction:'reproduzir, anotar e decodificar Morse', successMeaning:'MESA deixa de parecer um objeto imediato e passa a nomear uma tabela interna do computador.', solution:{accepted:['mesa','escrivaninha']}, completion:{message:'SINAL INTERPRETADO // MESA'},
+    ui:{inputLabel:'Objeto escrito pelo sinal',placeholder:'nome do objeto',submitLabel:'REGISTRAR LEITURA',wrongFeedback:'O objeto não corresponde aos pulsos.'} }),
+  P({ id:'05', act:1, family:'computer', area:'files', code:'MOUNT_TABLE', title:'propriedades de uma unidade antiga', renderer:'file-properties', integrity:12, next:['06'], controller:'archive', prerequisites:['04'], discoveries:['archive-170491'],
+    narrative:'MESA também aparece na tabela de montagem da unidade. Uma entrada antiga não possui dispositivo correspondente.', objective:'Inspecionar as propriedades da montagem órfã e recuperar seu índice.', interaction:'comparar unidade, data de criação e endereço', successMeaning:'ARCHIVE_170491 passa a ligar informação antiga a um contexto ainda desconhecido.', solution:{accepted:['170491','17 04 91','17/04/91']}, completion:{message:'MONTAGEM ÓRFÃ INDEXADA // 170491'},
+    ui:{inputLabel:'Índice da montagem órfã',placeholder:'seis dígitos',submitLabel:'MONTAR UNIDADE',format:/^[\d\s/.-]{6,10}$/,formatHint:'Use dia, mês e ano na ordem exibida.',wrongFeedback:'Esse índice não corresponde à montagem órfã.'} }),
+  P({ id:'06', act:2, family:'archive', area:'documents', code:'DOC_1708', title:'duas versões do mesmo relatório', renderer:'document', integrity:15, next:['07'], controller:'archive', prerequisites:['05'], discoveries:['document-invariant'], archiveEffects:['documento-06'], motionCue:'memory-reconstruction',
+    narrative:'Duas cópias discordam em quase tudo. Três trechos sobreviveram idênticos.', objective:'Extrair as linhas invariantes das versões A e B.', interaction:'comparar o mesmo índice nas duas versões', successMeaning:'Uma instrução apagada volta a ser legível.', completion:{message:'INSTRUÇÃO RECUPERADA // A DATA ABRE O ARQUIVO',motion:'document'}, ui:{status:(s)=>`${s.documentFragments.length} / 3 INVARIANTES`,wrongFeedback:'Esse trecho foi alterado.'} }),
+  P({ id:'07', act:2, family:'computer', area:'files', code:'DIRETORIO_J', title:'versões incompatíveis', renderer:'files', integrity:19, next:['08'], controller:'archive', prerequisites:['06'], discoveries:['file-1010'],
+    narrative:'Uma pasta banal contém cinco arquivos chamados “final”. Os nomes mentem; o horário deixa rastro.', objective:'Encontrar a versão tocada no momento do evento.', interaction:'abrir arquivos e comparar propriedades', successMeaning:'A cópia legítima é separada das iscas.', ui:{status:()=> '5 VERSÕES // 4 ISCAS'} }),
+  P({ id:'08', act:2, family:'computer', area:'files', code:'PACOTE_8BIT', title:'fragmentos sem cabeçalho', renderer:'binary', integrity:23, next:['09'], prerequisites:['07'], discoveries:['object-moon'],
+    narrative:'A versão correta guarda 24 bits já separados em três blocos.', objective:'Converter os blocos em um objeto.', interaction:'ler três bytes como caracteres', successMeaning:'Um objeto conhecido ganha função investigativa.', solution:{accepted:['lua']}, completion:{message:'OBJETO RECUPERADO // LUA'}, ui:{inputLabel:'Palavra formada pelos três bytes',placeholder:'objeto recuperado',submitLabel:'INDEXAR OBJETO',wrongFeedback:'Os bytes não formam esse objeto.'} }),
+  P({ id:'09', act:2, family:'reconstruction', world:'physical', area:'images', code:'OBJETO_L01', title:'referência material', renderer:'moon-one', integrity:26, next:['10'], controller:'nodes', prerequisites:['08'], discoveries:['vx-04-moon'], physicalEffect:'moon',
+    narrative:'LUA não é outra senha: é uma referência a algo que já está no quarto.', objective:'Localizar a primeira marca do objeto.', interaction:'consultar o visualizador e examinar o objeto físico', successMeaning:'VX-04 ganha uma origem material.', solution:{accepted:['vx 04','vx04']}, completion:{message:'CAMADA VX-04 RECUPERADA',effects:['moonFirstFound']}, ui:{inputLabel:'Marca encontrada no objeto',placeholder:'identificador físico',submitLabel:'ANEXAR MARCA',wrongFeedback:'Essa não é a primeira camada do objeto.'} }),
+  P({ id:'10', act:2, family:'computer', area:'archive', code:'SOMA_DIVERGENTE', title:'um arquivo conhecido mudou', renderer:'return-event', integrity:31, next:['11'], controller:'archive', prerequisites:['09','02'], discoveries:['shared-event'], archiveEffects:['evento-1010:v2'],
+    narrative:'EVENTO_1010 não corresponde mais à primeira leitura.', objective:'Voltar ao mesmo índice no PC e processar suas novas linhas.', interaction:'abrir Meu computador / SISTEMA / REGISTROS e reler REG_101000.idx', successMeaning:'O arquivo revela que havia duas fontes no evento.', ui:{status:(s)=>s.flags.eventChanged?'VERSÃO 02 PROCESSADA':'REGISTRO CONHECIDO ALTERADO'} }),
+  P({ id:'11', act:3, family:'forensic', area:'evidence', code:'CONFLITO_MEMORIA', title:'divergência entre fontes', renderer:'conflict', integrity:35, next:['12'], controller:'forensic', prerequisites:['10'], discoveries:['hair-geometry'], motionCue:'memory-reconstruction',
+    narrative:'Duas versões da mesma lembrança discordam. A geometria não depende do relato.', objective:'Cruzar camadas suficientes para reconstruir a forma.', interaction:'selecionar evidências e calcular o modelo', successMeaning:'Uma memória deixa de depender de uma única voz.', ui:{status:(s)=>`${s.forensicSelections.length} / 4 CAMADAS NECESSÁRIAS`} }),
+  P({ id:'12', act:3, family:'phone', area:'messages', code:'MEMORIA_2019', title:'uma fotografia antiga', renderer:'phone-memory', integrity:39, next:['13'], controller:'phone', prerequisites:['11'], discoveries:['memory-mullet'],
+    narrative:'A reconstrução técnica encontra uma fotografia e uma conversa antiga no celular preparado.', objective:'Abrir a conversa de J., localizar IMG_2019 e anexar sua metadata.', interaction:'desbloquear o celular, abrir Mensagens e consultar o anexo', successMeaning:'MULLET deixa de ser uma adivinhação e vira detalhe de uma memória compartilhada.', solution:{accepted:[GAME_CONFIG.memoryAnswer,...GAME_CONFIG.memoryAliases]}, completion:{message:'MEMÓRIA ANEXADA // IMG_2019_MULLET',effects:['mulletConfirmed']}, ui:{wrongFeedback:'Essa evidência não corresponde à reconstrução.'} }),
+  P({ id:'13', act:3, family:'device', area:'receiver', code:'RECEPTOR_VX', title:'imagem residual', renderer:'tv-sequence', integrity:43, next:['14'], controller:'receiver', prerequisites:['12','03'], discoveries:['receiver-afterimage'], motionCue:'tv-afterimage',
+    narrative:'O Receiver mudou enquanto estava fora de uso.', objective:'Descobrir o que permanece depois que a portadora some.', interaction:'operar canal e power', successMeaning:'FIM · 01 · COMEÇO fica gravado no fósforo como relação, não senha.', ui:{status:(s)=>s.flags.tvChannel11Primed?'CANAL 11 // PORTADORA AUSENTE':`CAN ${String(s.tv.channel).padStart(2,'0')}`} }),
+  P({ id:'14', act:3, family:'computer', area:'images', code:'BOOKSCAN_020501', title:'captura degradada da estante', renderer:'books', integrity:47, next:['15'], prerequisites:['13'], discoveries:['book-time'], physicalEffect:'books',
+    narrative:'Duas fotografias reais da estante e um log descrevem extremidades separadas por um único volume.', objective:'Identificar o par FIM/COMEÇO, consultar os livros físicos e retornar com o timestamp.', interaction:'abrir BOOKSCAN.exe, correlacionar títulos adjacentes e reunir os dois insertos', successMeaning:'03:17 nasce de uma cadeia entre captura, log, estante física e retorno ao PC.', solution:{accepted:['03:17','0317','03 17']}, completion:{message:'BOOKSCAN INDEXADO // 03:17',effects:['booksFound']}, ui:{inputLabel:'Timestamp encontrado nos dois insertos',placeholder:'00:00',submitLabel:'RETORNAR AO BOOKSCAN',format:/^\d{2}[:\s]?\d{2}$/,formatHint:'Use quatro dígitos, com ou sem dois-pontos.',wrongFeedback:'Os fragmentos físicos não formam esse horário.'} }),
+  P({ id:'15', act:3, family:'computer', area:'desktop', code:'CLOCK_CAL', title:'relógio de sistema', renderer:'clock-calibration', integrity:51, next:['16'], prerequisites:['14'], discoveries:['night-instruction'],
+    narrative:'O BOOKSCAN recuperou uma hora. A barra da estação agora aceita calibração manual.', objective:'Ajustar o relógio do PC para a hora extraída dos livros.', interaction:'abrir o relógio da barra, ajustar e aplicar', successMeaning:'O sistema revela uma instrução que só existe em 03:17.', ui:{status:(s)=>`RELÓGIO // ${String(s.desktopOs.clockHour).padStart(2,'0')}:${String(s.desktopOs.clockMinute).padStart(2,'0')}`} }),
+  P({ id:'16', act:3, family:'reconstruction', world:'physical', area:'files', code:'NODE_NOTURNO', title:'proximidade sem coordenada', renderer:'bedside', integrity:55, next:['17'], controller:'nodes', prerequisites:['15'], discoveries:['vx-11-receiver'], physicalEffect:'bedside',
+    narrative:'A instrução aponta para o móvel que permanece ao alcance depois de deitar.', objective:'Encontrar e registrar a marca noturna.', interaction:'interpretar a relação e consultar o ambiente', successMeaning:'VX-11 liga o quarto ao Receiver.', solution:{accepted:['vx 11','vx11','receptor','tv','televisao']}, completion:{message:'MARCA VX-11 CONFIRMADA',effects:['bedsideFound']}, ui:{inputLabel:'Marca encontrada perto da cama',placeholder:'identificador',submitLabel:'VINCULAR',wrongFeedback:'Essa marca não estava no lugar descrito.'} }),
+  P({ id:'17', act:3, family:'device', area:'receiver', code:'FONTE_CROMATICA', title:'o verde que restou', renderer:'tv-tuning', integrity:59, next:['18'], controller:'receiver', prerequisites:['16','evento-1010'], discoveries:['node-14','carrier-1010'], physicalEffect:'green',
+    narrative:'ASSENTO, EXTERNO e VERDE vieram de sistemas diferentes e descrevem a mesma fonte.', objective:'Vincular NODE_14 e estabilizar a portadora em seu pico.', interaction:'autenticar a fonte e operar canal, volume e ajuste fino', successMeaning:'Uma fonte externa passa a controlar o Receiver.', ui:{status:(s)=>s.flags.greenNodeValidated?`FONTE // ${s.tv.channel}:${s.tv.volume} · FINO ${s.tv.fine>0?'+':''}${s.tv.fine}`:'FONTE EXTERNA NÃO VINCULADA'} }),
+  P({ id:'18', act:4, family:'forensic', area:'evidence', code:'MARGEM_EXTERNA', title:'contorno sem nome', renderer:'location', integrity:64, next:['19'], controller:'forensic', prerequisites:['17'], discoveries:['node-17','location-park'], physicalEffect:'yard',
+    narrative:'A fonte verde abriu uma trilha curta até uma margem privada da casa.', objective:'Autenticar NODE_17 e reconstruir o lugar pelas evidências.', interaction:'seguir marcas, retornar e cruzar fragmentos espaciais', successMeaning:'O exterior ganha uma posição verificável.', solution:{accepted:[GAME_CONFIG.locationAnswer,...GAME_CONFIG.locationAliases]}, completion:{message:'LOCAL RECUPERADO // PARQUINHO DA BEIRA-MAR',motion:'location',effects:['locationRecovered']}, ui:{inputLabel:'Lugar formado pelas evidências',placeholder:'nome do local',submitLabel:'CONFIRMAR CONTORNO',wrongFeedback:'As evidências não formam esse lugar.'} }),
+  P({ id:'19', act:4, family:'forensic', area:'evidence', code:'TESTE_ENTIDADE', title:'vínculos de memória', renderer:'identity', integrity:69, next:['20'], controller:'forensic', prerequisites:['18','12','10'], discoveries:['shared-memory'],
+    narrative:'Registros separados contam os dois lados das mesmas lembranças.', objective:'Ligar cada origem à consequência correspondente.', interaction:'selecionar dois registros por vez', successMeaning:'ENTIDADE B deixa de ser tratada como desconhecida.', ui:{status:(s)=>`${Math.floor(s.relationLinks.length/2)} / 3 VÍNCULOS`} }),
+  P({ id:'20', act:4, family:'reconstruction', area:'reconstruction', code:'PLANTA_INCOMPLETA', title:'Cômodo Zero', renderer:'room', integrity:74, next:['21'], controller:'reconstruction', prerequisites:['19'], discoveries:['house-match','node-00','reading-0317'], physicalEffect:'room',
+    narrative:'A casa fecha quase toda. Repouso, armazenamento e abertura descrevem um cômodo ausente do índice.', objective:'Reconstruir relações, localizar o volume ausente e anexar NODE_00.', interaction:'arrastar ou selecionar objeto + destino; depois visitar a origem', successMeaning:'Uma leitura impossível de 03:17 entra no sistema.', ui:{status:(s)=>s.flags.roomNodeValidated?'NODE_00 // LEITURA ANTERIOR 03:17':s.flags.houseAnomalyRevealed?'VOLUME AUSENTE // ACESSO FÍSICO':`${Object.values(s.room).filter((v)=>v?.moved).length} OBJETOS POSICIONADOS`} }),
+  P({ id:'21', act:4, family:'computer', area:'desktop', code:'INTEGRIDADE_99', title:'encerramento incompleto', renderer:'impossible', integrity:99, next:['22'], prerequisites:['20'], discoveries:['system-object-tv'], motionCue:'system-signal-loss',
+    narrative:'O sistema declara conclusão sem explicar a terceira fonte nem o Cômodo Zero.', objective:'Testar e recusar o encerramento de 99%.', interaction:'executar o fechamento e observar a inconsistência', successMeaning:'O canal escondido atrás do falso final é liberado.', ui:{status:(s)=>s.flags.fakeFinalSeen?'FALSO FINAL ROMPIDO':'ENCERRAMENTO DISPONÍVEL'} }),
+  P({ id:'22', act:4, family:'reconstruction', world:'physical', area:'files', code:'NODE_11', title:'histórias suspensas', renderer:'books-node', integrity:84, next:['23'], controller:'nodes', prerequisites:['21'], discoveries:['node-11','audio-header'], physicalEffect:'books',
+    narrative:'O falso final revela um cabeçalho de áudio e aponta para onde histórias são armazenadas.', objective:'Autenticar o NODE sob a estante.', interaction:'consultar o cabeçalho e retornar com a assinatura', successMeaning:'Os livros digitais e físicos passam a compartilhar índice.', solution:{accepted:[GAME_CONFIG.booksNodeCode]}, completion:{message:'NODE_11 AUTENTICADO',effects:['booksNodeValidated']}, ui:{inputLabel:'Assinatura encontrada sob a estante',placeholder:'VX-LIVROS-0000',submitLabel:'AUTENTICAR',wrongFeedback:'A assinatura não pertence ao NODE_11.'} }),
+  P({ id:'23', act:5, family:'computer', area:'desktop', code:'CLOCK_ORIGIN', title:'hora original do evento', renderer:'clock-origin', integrity:91, next:['24'], prerequisites:['22','20'], discoveries:['time-origin'],
+    narrative:'A calibração de 03:17 abriu o sistema, mas o evento central possui outra hora original registrada desde o início.', objective:'Restaurar no relógio a hora exata de EVENTO_1010.', interaction:'revisitar o registro conhecido e corrigir a hora da barra', successMeaning:'O sistema reconhece a origem temporal e libera as cadeias finais.', ui:{status:(s)=>`ORIGEM ESPERADA // EVENTO_1010 · ATUAL ${String(s.desktopOs.clockHour).padStart(2,'0')}:${String(s.desktopOs.clockMinute).padStart(2,'0')}`} }),
+  P({ id:'24', act:5, family:'computer', area:'evidence', code:'CHAVE_COMPOSTA', title:'dois fragmentos de dados', renderer:'meta', integrity:99, next:['25'], controller:'forensic', prerequisites:['23'], discoveries:['fragment-520','fragment-1314','relation-us'],
+    narrative:'Duas cadeias independentes terminam em 520 e 1314. Até aqui, ambos pareciam apenas dados.', objective:'Confirmar as cadeias e concatenar a chave final.', interaction:'revisitar evidências e inserir a chave', successMeaning:'O sistema recupera a interpretação sem exigir conhecimento externo.', solution:{accepted:['5201314']}, completion:{message:'CHAVE ACEITA // INTERPRETAÇÃO RECUPERADA',motion:'merge',effects:['finalRecovered']}, ui:{inputLabel:'Chave composta',placeholder:'sete dígitos',submitLabel:'EXECUTAR CHAVE',format:/^\d{7}$/,formatHint:'A chave possui sete dígitos sem separadores.',wrongFeedback:'A concatenação não preserva a ordem das cadeias.'} }),
+  P({ id:'25', act:5, family:'final', area:'identity', code:'RECUPERACAO_COMPLETA', title:'arquivo íntegro', renderer:'final', integrity:100, prerequisites:['24'], discoveries:['event-meaning'],
+    narrative:'As classificações técnicas perderam a função.', objective:'Permanecer e ler.', interaction:'conclusão narrativa', successMeaning:'EVENTO_1010 finalmente recebe significado humano.', ui:{status:()=> '10/10 // O DIA EM QUE A GENTE SE CONHECEU'} })
+]);
+
+const PUZZLE_BY_ID = Object.freeze(Object.fromEntries(PUZZLES.map((puzzle) => [puzzle.id, puzzle])));
+const puzzleFor = (id) => PUZZLE_BY_ID[id] || PUZZLE_BY_ID['01'];
+
+exports.PUZZLES = PUZZLES;
+exports.PUZZLE_BY_ID = PUZZLE_BY_ID;
+exports.puzzleFor = puzzleFor;
 },
-"data/hints.js": function(module, exports, __require) {
-const HINTS = {
-  '01': ['A interrupção foi deixada de propósito.', 'Olhe para o ponto em que a última linha parou.', 'Use o cursor quadrado no fim da linha.'],
-  '02': ['Quem montou isso queria que um registro chamasse atenção sem parecer óbvio.', 'Compare nomes e horários. Um deles repete a própria identidade.', 'Abra EVENTO_1010, registrado às 10:10.'],
-  '03': ['Não existe sintonia automática. Você precisa procurar.', 'O canal certo reage diferente antes mesmo de mostrar alguma coisa.', 'Leve o receptor até o canal 04.'],
-  '04': ['Não tente entender o som como fala.', 'Duração curta e longa pode ser anotada como ponto e traço.', 'O padrão “-- . ... .-” escreve MESA.'],
-  '05': ['Você já resolveu a mensagem. Agora obedeça ao que ela disse.', 'A palavra nomeia uma coisa que está no mesmo ambiente que você.', 'Levanta. O NÓ está na escrivaninha.'],
-  '06': ['O tamanho do texto é uma distração.', 'Procure palavras que não respeitam exatamente o mesmo alinhamento.', 'As palavras deslocadas formam A DATA ABRE O ARQUIVO.'],
-  '07': ['Se alguém chama cinco arquivos de final, o nome deixou de ser prova.', 'O evento já ensinou qual horário importa.', 'Abra final_agora_vai.txt, modificado às 10:10.'],
-  '08': ['A própria tela já separou o ruído em partes úteis.', 'Cada grupo de oito bits representa uma letra.', '01001100 / 01010101 / 01000001 forma LUA.'],
-  '09': ['Não é outra palavra para digitar. É uma instrução de busca.', 'Existe uma lua no quarto que você consegue examinar sem mexer em nada perigoso.', 'Procure a primeira marca no pano de lua.'],
-  '10': ['Você não precisa descobrir um arquivo novo.', 'Alguma coisa que você já leu agora aparece como ALTERADA.', 'Reabra EVENTO_1010 e compare as somas de verificação.'],
-  '11': ['As duas versões discordam, mas a geometria não sabe mentir.', 'Cruze volume, laterais e comprimento antes de confiar em qualquer relato.', 'Selecione pelo menos quatro camadas e calcule a forma do corte.'],
-  '12': ['Você já reconstruiu a resposta; falta usar o nome comum dela.', 'Laterais curtas e comprimento atrás descrevem um corte bem específico.', 'Digite MULLET. Sim, mesmo que a segunda versão negue.'],
-  '13': ['A TV não voltou igual depois que você saiu dela.', 'Encontre o canal vazio e pense no que uma tela antiga guarda depois de desligada.', 'No canal 11, desligue a TV para revelar 02 · 05 · 01.'],
-  '14': ['Três números podem ser posições em vez de uma combinação.', 'Procure uma coleção ordenada perto da cama.', 'Leia os livros 2, 5 e 1 da esquerda para a direita.'],
-  '15': ['Não monte uma frase bonita. Monte uma frase que dê uma instrução clara.', '“A noite” precisa de um lugar, e “o que você precisa” precisa de um verbo.', 'ONDE / A NOITE / DEIXA / O QUE VOCÊ PRECISA.'],
-  '16': ['Você tá complicando. A resposta não é a cama.', 'Pense no móvel que continua ao alcance quando você já deitou.', 'Procure a marca na mesa de cabeceira.'],
-  '17': ['A próxima parte foi deixada onde a casa termina sem você precisar ir para a rua.', 'Procure apenas na área externa privada preparada. O QR traz uma regra incompleta.', '“Repita o evento” significa usar 10 em CANAL e 10 em VOLUME.'],
-  '18': ['Isso não é uma cifra. São lembranças de um lugar.', 'Água, vento, bancos e brinquedos precisam existir juntos.', 'O lugar é o PARQUINHO DA BEIRA-MAR.'],
-  '19': ['Cada lembrança aparece duas vezes, descrita por lados diferentes.', 'Selecione uma origem e depois a consequência correspondente.', 'Ligue evento/conversa, cabelo/mullet e margem/local.'],
-  '20': ['Quem deixou o arquivo conhece um quarto específico.', 'Faça as relações da lista ficarem verdes; não tente copiar coordenadas exatas.', 'Posicione os cinco objetos reais. A TV é a única peça sem lugar no quarto.'],
-  '21': ['Noventa e nove não é cem. O erro está tentando passar por conclusão.', 'Aceite o encerramento apenas para ver onde ele quebra.', 'Use ENCERRAR SISTEMA e, depois da falha, VOLTAR AO ARQUIVO.'],
-  '22': ['O recado fala de histórias como objetos, não como lembranças.', 'Olhe abaixo de onde os livros ficam guardados.', 'O QR está sob a estante, em um ponto seguro e acessível.'],
-  '23': ['O objeto certo já foi encontrado. A leitura é que ficou incompleta.', 'Na primeira vez você viu um lado porque era o único que fazia sentido.', 'Volte ao pano de lua e procure a segunda marca. Ela estava lá desde o começo.'],
-  '24': ['Os três códigos VX não eram respostas isoladas.', 'Leia VX-04, VX-11 e VX-02 como uma ordem para recuperar as fontes.', 'Selecione LUA, TV e MULLET. As letras restantes formam NÓS.'],
-  '25': ['Não tem outra armadilha.', 'Agora o arquivo pode dizer por que escolheu você.', 'Leia. O resto não precisa ser resolvido.']
-};
+"js/worlds/computer-world.js": function(module, exports, __require) {
+const APP_BY_PHASE = Object.freeze({
+  '05':'mount-app',
+  '07':'directory-app',
+  '08':'dump-app',
+  '14':'bookscan-app',
+  '21':'truth-app',
+  '24':'final-recovery-app'
+});
 
-exports.HINTS = HINTS;
+const COMPUTER_MUTATIONS = Object.freeze([
+  { at:'02', id:'event-index', notice:'REGISTROS DO SISTEMA DISPONÍVEIS' },
+  { at:'03', id:'receiver', icons:['receiver-app'] },
+  { at:'05', id:'mount-table', icons:['mount-app'] },
+  { at:'07', id:'directory-tools', icons:['directory-app'] },
+  { at:'08', id:'dump-reader', icons:['dump-app'] },
+  { at:'09', id:'analyzer', icons:['analyzer-app'] },
+  { at:'10', id:'event-rewrite', wallpaper:'alert', notice:'1 ARQUIVO CONHECIDO FOI ALTERADO' },
+  { at:'14', id:'bookscan', icons:['bookscan-app'], notice:'2 CAPTURAS DE ESTANTE RECUPERADAS' },
+  { at:'15', id:'clock-calibration', clockMode:'calibrate' },
+  { at:'20', id:'reconstruction', icons:['recovery-app'] },
+  { at:'21', id:'false-close', icons:['truth-app'], wallpaper:'unstable' },
+  { at:'23', id:'clock-origin', clockMode:'restore', wallpaper:'origin' },
+  { at:'24', id:'final-tool', icons:['final-recovery-app'], notice:'RECUPERAR.exe FOI REESCRITO' }
+]);
+
+const COMPUTER_PHASES = Object.freeze(['01','02','05','07','08','10','14','15','21','23','24']);
+
+function computerWorldAt(state, phaseId = state.currentPuzzle) {
+  const reached = Math.max(...state.unlocked.map(Number), Number(phaseId) || 1);
+  const mutations = COMPUTER_MUTATIONS.filter((mutation) => Number(mutation.at) <= reached);
+  const latestMutationWith = (property) => [...mutations].reverse().find((mutation) => mutation[property]);
+  const reactiveIcons = [state.flags.clock0317Triggered ? 'clock-note' : null].filter(Boolean);
+  return Object.freeze({
+    mutations,
+    icons: [...new Set([...mutations.flatMap((mutation) => mutation.icons || []),...reactiveIcons])],
+    wallpaper: state.flags.clockOriginRestored ? 'synchronized' : latestMutationWith('wallpaper')?.wallpaper || 'base',
+    notice: latestMutationWith('notice')?.notice || '',
+    clockMode: latestMutationWith('clockMode')?.clockMode || null,
+    phaseApp: APP_BY_PHASE[phaseId] || null
+  });
+}
+
+exports.COMPUTER_MUTATIONS = COMPUTER_MUTATIONS;
+exports.COMPUTER_PHASES = COMPUTER_PHASES;
+exports.computerWorldAt = computerWorldAt;
 },
 "js/scene-renderer.js": function(module, exports, __require) {
 const { GAME_CONFIG } = __require("js/config.js");
-const { SYSTEM_LOGS, RECOVERED_FILES, LOCATION_FRAGMENTS } = __require("data/records.js");
+const { RECOVERED_FILES, LOCATION_FRAGMENTS } = __require("data/records.js");
 const { HAIR_CONFLICT, IDENTITY_RECORDS } = __require("data/memories.js");
-const { DOCUMENT_PARAGRAPHS, BOOK_FRAGMENTS, META_ITEMS } = __require("data/puzzles.js");
+const { DOCUMENT_COMPARISON_ROWS } = __require("data/puzzles.js");
 const { renderTV } = __require("js/tv.js");
 const { escapeHtml, formatDuration, daysSince } = __require("js/utils.js");
 const { evaluateRoom } = __require("js/room-model.js");
@@ -463,53 +433,59 @@ const externalStep = (fact, humanText = '', humanLabel = 'AUTOR NÃO IDENTIFICAD
   ${humanText ? voiceMessage('human', humanLabel, humanText) : ''}
 </aside>`;
 
-const yardNodeGate = (state) => {
-  if (state.flags.yardNodeValidated) {
-    return `${voiceMessage('system', 'SISTEMA', 'NÓ_17 AUTENTICADO // FRAGMENTO DE CALIBRAÇÃO VINCULADO')}${voiceMessage('human', 'J.', 'Eu sabia que você ia voltar com isso.')}${renderTV(state, { mode: 'tuning' })}<div class="feedback" data-feedback></div>`;
+const greenNodeGate = (state) => {
+  if (state.flags.greenNodeValidated) {
+    return `${voiceMessage('system', 'SISTEMA', 'NÓ_14 AUTENTICADO // CROMA VERDE VINCULADO')}${voiceMessage('human', 'J.', 'Sim. Eu realmente fiz você ir até as cadeiras por causa disso.')}${renderTV(state, { mode: 'tuning' })}<div class="feedback" data-feedback></div>`;
   }
-  return `<section class="external-auth" data-external-auth="yard">
-    ${externalStep('A instrução aponta para o limite privado entre a casa e a área externa segura.', 'Tá. Agora você vai precisar sair daí.', 'J.')}
-    ${voiceMessage('system', 'SISTEMA', 'IDENTIFICAR NÓ DE LIMIAR // ÁREA PRIVADA // NÃO SAIR PARA A RUA')}
+  return `<section class="external-auth" data-external-auth="green">
+    ${externalStep('A imagem residual preservou 03 · 01 · 04. O Arquivo conhece ASSENTO, EXTERNO e um único canal cromático.', 'Tá. Agora você vai precisar sair daí.', 'J.')}
+    ${voiceMessage('system', 'SISTEMA', 'FONTE 14 // ASSENTO EXTERNO // CROMA PRESERVADO: VERDE')}
     ${voiceMessage('interference', 'INTERFERÊNCIA', '...ela já encontrou?')}
-    <p class="external-auth__clue">O arquivo chama de limiar o lugar onde a casa termina sem deixar de ser sua. O NÓ preparado nesse ponto contém apenas uma parte da calibração.</p>
-    <form class="answer-form" data-node-auth="yard">
-      <label class="answer-label" for="node-yard">Código de retorno do NÓ_17</label>
-      <div class="answer-control"><input id="node-yard" class="answer-input" name="token" autocomplete="off" placeholder="VX-LIMIAR-0000"><button class="primary-button" type="submit">AUTENTICAR NÓ</button></div>
-      <small class="answer-format">VOLTE AO TERMINAL DEPOIS DE LER O FRAGMENTO DO NÓ.</small>
+    <p class="external-auth__clue">Use a sequência como posições. Conte as cadeiras a partir da esquerda; a leitura 03 → 01 → 04 identifica a orientação marcada. Somente uma delas guarda o NÓ.</p>
+    <form class="answer-form" data-node-auth="green">
+      <label class="answer-label" for="node-green">Assinatura de retorno da fonte verde</label>
+      <div class="answer-control"><input id="node-green" class="answer-input" name="token" autocomplete="off" placeholder="VX-VERDE-0000"><button class="primary-button" type="submit">VINCULAR FONTE</button></div>
+      <small class="answer-format">PROCURE APENAS NAS CADEIRAS PREPARADAS, SEM DESMONTAR NADA.</small>
     </form><div class="feedback" data-feedback aria-live="polite"></div>
   </section>`;
 };
 
-function boot(state) {
-  if (!state.completed.includes('01')) return `<section class="audio-init" data-audio-init><span>RECUPERACAO_1010 // ORIGEM NÃO RASTREADA</span><h1>${state.flags.initialized ? 'CONEXÃO INTERROMPIDA' : 'ARQUIVO DEIXADO ABERTO'}</h1>${voiceMessage('human', 'AUTOR NÃO IDENTIFICADO', 'Se você abriu isso, funcionou. Não fecha ainda.')}<p>O restante do conteúdo só responde depois de uma inicialização manual.</p><button type="button" class="audio-init__button" data-action="boot-fragment"><i aria-hidden="true"></i>${state.flags.initialized ? 'RETOMAR CONEXÃO' : 'ENTRAR'}</button><small>NENHUM DADO EXTERNO SERÁ ENVIADO // SESSÃO LOCAL</small></section>`;
-  return `<div class="terminal"><p class="terminal-line">NÓ DE RECUPERAÇÃO .... ATIVO</p><p class="terminal-line">INTEGRIDADE DO ARQUIVO  0%</p><p class="terminal-line">CANAL DE ÁUDIO .... ABERTO</p></div>`;
-}
+const yardNodeGate = (state) => `<section class="external-auth external-auth--yard" data-external-auth="yard">
+  ${externalStep('O NÓ verde reteve três marcas e uma relação: depois do assento, o limite continua sob céu aberto.', '', 'J.')}
+  ${voiceMessage('system', 'SISTEMA', 'FONTE 17 // COBERTURA AUSENTE // LIMITE PRIVADO // ESTRUTURA ENCERRADA')}
+  <div class="yard-symbols" aria-label="Sequência de símbolos recuperada"><span>△</span><span>○</span><span>⌁</span></div>
+  <p class="external-auth__clue">As mesmas três marcas foram preparadas no quintal. Leia na ordem exibida; a última marca completa conduz ao NÓ, sem depender de luz, clima ou horário.</p>
+  <form class="answer-form" data-node-auth="yard">
+    <label class="answer-label" for="node-yard">Assinatura encontrada na margem</label>
+    <div class="answer-control"><input id="node-yard" class="answer-input" name="token" autocomplete="off" placeholder="VX-MARGEM-0000"><button class="primary-button" type="submit">AUTENTICAR MARGEM</button></div>
+    <small class="answer-format">ÁREA PRIVADA E SEGURA // NÃO SAIR PARA A RUA.</small>
+  </form><div class="feedback" data-feedback aria-live="polite"></div>
+</section>`;
 
-function logs(state) {
-  return `<p class="system-message">SEIS REGISTROS FORAM DEIXADOS NESTA SESSÃO. UM DELES QUEBRA A ORDEM DO RELÓGIO.</p>${voiceMessage('human', 'AUTOR NÃO IDENTIFICADO', 'Eu deixei uma coisa fora do lugar. Começa por ela.')}<div class="log-list">${SYSTEM_LOGS.map(([time,name,status]) => {
-    const isEvent = name === 'EVENTO_1010';
-    const indexed = isEvent && (state.flags.event1010Seen || state.completed.includes('02'));
-    const action = isEvent ? (indexed ? 'open-archive-record' : 'open-event') : 'inspect-log';
-    return `<button type="button" class="log-row text-button" data-action="${action}" ${indexed ? 'data-record="evento-1010"' : ''}><span>${time}</span><span ${isEvent ? 'data-anomaly' : ''}>${name}</span><span>${status}</span></button>`;
-  }).join('')}</div><div class="feedback" data-feedback></div>`;
-}
-
-function documentScene() {
-  const decorate = (paragraph, index) => index === 4 ? paragraph.replace('A DATA','<span class="document-invariant">A DATA</span>') : index === 5 ? paragraph.replace('ABRE','<span class="document-invariant">ABRE</span>') : index === 6 ? paragraph.replace('ARQUIVO','<span class="document-invariant">ARQUIVO</span>') : paragraph;
-  const versionA = DOCUMENT_PARAGRAPHS.map(decorate).map((paragraph) => `<p>${paragraph}</p>`).join('');
-  const versionB = DOCUMENT_PARAGRAPHS.map((paragraph) => paragraph
-    .replace('418 fragmentos','416 fragmentos')
-    .replace('quarenta e dois','trinta e nove')
-    .replace('duas presenças','duas fontes de memória'))
-    .map(decorate).map((paragraph) => `<p>${paragraph}</p>`).join('');
-  return `<p class="muted">DUAS VERSÕES OCUPAM O MESMO BLOCO. DESLOQUE O LIMITE E LOCALIZE O CONTEÚDO INVARIANTE.</p>
-    <section class="document-compare" data-document-compare style="--version-split:50%">
-      <article class="long-document document-version document-version--a" aria-label="Versão A">${versionA}</article>
-      <article class="long-document document-version document-version--b" aria-label="Versão B">${versionB}</article>
-      <div class="document-scan" aria-hidden="true"></div>
-    </section>
-    <label class="version-control">VERSÃO A <input type="range" min="8" max="92" value="50" data-version-slider aria-label="Comparar versão A e versão B"> VERSÃO B <output data-version-output>50%</output></label>
-    ${answerForm('06','interpretação do conteúdo invariável')}`;
+function documentScene(state) {
+  const selected = state.documentFragments || [];
+  const order = ['A DATA', 'ABRE', 'O ARQUIVO'];
+  const rows = DOCUMENT_COMPARISON_ROWS.map((row, index) => {
+    const isSelected = row.token && selected.includes(row.token);
+    return `<button type="button" class="document-compare__row${isSelected ? ' is-selected' : ''}" data-action="document-row" data-row="${row.id}" ${row.token ? `data-token="${escapeHtml(row.token)}"` : ''} aria-pressed="${Boolean(isSelected)}" aria-label="Linha ${index + 1}. Versão A: ${escapeHtml(row.versionA)}. Versão B: ${escapeHtml(row.versionB)}.">
+      <span class="document-compare__ref">${String(index + 1).padStart(2, '0')}</span>
+      <span class="document-compare__cell" data-version="A">${escapeHtml(row.versionA)}</span>
+      <span class="document-compare__cell" data-version="B">${escapeHtml(row.versionB)}</span>
+    </button>`;
+  }).join('');
+  const slots = order.map((token, index) => `<span class="document-extraction__slot${selected.includes(token) ? ' is-filled' : ''}" data-document-slot="${escapeHtml(token)}"><small>0${index + 1}</small>${selected.includes(token) ? escapeHtml(token) : 'TRECHO AUSENTE'}</span>`).join('');
+  return `<section class="document-puzzle">
+    <header class="document-puzzle__intro"><span>RELATÓRIO ALTERADO // COMPARAÇÃO LOCAL</span><p>O invasor deixou duas cópias. Toque apenas nas linhas que permaneceram idênticas.</p></header>
+    <div class="document-compare" data-document-compare role="group" aria-label="Comparação entre as versões A e B">
+      <div class="document-compare__head" aria-hidden="true"><span>REF</span><strong>VERSÃO A</strong><strong>VERSÃO B</strong></div>
+      ${rows}
+    </div>
+    <footer class="document-extraction">
+      <div class="document-extraction__result"><span>CONTEÚDO INVARIANTE <strong data-document-count>${selected.length} / 3</strong></span><div class="document-extraction__slots">${slots}</div></div>
+      <button type="button" class="primary-button document-extraction__commit" data-action="commit-document" ${selected.length === order.length ? '' : 'disabled'}>EXTRAIR INSTRUÇÃO</button>
+    </footer>
+    <div class="feedback document-puzzle__feedback" data-feedback data-document-status aria-live="polite">${selected.length === order.length ? 'INSTRUÇÃO RECONSTRUÍDA // PRONTA PARA EXTRAÇÃO' : 'COMPARE O MESMO ÍNDICE NAS DUAS VERSÕES'}</div>
+  </section>`;
 }
 
 function files() {
@@ -534,21 +510,31 @@ function conflict(state) {
       </svg>
       <div class="forensic-status">CAMADAS RECONSTRUÍDAS <strong>${selected.length} / ${features.length}</strong></div>
     </div>
-    <div><div class="relation-board"><article class="evidence-sheet evidence-sheet--a"><span class="evidence-sheet__stamp">ENTIDADE A / confiança 99,4%</span><i aria-hidden="true"></i>${HAIR_CONFLICT.entityA.map((line) => `<p>+ ${line}</p>`).join('')}<small>FONTE: REGISTRO PRIMÁRIO // 10.10</small></article><article class="evidence-sheet evidence-sheet--b"><span class="evidence-sheet__stamp">ENTIDADE B / autodeclarado</span><i aria-hidden="true"></i>${HAIR_CONFLICT.entityB.map((line) => `<p>− ${line}</p>`).join('')}<small>ASSINATURA: VX-02 // PARCIAL</small></article></div>
+    <div><div class="relation-board"><article class="evidence-sheet evidence-sheet--a"><span class="evidence-sheet__stamp">ENTIDADE A / confiança 99,4%</span><i aria-hidden="true"></i>${HAIR_CONFLICT.entityA.map((line) => `<p>+ ${line}</p>`).join('')}<small>FONTE: REGISTRO PRIMÁRIO // 10.10</small></article><article class="evidence-sheet evidence-sheet--b"><span class="evidence-sheet__stamp">ENTIDADE B / autodeclarado</span><i aria-hidden="true"></i>${HAIR_CONFLICT.entityB.map((line) => `<p>− ${line}</p>`).join('')}<small>ASSINATURA: FONTE B // PARCIAL</small></article></div>
       <div class="forensic-features">${features.map(([key,label]) => `<button type="button" class="meta-key ${selected.includes(key) ? 'is-active' : ''}" data-action="forensic-feature" data-feature="${key}" aria-pressed="${selected.includes(key)}">${label}</button>`).join('')}</div>
       <button type="button" class="primary-button" data-action="ack-conflict">CALCULAR GEOMETRIA</button><div class="feedback" data-feedback></div>
     </div>
   </div>`;
 }
 
-function books() {
-  return `${externalStep('A imagem residual preservou 02 · 05 · 01.', 'Você já tem os números. Eles só não são uma senha.', 'J.')}<p>O conjunto procurado tem ordem física e fica acima do restante do quarto.</p><div class="sequence-list">${GAME_CONFIG.bookPositions.map((position) => `<span class="sequence-chip">${String(position).padStart(2,'0')}</span>`).join('')}</div><p class="muted">LEITURA: esquerda → direita. Cada posição guarda uma parte do mesmo código.</p>${answerForm('14','soma de verificação dos fragmentos')}`;
-}
-
-function fragments(state) {
-  const selected = state.fragments || [];
-  const piece = (fragment, placed) => `<button type="button" class="fragment ${placed ? 'is-placed' : ''}" data-action="${placed ? 'fragment-remove' : 'fragment'}" data-fragment="${escapeHtml(fragment)}" aria-pressed="${placed}">${escapeHtml(fragment)}</button>`;
-  return `<p>Os quatro papéis são partes de uma frase comum. Monte algo que uma pessoa realmente usaria para indicar um lugar.</p><div class="fragment-tray" aria-label="Fragmentos disponíveis">${BOOK_FRAGMENTS.filter((fragment) => !selected.includes(fragment)).map((fragment) => piece(fragment, false)).join('')}</div><div class="fragment-target" aria-label="Área de montagem">${selected.map((fragment) => piece(fragment, true)).join('')}</div><button type="button" class="primary-button" data-action="check-fragments">LER FRASE</button><div class="feedback" data-feedback></div>`;
+function books(state) {
+  const selected = state.bookSelections || [];
+  const candidates = [
+    ['teto','Teto para Dois'],['acaba','É Assim que Acaba'],['comeca','É Assim que Começa'],['maldicao','A Maldição do Ex'],['lua','Cidade da Lua Crescente']
+  ];
+  return `<section class="bookscan-evidence">
+    <header><span>BOOKSCAN // DUAS FONTES DOMÉSTICAS</span><strong>EXTREMIDADES · DISTÂNCIA 01</strong></header>
+    <div class="bookscan-sources">
+      <figure class="bookscan-capture" data-evidence-frame><img data-evidence-source src="./assets/evidence/books/shelf-cam-01.jpg" alt="Captura degradada da primeira estante"><div class="bookscan-noise" aria-hidden="true"></div><time>CAM_01 · 17/09/2025 03:__</time><div class="bookscan-missing"><strong>CAPTURA 01 AUSENTE</strong><span>assets/evidence/books/shelf-cam-01.jpg</span></div><figcaption>JPEG recomposto · distância entre títulos preservada</figcaption></figure>
+      <figure class="bookscan-capture" data-evidence-frame><img data-evidence-source src="./assets/evidence/books/shelf-cam-02.jpg" alt="Captura degradada da segunda estante"><div class="bookscan-noise" aria-hidden="true"></div><time>CAM_02 · 17/09/2025 __:17</time><div class="bookscan-missing"><strong>CAPTURA 02 AUSENTE</strong><span>assets/evidence/books/shelf-cam-02.jpg</span></div><figcaption>JPEG recomposto · referência de coleção e ordenação</figcaption></figure>
+    </div>
+    <div class="bookscan-log"><code>CRITÉRIO // EXTREMIDADES</code><code>DISTÂNCIA ENTRE VOLUMES // 01</code><code>MENSAGEM RECUPERADA // “o fim ficou perto demais do começo”</code></div>
+    <p>Marque os dois títulos da captura que satisfazem simultaneamente a mensagem e a distância.</p>
+    <div class="bookscan-candidates">${candidates.map(([id,title])=>`<button type="button" data-action="bookscan-book" data-book="${id}" class="${selected.includes(id)?'is-selected':''}" aria-pressed="${selected.includes(id)}">${escapeHtml(title)}</button>`).join('')}</div>
+    <button type="button" class="primary-button" data-action="bookscan-confirm-pair">CORRELACIONAR LOMBADAS</button>
+    <section class="bookscan-return" ${state.flags.bookPairIdentified?'':'hidden'}><strong>PAR ADJACENTE CONFIRMADO</strong><p>Consulte os dois volumes físicos na mesma ordem: FIM → COMEÇO. Cada inserto completa metade do timestamp.</p>${answerForm('14','horário formado pelos insertos')}</section>
+    <div class="feedback" data-feedback></div>
+  </section>`;
 }
 
 function identity(state) {
@@ -561,6 +547,7 @@ function identity(state) {
 }
 
 function locationScene(state) {
+  if (!state.flags.yardNodeValidated) return yardNodeGate(state);
   const selected = state.locationFragments || [];
   const points = [[28,34],[142,24],[226,72],[72,134],[178,144],[248,122]];
   const selectedPoints = selected.map((tag) => points[LOCATION_FRAGMENTS.findIndex(([candidate]) => candidate === tag)]).filter(Boolean);
@@ -590,28 +577,46 @@ function room(state) {
     const position = positions[key] || { x: 4 + (index * 14), y: 84, moved:false };
     return `<button type="button" class="room-object ${position.moved && key !== 'tv' ? 'is-verified' : ''}" data-action="room-object" data-object="${key}" data-material="${material}" style="left:${position.x}%;top:${position.y}%">${label}<span data-room-object-state ${position.moved && key !== 'tv' ? '' : 'hidden'}>VERIFICADO</span></button>`;
   }).join('');
+  const keyboardPlacement = `<section class="room-placement" aria-label="Alternativa de posicionamento sem arrastar"><header><span>MODO DE PRECISÃO</span><strong>SELECIONE UM OBJETO E DEPOIS UMA ÂNCORA</strong></header><div class="room-placement__anchors">${[
+    ['rest','REPOUSO',32,63],['storage','ARMAZENAMENTO',33,14],['work','TRABALHO',69,65],['support','APOIO LATERAL',18,66],['observer','OBSERVADOR',62,18]
+  ].map(([id,label,x,y])=>`<button type="button" data-action="room-anchor" data-anchor="${id}" data-x="${x}" data-y="${y}">${label}</button>`).join('')}</div><p data-room-placement-status>OBJETO SELECIONADO // ${state.roomPlacement.selectedObject ? state.roomPlacement.selectedObject.toUpperCase() : 'NENHUM'}</p></section>`;
+  if (state.flags.houseAnomalyRevealed && !state.flags.roomNodeValidated) {
+    return `<section class="room-anomaly">
+      ${voiceMessage('system', 'SISTEMA', 'MODELO RECUSADO // ÁREA INDEXADA MENOR QUE ÁREA CALCULADA')}
+      <div class="room-anomaly__measure"><span>ÁREA CALCULADA<strong>118,6 m²</strong></span><span>ÁREA INDEXADA<strong>107,4 m²</strong></span><span>VOLUME AUSENTE<strong>+11,2 m²</strong></span></div>
+      <p>Existe um cômodo inteiro entre relações que o arquivo reconhece, mas não nomeia. A origem tem uma única característica preservada: três marcas curtas, próximas de madeira.</p>
+      ${voiceMessage('human', 'J.', 'Tá. Essa parte eu queria muito ver você descobrir sozinha.')}
+      ${externalStep('FONTE LOCALIZADA // INTERFACE INSUFICIENTE // ACESSO FÍSICO. Procure somente no cômodo que corresponde à área ausente e siga as três marcas preparadas.', '', 'J.')}
+      <form class="answer-form" data-node-auth="room"><label class="answer-label" for="node-room">Assinatura do espaço não classificado</label><div class="answer-control"><input id="node-room" class="answer-input" name="token" autocomplete="off" placeholder="VX-QUARTO-0000"><button class="primary-button" type="submit">ANEXAR LEITURA</button></div><small class="answer-format">O CELULAR MOSTRA UMA LEITURA ANTERIOR. NÃO TENTE EXPLICÁ-LA AGORA.</small></form><div class="feedback" data-feedback></div>
+    </section>`;
+  }
+  if (state.flags.roomNodeValidated) {
+    return `<section class="room-anomaly room-anomaly--resolved">${voiceMessage('system', 'SISTEMA', 'NÓ_00 // LEITURA ATUAL ANEXADA // LEITURA ANTERIOR 03:17 MANTIDA')}<p>O cômodo agora existe na planta. O problema é que o NÓ afirma ter sido lido antes de você entrar nele.</p>${voiceMessage('interference', 'FONTE NÃO CLASSIFICADA', 'eu já estava aqui')}<button type="button" class="primary-button" data-action="confirm-room-return">FECHAR LEITURA E SAIR</button></section>`;
+  }
   return `<p>O arquivo conhece este quarto pelas relações entre os objetos. Refaça essas relações; posição exata não importa.</p>
     <div class="room-analysis"><strong data-room-score>COMPATIBILIDADE DO QUARTO: ${evaluation.score}%</strong><span data-room-relation-count>${evaluation.verifiedRelations.length} / ${evaluation.relations.length} RELAÇÕES VÁLIDAS</span></div>
-    <div class="room-grid" data-room><svg class="room-relations" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><g data-room-relations>${evaluation.verifiedRelations.map((relation,index) => `<path d="M${12 + index * 12} 84 L${20 + index * 13} 18" pathLength="1" data-relation="${relation.id}"></path>`).join('')}</g></svg>${renderedObjects}</div>
+    <div class="room-grid" data-room><svg class="room-relations" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><g data-room-relations>${evaluation.verifiedRelations.map((relation,index) => `<path d="M${12 + index * 12} 84 L${20 + index * 13} 18" pathLength="1" data-relation="${relation.id}"></path>`).join('')}</g></svg>${renderedObjects}</div>${keyboardPlacement}
     <ul class="room-relation-list">${evaluation.relations.map((relation) => `<li data-room-relation="${relation.id}" class="${evaluation.verifiedRelations.includes(relation) ? 'is-valid' : ''}">${relation.label}</li>`).join('')}</ul>
     <button type="button" class="primary-button" data-action="validate-room">VALIDAR MODELO</button><div class="feedback" data-feedback></div>`;
 }
 
-function meta(state) {
-  const selected = state.metaSelections || [];
-  const residues = { lua:'N', tv:'O', mullet:'S' };
-  const classifications = [['AMIGO',1],['CONTATO',2],['FONTE DE MEMÓRIA',3],['DEPENDÊNCIA',3]];
-  const coherent = selected.join(',') === 'lua,tv,mullet';
-  return `<div class="terminal"><p class="terminal-line" data-kind="system">RECUPERAÇÃO CONCLUÍDA</p><div class="fake-progress"><span></span></div><p class="terminal-line error">INTEGRIDADE: 99%</p><p class="terminal-line">1 RELAÇÃO NÃO RESOLVIDA</p></div>${voiceMessage('human', 'J.', 'Se chegou nessa parte, você já sabe que eu não deixaria três códigos sem motivo.')}<p>As marcas <strong>VX-04 / VX-11 / VX-02</strong> são uma ordem. Reconecte os registros que carregaram cada uma.</p>
-    <div class="merge-classifier" data-merge-classifier><div class="classification-log">${classifications.map(([label,threshold]) => `<p data-classification-threshold="${threshold}" class="${selected.length >= threshold ? 'is-processed' : ''}">${label}<strong>${selected.length >= threshold ? 'INVÁLIDO' : 'AGUARDANDO'}</strong></p>`).join('')}<p class="relation-result">RELAÇÃO<strong>${coherent ? 'RESÍDUO COERENTE' : 'NÃO RESOLVIDA'}</strong></p></div>
-    <div class="meta-console">${META_ITEMS.map((item) => `<button type="button" class="meta-key ${selected.includes(item.key) ? 'is-active' : ''}" data-action="meta-item" data-key="${item.key}" aria-pressed="${selected.includes(item.key)}"><span>${item.label}</span><strong>${item.value}</strong></button>`).join('')}</div></div>
-    <div class="system-message" data-meta-residue>RESÍDUO: ${selected.map((key) => residues[key] || '·').join(' ') || '· · ·'}</div><div class="meta-answer-slot ${coherent ? 'is-ready' : ''}" data-meta-answer ${coherent ? '' : 'inert'} aria-hidden="${!coherent}">${answerForm('24','significado da relação')}</div>`;
+function meta() {
+  return `<section class="key-composition">
+    <header><span>CLASSIFICADOR DE RELAÇÃO // ÚLTIMA OPERAÇÃO</span><strong>DUAS CADEIAS CONVERGENTES</strong></header>
+    <div class="key-chains">
+      <article><span>CADEIA A // RECUPERADA</span><ol><li><i>05</i><strong>índice do volume</strong></li><li><i>20</i><strong>Cômodo Zero anexado</strong></li><li><i>520</i><strong>fragmento de checksum</strong></li></ol><output>520</output></article>
+      <article><span>CADEIA B // RECUPERADA</span><ol><li><i>13</i><strong>afterimage do Receiver</strong></li><li><i>14</i><strong>índice de armazenamento</strong></li><li><i>1314</i><strong>endereço de permanência</strong></li></ol><output>1314</output></article>
+    </div>
+    <div class="composition-rule"><span>OPERAÇÃO AUTORIZADA</span><strong>CONCATENAR A → B</strong><code>520 + 1314</code></div>
+    ${voiceMessage('human', 'JOÃO', 'Você já tem tudo. Não soma. Só coloca uma coisa depois da outra.')}
+    ${answerForm('24', 'chave composta')}
+  </section>`;
 }
 
-function finalScene(state) {
+function finalExperience(state) {
   const elapsed = formatDuration(Date.now() - (state.startedAt || Date.now()));
   const counter = daysSince(GAME_CONFIG.importantDate);
-  return `<section class="final-stage"><div class="date">EVENTO INICIAL · 10.10.2025</div><p class="final-salutation">Bom dia, princesa.</p><h1>nós.</h1><p>ENTIDADE A: ${escapeHtml(GAME_CONFIG.protagonistName)}<br>ENTIDADE B: ${escapeHtml(GAME_CONFIG.playerName)}<br>ESTADO: ATIVO</p><div class="counter"><div><strong data-counter="days">${counter.days}</strong><span>dias</span></div><div><strong data-counter="hours">${counter.hours}</strong><span>horas</span></div><div><strong data-counter="minutes">${counter.minutes}</strong><span>minutos</span></div><div><strong data-counter="seconds">${counter.seconds}</strong><span>segundos</span></div></div><p class="final-message">${escapeHtml(GAME_CONFIG.finalMessage)}</p><button type="button" class="primary-button" data-action="play-final-music">${GAME_CONFIG.musicUrl ? 'TOCAR MÚSICA RECUPERADA' : 'TOCAR SINAL RECUPERADO'}</button>${GAME_CONFIG.finalVideoUrl ? `<p><a class="primary-button" href="${escapeHtml(GAME_CONFIG.finalVideoUrl)}" target="_blank" rel="noopener">ABRIR VÍDEO RECUPERADO</a></p>` : ''}${GAME_CONFIG.finalSecretUrl ? `<p><a class="text-button" href="${escapeHtml(GAME_CONFIG.finalSecretUrl)}" target="_blank" rel="noopener">registro externo</a></p>` : ''}<div class="final-gallery">${GAME_CONFIG.gallery.length ? GAME_CONFIG.gallery.map((src) => `<img src="${escapeHtml(src)}" alt="Memória recuperada">`).join('') : '<div class="final-placeholder">FOTO_01</div><div class="final-placeholder">FOTO_02</div><div class="final-placeholder">LINK_DO_VÍDEO</div>'}</div><div class="stats-table"><div class="stats-row"><span>TEMPO TOTAL</span><strong data-total-elapsed>${elapsed}</strong></div><div class="stats-row"><span>TENTATIVAS INCORRETAS</span><strong>${state.stats.wrongAnswers}</strong></div><div class="stats-row"><span>NÍVEIS DE DICA USADOS</span><strong>${Object.values(state.hintsUsed).reduce((a,b)=>a+b,0)}</strong></div><div class="stats-row"><span>INTERAÇÕES COM A TV</span><strong>${state.stats.tvInteractions}</strong></div><div class="stats-row"><span>VEZES QUE ELA CULPOU JOÃO</span><strong>17*</strong></div><p class="muted">* dado completamente inventado pelo sistema</p></div></section>`;
+  return `<section class="final-stage"><div class="final-key-meaning"><span>520</span><i>I LOVE YOU</i><span>1314</span><i>FOR A LIFETIME</i><strong>I LOVE YOU FOR ETERNITY</strong></div><p class="final-call">Rayssa?</p><p class="final-salutation">Bom dia, princesa.</p><div class="date">10/10<small>o dia em que a gente se conheceu.</small></div><h1 tabindex="-1" data-scene-heading>nós.</h1><p class="final-human">João + Rayssa<br>estado: aqui.</p><div class="counter"><div><strong data-counter="days">${counter.days}</strong><span>dias</span></div><div><strong data-counter="hours">${counter.hours}</strong><span>horas</span></div><div><strong data-counter="minutes">${counter.minutes}</strong><span>minutos</span></div><div><strong data-counter="seconds">${counter.seconds}</strong><span>segundos</span></div></div><p class="final-message">${escapeHtml(GAME_CONFIG.finalMessage)}</p><button type="button" class="primary-button" data-action="play-final-music">${GAME_CONFIG.musicUrl ? 'TOCAR MÚSICA RECUPERADA' : 'TOCAR SINAL RECUPERADO'}</button><div class="stats-table"><div class="stats-row"><span>TEMPO TOTAL</span><strong data-total-elapsed>${elapsed}</strong></div><div class="stats-row"><span>TENTATIVAS</span><strong>${state.stats.wrongAnswers}</strong></div><div class="stats-row"><span>DICAS CONSULTADAS</span><strong>${Object.values(state.hintsUsed).reduce((a,b)=>a+b,0)}</strong></div></div></section>`;
 }
 
 function updateFinalMetrics(state) {
@@ -626,33 +631,31 @@ function updateFinalMetrics(state) {
 
 function renderScene(puzzle, state) {
   switch (puzzle.kind) {
-    case 'boot': return boot(state);
-    case 'logs': return logs(state);
+    case 'boot':
+    case 'logs': return '';
     case 'tv-intro': return renderTV(state, { mode: state.unlocked.includes('13') ? 'sequence' : 'intro' });
     case 'morse': return `<div class="receiver-puzzle receiver-puzzle--morse">${renderTV(state,{mode:'morse'})}<div class="receiver-puzzle__answer">${answerForm('04','interpretação do sinal')}</div></div>`;
-    case 'desk-node': return `${externalStep('O sinal nomeou MESA e encerrou a transmissão.', 'Antes que você reclame: sim, tem coisa escondida pela casa.')}<div class="terminal"><p class="terminal-line">NÓ_02: fora do alcance do navegador</p><p class="terminal-line">próximo dado exige retorno físico</p></div>${state.flags.deskNodeScanned ? '<p class="good">NÓ EXTERNO DETECTADO. CÓDIGO DISPONÍVEL.</p>' : '<p class="muted">Esperando você voltar com o código…</p>'}${answerForm('05','código do nó')}`;
-    case 'document': return documentScene();
+    case 'file-properties': return `<section class="mount-table"><header><span>MESA // TABELA DE MONTAGEM</span><strong>1 DISPOSITIVO SEM CORRESPONDÊNCIA</strong></header><div class="mount-rows"><article><span>UNIDADE_A</span><strong>07 / 04 / 93</strong><i>LOCAL // ATIVA</i></article><article class="is-anomaly"><span>ARCHIVE_?</span><strong>17 / 04 / 91</strong><i>DISPOSITIVO // AUSENTE</i></article><article><span>BACKUP_B</span><strong>02 / 11 / 99</strong><i>REMOVÍVEL // OFFLINE</i></article></div><p class="system-message">FORMATO DE ÍNDICE // DDMMYY // NÃO ALTERAR A ORDEM</p>${answerForm('05','índice da montagem órfã')}</section>`;
+    case 'document': return documentScene(state);
     case 'files': return files();
     case 'binary': return binary();
     case 'moon-one': return `${externalStep('Os três blocos formaram LUA.', 'Não é a do céu. Você sabe qual é.')}<div class="terminal"><p class="terminal-line">OBJETO: L_U_A</p><p class="terminal-line">localização: ambiente próximo</p><p class="terminal-line">camadas detectadas: 02</p></div><p>Nesta visita, apenas a primeira marca possui contexto.</p>${answerForm('09','código do fragmento físico')}`;
-    case 'return-event': return (state.archive?.reads?.['evento-1010'] || 0) >= 2
-      ? `<div class="terminal"><p class="terminal-line">DIVERGÊNCIA LIDA</p><p class="terminal-line">3 linhas adicionadas após a indexação</p><p class="terminal-line">duas fontes presentes no mesmo evento</p></div>${voiceMessage('interference', 'INTERFERÊNCIA', '...ela já encontrou?')}<button type="button" class="primary-button" data-action="resolve-event-revision">PROCESSAR DIVERGÊNCIA</button><div class="feedback" data-feedback></div>`
-      : `<div class="terminal"><p class="terminal-line error">SOMA DE VERIFICAÇÃO DIVERGENTE</p><p class="terminal-line">um registro previamente indexado não corresponde mais à última leitura</p><p class="terminal-line faint">AÇÃO REQUERIDA // localize no ARQUIVO o registro alterado</p></div><div class="feedback" data-feedback></div>`;
+    case 'return-event': return '';
     case 'conflict': return conflict(state);
-    case 'mullet': return `${voiceMessage('human', 'J.', 'Uma das duas pessoas vai negar isso até o fim. A forma não muda por causa disso.')}<p>Dê o nome comum ao corte reconstruído.</p>${answerForm('12','identificador da memória')}`;
+    case 'phone-memory': return '';
     case 'tv-sequence': return renderTV(state, { mode: 'sequence' });
-    case 'books': return books();
-    case 'fragments': return fragments(state);
+    case 'books': return books(state);
+    case 'clock-calibration': return '';
     case 'bedside': return `${externalStep('Instrução recuperada: ONDE A NOITE DEIXA O QUE VOCÊ PRECISA.', 'Você tá complicando. Não é a cama.', 'J.')}<div class="clue-grid"><div class="clue-card"><span class="clue-card__tag">resposta óbvia / errada</span><p>a superfície onde você dorme</p></div><div class="clue-card"><span class="clue-card__tag">relação correta</span><p>o que continua ao alcance depois de deitar</p></div></div>${answerForm('16','código do fragmento físico')}`;
-    case 'tv-tuning': return yardNodeGate(state);
+    case 'tv-tuning': return greenNodeGate(state);
     case 'location': return locationScene(state);
     case 'identity': return identity(state);
     case 'room': return room(state);
     case 'impossible': return state.flags.fakeFinalSeen ? `<div class="terminal glitch-once"><p class="terminal-line error">INTEGRIDADE: 99%</p><p class="terminal-line">1 RELAÇÃO NÃO RESOLVIDA</p><p class="terminal-line">A TV NÃO PERTENCE AO QUARTO</p><p class="terminal-line">A TV PERTENCE AO SISTEMA</p></div>${voiceMessage('human', 'J.', 'Não. Ainda não acabou.')}<button type="button" class="primary-button" data-action="continue-after-fake">VOLTAR AO ARQUIVO</button>` : `<section class="final-stage false-final"><div class="date">RECUPERAÇÃO CONCLUÍDA</div><p class="faint">OBJETO SEM ÂNCORA FÍSICA<br>INTEGRIDADE DECLARADA: 99%</p><h1>arquivo restaurado.</h1><p>O sistema quer que você aceite uma conclusão que não explica tudo.</p><div class="fake-progress"><span></span></div><button type="button" class="primary-button" data-action="fake-end">TESTAR ENCERRAMENTO</button></section>`;
     case 'books-node': return `${externalStep('O canal externo deixou a frase: abaixo de onde as histórias ficam.', 'Eu sabia que você ia olhar nos livros primeiro.', 'JOÃO')}<p class="muted">Talvez o NÓ já tenha sido encontrado antes. Só agora o código possui contexto.</p>${state.flags.booksNodeScanned ? '<p class="good">NÓ_11 DETECTADO.</p>' : ''}<div class="system-message">CABEÇALHO DE ÁUDIO PARCIAL: “TÃO FÁCIL SE APAIXONAR…”</div>${answerForm('22','código do nó')}`;
-    case 'moon-two': return `${externalStep('A LUA foi registrada com duas camadas; apenas uma foi lida.', 'Você já passou por isso antes. Só não desse jeito.', 'JOÃO')}<div class="terminal"><p class="terminal-line">OBJETO CONHECIDO // LEITURA INCOMPLETA</p><p class="terminal-line">camada 01: recuperada</p><p class="terminal-line">camada 02: presente desde o início</p></div>${answerForm('23','segundo fragmento físico')}`;
+    case 'clock-origin': return '';
     case 'meta': return meta(state);
-    case 'final': return finalScene(state);
+    case 'final': return finalExperience(state);
     default: return '<p>TIPO DE REGISTRO DESCONHECIDO</p>';
   }
 }
@@ -667,7 +670,7 @@ const SYSTEM_LOGS = [
   ['10:10:00', 'EVENTO_1010', 'origem desconhecida'],
   ['10:11:08', 'VX-04', 'sem portadora'],
   ['11:02:14', 'VX-11', 'adiado'],
-  ['14:25:10', 'VX-02', 'adiado']
+  ['14:25:10', 'SRC-B', 'correlação adiada']
 ];
 
 const RECOVERED_FILES = [
@@ -710,32 +713,16 @@ exports.HAIR_CONFLICT = HAIR_CONFLICT;
 exports.IDENTITY_RECORDS = IDENTITY_RECORDS;
 },
 "data/puzzles.js": function(module, exports, __require) {
-const DOCUMENT_PARAGRAPHS = [
-  'Se você está lendo isto, a recuperação passou do primeiro bloqueio. Este relatório foi deixado em duas versões porque confiar em um único arquivo seria facilitar demais.',
-  'O sistema comparou 418 fragmentos. Sete foram alterados depois de prontos. Três diziam que tudo havia terminado e receberam novas linhas horas depois.',
-  'Um arquivo chamado final possui quarenta e dois por cento de chance de ser o último. Quando alguém acrescenta real_agora ao nome, a chance fica ainda menor.',
-  'As referências de lugar foram removidas. Sobraram vento, margem, estruturas pequenas, duas presenças e uma conversa que durou mais do que deveria.',
-  'O número 1010 reaparece em horários, nomes e frequências. Pode ser coincidência. Também pode ser a única parte que o autor fez questão de não esconder. A DATA continua igual nas duas versões.',
-  'O proprietário deste diretório começa coisas, faz cópias e volta depois. Às vezes abandona uma ideia. Às vezes ABRE de novo só para mudar uma linha.',
-  'Existe uma TV nos registros, mas não no inventário do quarto. Isso não é um erro de cadastro. O ARQUIVO usa o aparelho como caminho entre o que está na tela e o que foi deixado fora dela.',
-  'Se chegou até aqui, já entendeu a regra: nomes mentem, versões mudam e uma tela antiga pode guardar coisa nova. O resto foi deixado para quem prestar atenção.'
+const DOCUMENT_COMPARISON_ROWS = [
+  { id: 'count', versionA: '418 FRAGMENTOS INDEXADOS', versionB: '416 FRAGMENTOS INDEXADOS' },
+  { id: 'confidence', versionA: 'CONFIANÇA DO ARQUIVO: 42%', versionB: 'CONFIANÇA DO ARQUIVO: 39%' },
+  { id: 'sources', versionA: 'DUAS PRESENÇAS NO REGISTRO', versionB: 'DUAS FONTES NO REGISTRO' },
+  { id: 'date', versionA: 'A DATA', versionB: 'A DATA', token: 'A DATA' },
+  { id: 'verb', versionA: 'ABRE', versionB: 'ABRE', token: 'ABRE' },
+  { id: 'archive', versionA: 'O ARQUIVO', versionB: 'O ARQUIVO', token: 'O ARQUIVO' }
 ];
 
-const BOOK_FRAGMENTS = ['A NOITE', 'O QUE VOCÊ PRECISA', 'ONDE', 'DEIXA'];
-
-const META_ITEMS = [
-  { key:'1010', label:'EVENTO', value:'10 / 10', index:10 },
-  { key:'tv', label:'OBJETO', value:'TV', index:2 },
-  { key:'mullet', label:'CONFLITO', value:'MULLET', index:11 },
-  { key:'lua', label:'OBSERVADOR', value:'LUA', index:4 },
-  { key:'parquinho', label:'LOCAL', value:'PARQUINHO', index:7 },
-  { key:'livros', label:'ORDEM', value:'LIVROS', index:5 },
-  { key:'musica', label:'SINAL', value:'MÚSICA', index:14 }
-];
-
-exports.DOCUMENT_PARAGRAPHS = DOCUMENT_PARAGRAPHS;
-exports.BOOK_FRAGMENTS = BOOK_FRAGMENTS;
-exports.META_ITEMS = META_ITEMS;
+exports.DOCUMENT_COMPARISON_ROWS = DOCUMENT_COMPARISON_ROWS;
 },
 "js/tv.js": function(module, exports, __require) {
 const { escapeHtml } = __require("js/utils.js");
@@ -745,12 +732,12 @@ function tvPresentation(state, mode = 'normal') {
   if (!tv.power) content = '';
   if (mode === 'intro' && tv.channel === 4) content = '•  —  ••';
   if (mode === 'sequence' && tv.channel === 11 && tv.power) content = 'SEM PORTADORA';
-  if (mode === 'sequence' && tv.channel === 11 && !tv.power && state.flags.tvSequenceSeen) content = '2  5  1';
-  if (mode === 'tuning' && tv.channel === 10 && tv.volume === 10) content = '10 / 10';
+  if (mode === 'sequence' && tv.channel === 11 && !tv.power && state.flags.tvSequenceSeen) content = 'FIM  01  COMEÇO';
+  if (mode === 'tuning' && tv.channel === 10 && tv.volume === 10) content = tv.fine === 3 ? '10 / 10\nFONTE FIXADA' : `PORTADORA ${Math.max(0,72-Math.abs(3-tv.fine)*18)}%`;
   if (mode === 'impossible') content = 'CANAL\nEXTERNO';
   return {
     content,
-    frequency: (184 + tv.channel * .04).toFixed(2),
+    frequency: (184 + tv.channel * .04 + tv.fine * .005).toFixed(3),
     channelAngle: -135 + ((tv.channel - 1) / 11) * 270,
     volumeAngle: -135 + (tv.volume / 10) * 270
   };
@@ -796,6 +783,7 @@ function renderTV(state, { mode = 'normal' } = {}) {
           <output><span>NÍVEL</span><b data-tv-volume-output>${String(tv.volume).padStart(2, '0')}</b></output>
           <small>${mode === 'tuning' ? 'AJUSTAR PARÂMETRO RECORRENTE' : 'NÃO ALTERA A SINTONIA'}</small>
         </div>
+        ${mode === 'tuning' ? `<div class="tv-fine-control" data-motion-scope="local"><label>AJUSTE FINO</label><div><button type="button" data-action="tv-fine" data-delta="-1" aria-label="Reduzir sintonia fina">−</button><output data-tv-fine-output>${tv.fine>0?'+':''}${tv.fine}</output><button type="button" data-action="tv-fine" data-delta="1" aria-label="Aumentar sintonia fina">+</button></div><small>PROCURE O PICO DO INDICADOR</small></div>` : ''}
         <div class="tv-trim" aria-hidden="true"><span><i></i>AJUSTE FINO</span><span><i></i>SINC. V</span></div>
         <button type="button" class="tv-power" data-action="tv-power"><i aria-hidden="true"></i><span>${tv.power ? 'DESLIGAR' : 'LIGAR'}</span></button>
         <div class="tv-speaker" aria-label="Grade do alto-falante"></div>
@@ -906,79 +894,67 @@ function evaluateRoom(state) {
 exports.evaluateRoom = evaluateRoom;
 },
 "js/puzzles/clarity.js": function(module, exports, __require) {
-const clarity = (narrative, objective, actionHint, interaction, successMeaning, options = {}) => Object.freeze({
-  narrative,
-  objective,
-  actionHint,
-  interaction,
-  successMeaning,
-  status: options.status || (() => 'AGUARDANDO OPERAÇÃO'),
-  inputLabel: options.inputLabel || '',
-  placeholder: options.placeholder || '',
-  submitLabel: options.submitLabel || 'VERIFICAR',
-  format: options.format || null,
-  formatHint: options.formatHint || '',
-  wrongFeedback: options.wrongFeedback || 'A operação foi aceita, mas o conteúdo não corresponde ao registro esperado.'
-});
-
-const PUZZLE_CLARITY = Object.freeze({
-  '01': clarity('Alguém abriu uma porta neste sistema e deixou um arquivo esperando por você.', 'Termine a inicialização que essa pessoa interrompeu.', 'Só existe um ponto ainda ativo na tela.', 'continuar a inicialização', 'O arquivo aceita sua presença e começa a responder.', { status: (state) => state.flags.initialized ? 'SESSÃO PARCIALMENTE ABERTA' : 'CONEXÃO INTERROMPIDA' }),
-  '02': clarity('Quem deixou o arquivo marcou seis registros. Um deles está fora do relógio de propósito.', 'Descubra qual registro não pertence à sequência normal.', 'Você pode abrir cada linha; nome e horário importam.', 'inspecionar o índice', 'O primeiro recado escondido entra no ARQUIVO.', { status: (state) => state.flags.event1010Seen ? 'EVENTO_1010 GUARDADO' : '6 REGISTROS · 1 FORA DO LUGAR' }),
-  '03': clarity('O registro aponta para um receptor que não aparece no inventário da casa.', 'Procure uma frequência que não seja apenas estática.', 'Gire CANAL. O ruído muda quando você se aproxima.', 'varrer os canais', 'Uma transmissão deixada por alguém é isolada.', { status: (state) => `${state.tv.power ? 'RECEPTOR ATIVO' : 'RECEPTOR DESLIGADO'} · CAN ${String(state.tv.channel).padStart(2, '0')}` }),
-  '04': clarity('A frequência não traz voz. Ela pisca em intervalos curtos e longos.', 'Reproduza o padrão e descubra qual objeto ele escreve.', 'Você não precisa adivinhar: anote ponto e traço.', 'ouvir, anotar e interpretar', 'A investigação sai do computador pela primeira vez.', { status: () => 'PADRÃO REPETÍVEL DISPONÍVEL', inputLabel: 'Objeto escrito pelo sinal', placeholder: 'nome do objeto', submitLabel: 'ENVIAR LEITURA', wrongFeedback: 'Esse objeto não corresponde aos pulsos transmitidos.' }),
-  '05': clarity('MESA não era a resposta final. Era o primeiro lugar para onde mandaram você olhar.', 'Encontre o NÓ escondido no objeto real e traga o código de volta.', 'Não adianta procurar outro botão aqui. O ARQUIVO continua disponível se você precisar conferir.', 'procurar no ambiente e retornar', 'O sistema reconhece que o arquivo alcança a casa.', { status: (state) => state.flags.deskNodeScanned ? 'NÓ_02 DETECTADO · CÓDIGO DISPONÍVEL' : 'ESPERANDO RETORNO DO AMBIENTE', inputLabel: 'Código encontrado no NÓ_02', placeholder: 'VX-OBJETO-0000', submitLabel: 'AUTENTICAR NÓ', format: /^VX[-\s][A-Z0-9-]+$/i, formatHint: 'Digite o identificador completo iniciado por VX.', wrongFeedback: 'O código parece válido, mas não pertence ao NÓ_02.' }),
-  '06': clarity('O documento foi alterado duas vezes. Quase tudo mudou, menos uma frase.', 'Compare as duas versões e recupere somente o trecho que ficou intacto.', 'Arraste o limite. Ignore o volume de texto e observe o que se recusa a mudar.', 'comparar duas versões', 'Uma instrução escondida sobrevive à adulteração.', { status: () => '2 VERSÕES · 1 TRECHO INTACTO', inputLabel: 'Frase que não mudou', placeholder: 'transcreva apenas o trecho preservado', submitLabel: 'EXTRAIR TRECHO', wrongFeedback: 'Essa frase também muda entre as versões.' }),
-  '07': clarity('A pasta está cheia de arquivos chamados “final”. Alguém sabia que você desconfiaria disso.', 'Descubra qual arquivo tem um horário que combina com o evento.', 'Nomes podem mentir. Metadados são mais difíceis de falsificar sem deixar rastro.', 'comparar arquivos e horários', 'Uma cópia legítima é separada das iscas.', { status: () => '5 ARQUIVOS · 4 ISCAS PROVÁVEIS' }),
-  '08': clarity('Dentro da cópia correta sobrou uma linha de zeros e uns, já separada em três blocos.', 'Leia cada bloco como uma letra e descubra o próximo objeto.', 'A divisão de oito em oito já foi feita para você.', 'converter três blocos binários', 'Outro objeto da casa entra no caminho.', { status: () => '3 BLOCOS DE 8 BITS', inputLabel: 'Palavra formada pelos três blocos', placeholder: 'objeto decodificado', submitLabel: 'REGISTRAR OBJETO', wrongFeedback: 'As três letras não formam esse objeto.' }),
-  '09': clarity('A palavra encontrada não serve para preencher outra tela. Ela existe no quarto.', 'Ache o objeto correspondente e leia a primeira marca deixada nele.', 'Procure sem desmontar, subir ou danificar nada.', 'examinar um objeto físico', 'A primeira assinatura VX ganha uma origem real.', { status: (state) => state.flags.moonFirstFound ? 'PRIMEIRA MARCA REGISTRADA' : 'ESPERANDO LEITURA FORA DA TELA', inputLabel: 'Marca encontrada no objeto', placeholder: 'identificador físico', submitLabel: 'REGISTRAR MARCA', wrongFeedback: 'Essa marca não pertence à primeira camada do objeto.' }),
-  '10': clarity('O EVENTO_1010 mudou depois que você o leu. Arquivos não deveriam fazer isso sozinhos.', 'Volte ao ARQUIVO, encontre o registro alterado e leia o que apareceu.', 'O estado ALTERADO e as duas somas mostram exatamente onde mexeram.', 'reabrir um registro conhecido', 'Você descobre que o autor estava observando outra pessoa.', { status: (state) => (state.archive?.reads?.['evento-1010'] || 0) >= 2 ? 'NOVAS LINHAS LIDAS · PROCESSAMENTO LIBERADO' : 'UM ARQUIVO CONHECIDO FOI ALTERADO' }),
-  '11': clarity('Duas versões da mesma lembrança chegaram ao sistema. Uma delas está tentando apagar um detalhe.', 'Selecione evidências suficientes para reconstruir a forma descrita.', 'Quatro camadas bastam. Quanto mais você cruza, menos a negação importa.', 'cruzar camadas de evidência', 'Uma lembrança deixa de depender da palavra de quem a contou.', { status: (state) => `${(state.forensicSelections || []).length} / 4 CAMADAS NECESSÁRIAS` }),
-  '12': clarity('A reconstrução tem um nome comum. A segunda pessoa insiste que isso nunca aconteceu.', 'Dê um nome ao corte mostrado pelo modelo.', 'Confie na forma reconstruída, não na negação do relato.', 'nomear a memória', 'O sistema confirma que duas pessoas lembram da mesma coisa.', { status: () => 'RELATO B EM CONFLITO COM A EVIDÊNCIA', inputLabel: 'Nome do corte reconstruído', placeholder: 'nome comum do corte', submitLabel: 'CONFIRMAR MEMÓRIA', wrongFeedback: 'Esse nome não descreve a forma reconstruída.' }),
-  '13': clarity('Enquanto você estava fora da TV, alguém mudou o sinal.', 'Descubra o que o receptor guarda quando a transmissão desaparece.', 'Passe pelos canais e teste mais de um estado do aparelho.', 'operar e observar o receptor', 'Uma sequência fica gravada na tela mesmo sem sinal.', { status: (state) => state.flags.tvChannel11Primed ? 'CANAL 11 ENCONTRADO · SINAL INSTÁVEL' : `VARRENDO CAN ${String(state.tv.channel).padStart(2, '0')}` }),
-  '14': clarity('A marca 02 · 05 · 01 não é uma senha. São posições em uma coleção real.', 'Use a ordem nos objetos físicos indicados e reúna o código deixado neles.', 'Leia da esquerda para a direita. As três partes foram feitas para se juntar.', 'consultar posições e reunir fragmentos', 'Você recupera os pedaços de uma instrução maior.', { status: () => 'POSIÇÕES 02 · 05 · 01 REGISTRADAS', inputLabel: 'Código formado pelos três fragmentos', placeholder: 'código completo', submitLabel: 'JUNTAR FRAGMENTOS', format: /^NIGHT[-\s]?\d{3}$/i, formatHint: 'Digite o código completo formado pelas três partes.', wrongFeedback: 'As partes existem, mas não formam esse código nessa ordem.' }),
-  '15': clarity('Os papéis vieram do mesmo conjunto, mas foram separados para esconder uma frase.', 'Monte uma instrução que alguém realmente poderia ter escrito.', 'Toque nas partes na ordem de leitura. Toque de novo para remover.', 'montar a frase', 'O autor entrega um lugar sem dizer o nome dele.', { status: (state) => `${(state.fragments || []).length} / 4 PARTES NA FRASE` }),
-  '16': clarity('A frase aponta para uma coisa perto de onde a noite termina todos os dias.', 'Descubra qual móvel ela descreve e procure a marca deixada ali.', 'A cama é a primeira resposta óbvia. É também a errada.', 'interpretar e procurar no quarto', 'Uma nova assinatura física é ligada ao receptor.', { status: (state) => state.flags.bedsideFound ? 'MARCA NOTURNA VALIDADA' : 'ESPERANDO IDENTIFICADOR FÍSICO', inputLabel: 'Identificador encontrado perto da cama', placeholder: 'marca encontrada no móvel', submitLabel: 'VALIDAR MARCA', wrongFeedback: 'Essa marca não estava no lugar descrito pela frase.' }),
-  '17': clarity('A próxima regra foi colocada além do quarto, no último ponto seguro antes de sair de casa.', 'Encontre e autentique o NÓ do limiar; depois cruze o recado com o EVENTO_1010.', 'O QR entrega uma regra incompleta. O valor continua guardado no ARQUIVO.', 'encontrar o nó, cruzar pistas e sintonizar', 'A frequência do autor finalmente fica estável.', { status: (state) => state.flags.yardNodeValidated ? `NÓ_17 VALIDADO · CAN ${String(state.tv.channel).padStart(2, '0')} · NÍVEL ${String(state.tv.volume).padStart(2, '0')}` : 'NÓ DO LIMIAR AINDA NÃO AUTENTICADO' }),
-  '18': clarity('A frequência abriu seis lembranças de um lugar, mas removeu o nome dele.', 'Selecione o que pertence à mesma cena e diga onde tudo isso coexistiu.', 'Não procure cifra: água, vento, bancos e brinquedos são lembranças concretas.', 'reunir lembranças e nomear o lugar', 'O sistema localiza onde as duas pessoas estiveram juntas.', { status: (state) => `${(state.locationFragments || []).length} / 6 LEMBRANÇAS SELECIONADAS`, inputLabel: 'Lugar formado pelas lembranças', placeholder: 'nome do local', submitLabel: 'CONFIRMAR LUGAR', wrongFeedback: 'Esse lugar não reúne todas as lembranças selecionadas.' }),
-  '19': clarity('Agora há provas de que registros separados contam a mesma história por lados diferentes.', 'Ligue cada lembrança ao registro que confirma a outra metade.', 'Escolha um cartão e depois seu par. Um erro desfaz só a tentativa atual.', 'formar três pares', 'A pessoa diante da tela deixa de ser tratada como uma desconhecida.', { status: (state) => `${Math.floor((state.relationLinks || []).length / 2)} / 3 PARES CONFIRMADOS` }),
-  '20': clarity('O arquivo conhece seu quarto sem ter uma fotografia dele. Isso não deveria ser possível.', 'Reconstrua as relações entre os objetos e descubra qual item foi acrescentado.', 'Posição exata não importa. Faça as relações da lista ficarem verdadeiras.', 'reconstruir o quarto', 'Um objeto sem equivalente real denuncia o truque.', { status: (state) => `${Object.values(state.room || {}).filter((item) => item?.moved).length} OBJETOS POSICIONADOS` }),
-  '21': clarity('O sistema diz que acabou, mas ainda mostra 99%. Alguém deixou essa falha para você perceber.', 'Teste o encerramento e recuse a conclusão incompleta.', 'Uma conclusão verdadeira precisa explicar também o objeto impossível.', 'testar o falso encerramento', 'O caminho escondido atrás da TV é reaberto.', { status: (state) => state.flags.fakeFinalSeen ? 'FALSO FINAL ROMPIDO · 1 RELAÇÃO RESTANTE' : 'ENCERRAMENTO INCOMPLETO DISPONÍVEL' }),
-  '22': clarity('Atrás do falso final, uma frase curta aponta para baixo de onde as histórias ficam.', 'Encontre o NÓ físico e traga o código de volta.', 'O trecho de áudio serve para confirmar o objeto, não para resolver sozinho.', 'retornar ao ambiente físico', 'O último NÓ escondido é autenticado.', { status: (state) => state.flags.booksNodeScanned ? 'NÓ_11 DETECTADO' : 'ESPERANDO O ÚLTIMO NÓ', inputLabel: 'Código encontrado no NÓ_11', placeholder: 'VX-OBJETO-0000', submitLabel: 'AUTENTICAR NÓ', format: /^VX[-\s][A-Z0-9-]+$/i, formatHint: 'Digite o identificador completo iniciado por VX.', wrongFeedback: 'O código tem o formato certo, mas não pertence ao NÓ_11.' }),
-  '23': clarity('Você já encontrou a lua uma vez. O autor contou com a possibilidade de você não olhar o outro lado.', 'Volte ao mesmo objeto e procure a segunda marca.', 'Ela já estava lá desde o começo; o contexto é que mudou.', 'revisitar uma evidência antiga', 'A última assinatura órfã encontra sua memória.', { status: (state) => state.flags.moonSecondFound ? 'SEGUNDA MARCA REGISTRADA' : 'RETORNO AO OBJETO NECESSÁRIO', inputLabel: 'Segunda marca encontrada', placeholder: 'fragmento da outra camada', submitLabel: 'CRUZAR AS DUAS MARCAS', wrongFeedback: 'Esse fragmento não corresponde ao outro lado do objeto.' }),
-  '24': clarity('As três marcas VX eram uma ordem de leitura. Juntas, elas dizem por que este arquivo escolheu você.', 'Selecione as fontes na ordem VX-04, VX-11 e VX-02; depois nomeie a relação.', 'O campo final só aparece quando a ordem estiver correta.', 'ordenar rastros e nomear a relação', 'O sistema finalmente entende quem deixou o arquivo e para quem.', { status: (state) => `${(state.metaSelections || []).length} / 3 RASTROS CONECTADOS`, inputLabel: 'Relação revelada pelos três rastros', placeholder: 'uma palavra', submitLabel: 'ABRIR ÚLTIMO REGISTRO', wrongFeedback: 'Essa palavra não explica a relação formada pelos três rastros.' }),
-  '25': clarity('Não foi uma invasão aleatória. Cada falha, objeto e retorno foi deixado para Rayssa encontrar.', 'Leia o último registro e acione o sinal quando quiser.', 'Desta vez não existe outra senha escondida.', 'encerrar a investigação', 'O autor desconhecido finalmente assina o arquivo.', { status: () => 'INTEGRIDADE 100% · AUTOR IDENTIFICADO' })
+const { puzzleFor } = __require("js/puzzles/catalog.js");
+const DEFAULT_UI = Object.freeze({
+  inputLabel: '', placeholder: '', submitLabel: 'VERIFICAR', format: null, formatHint: '',
+  wrongFeedback: 'A operação foi aceita, mas o conteúdo não corresponde ao registro esperado.',
+  status: () => 'AGUARDANDO OPERAÇÃO'
 });
 
 function clarityFor(id) {
-  return PUZZLE_CLARITY[id] || PUZZLE_CLARITY['02'];
+  const puzzle = puzzleFor(id);
+  return Object.freeze({
+    narrative: puzzle.narrative,
+    objective: puzzle.objective,
+    actionHint: puzzle.interaction,
+    interaction: puzzle.interaction,
+    successMeaning: puzzle.successMeaning,
+    ...DEFAULT_UI,
+    ...puzzle.ui
+  });
 }
 
 function validateInputFormat(id, value) {
-  const contract = clarityFor(id);
-  return !contract.format || contract.format.test(String(value).trim());
+  const format = clarityFor(id).format;
+  return !format || format.test(String(value || '').trim());
 }
 
-exports.PUZZLE_CLARITY = PUZZLE_CLARITY;
 exports.clarityFor = clarityFor;
 exports.validateInputFormat = validateInputFormat;
 },
 "js/view.js": function(module, exports, __require) {
 const { formatDuration } = __require("js/utils.js");
 const { deriveExperience, applyExperienceToDocument } = __require("js/experience.js");
-const { renderExperienceScene, sceneFamilyFor } = __require("js/scenes/registry.js");
+const { renderExperienceScene, sceneFamilyFor, worldFor } = __require("js/scenes/registry.js");
+const { renderPhoneDock } = __require("js/phone.js");
+const { escapeHtml } = __require("js/utils.js");
+function renderIntent(puzzle,state) {
+  const firstVisit = (state.pagesVisited[puzzle.id] || 0) <= 1;
+  return `<div class="phase-intent ${firstVisit?'is-entering':''}" data-phase-intent ${firstVisit?'':'hidden'}><span>${String(puzzle.id).padStart(2,'0')} // ${escapeHtml(puzzle.world.toUpperCase())}</span><strong>${escapeHtml(puzzle.intent)}</strong></div>`;
+}
+
 function renderShell({ puzzle, puzzles, state, content, animate = true }) {
   const elapsed = formatDuration(Date.now() - (state.startedAt || Date.now()));
   const recovered = state.flags.finalRecovered;
   const experience = deriveExperience(puzzle, state);
   experience.activeArea = state.ui?.activePanel || experience.activeArea;
   experience.sceneFamily = sceneFamilyFor(puzzle);
+  experience.world = worldFor(puzzle);
   applyExperienceToDocument(experience);
   document.body.classList.toggle('is-recovered', recovered);
   document.body.classList.toggle('is-false-final', puzzle.id === '21' && !state.flags.fakeFinalSeen);
-  document.body.classList.toggle('is-immersive', experience.sceneFamily !== 'system');
+  const immersive = !['system', 'computer'].includes(experience.sceneFamily);
+  document.body.classList.toggle('is-immersive', immersive);
+  const spotify = document.querySelector('.spotify-dock');
+  if (spotify) {
+    spotify.toggleAttribute('inert', immersive);
+    spotify.setAttribute('aria-hidden', String(immersive));
+  }
   document.body.dataset.puzzle = puzzle.id;
+  document.body.dataset.world = experience.world;
 
-  return renderExperienceScene({ puzzle, puzzles, total: puzzles.length, state, content, animate, experience, elapsed, recovered });
+  const scene = renderExperienceScene({ puzzle, puzzles, total: puzzles.length, state, content, animate, experience, elapsed, recovered });
+  return `${scene}${renderIntent(puzzle,state)}${renderPhoneDock(state,puzzle)}`;
 }
 
 exports.renderShell = renderShell;
@@ -1043,68 +1019,97 @@ const { renderReceiverScene } = __require("js/scenes/receiver-scene.js");
 const { renderEvidenceScene } = __require("js/scenes/evidence-scene.js");
 const { renderDocumentScene } = __require("js/scenes/document-scene.js");
 const { renderOverrideScene, renderReconstructionScene } = __require("js/scenes/immersive-scene.js");
-const { sceneBlueprintFor } = __require("js/scenes/scene-blueprints.js");
+const { renderPhoneScene } = __require("js/scenes/phone-scene.js");
 function sceneFamilyFor(puzzle) {
-  return sceneBlueprintFor(puzzle).family;
+  return puzzle.family || 'computer';
 }
+
+function worldFor(puzzle) { return puzzle.world || sceneFamilyFor(puzzle); }
 
 function renderExperienceScene(context) {
   const family = sceneFamilyFor(context.puzzle);
-  return ({ system: renderSystemScene, device: renderReceiverScene, forensic: renderEvidenceScene, archive: renderDocumentScene, reconstruction: renderReconstructionScene, override: renderOverrideScene })[family](context);
+  const renderer = ({
+    computer: renderSystemScene,
+    system: renderSystemScene,
+    device: renderReceiverScene,
+    phone: renderPhoneScene,
+    forensic: renderEvidenceScene,
+    archive: renderDocumentScene,
+    reconstruction: renderReconstructionScene,
+    override: renderOverrideScene,
+    final: renderOverrideScene
+  })[family] || renderSystemScene;
+  return renderer(context);
 }
 
 exports.sceneFamilyFor = sceneFamilyFor;
+exports.worldFor = worldFor;
 exports.renderExperienceScene = renderExperienceScene;
 },
 "js/scenes/system-scene.js": function(module, exports, __require) {
-const { GAME_CONFIG } = __require("js/config.js");
 const { renderHintPanel } = __require("js/hints.js");
-const { renderEvidenceBoard, renderColdStorage, renderIdentity, renderReceiverStatus } = __require("js/evidence-board.js");
-const { renderDevPanel, renderNarrativeLoader, renderPuzzleBrief, renderSceneTools } = __require("js/scenes/shared.js");
-const { archiveRecordFor, renderArchiveDocument, renderArchiveIndex } = __require("js/archive.js");
-function workspaceTabs(puzzle, state, experience) {
-  const areas = [
-    ['archive','ARQUIVO',true],
-    ['receiver','RECEPTOR',experience.receiverAvailable],
-    ['evidence','EVIDÊNCIAS',experience.evidenceAvailable],
-    ['cold-storage','ARMAZENAMENTO FRIO',experience.coldStorageAvailable],
-    ['identity','IDENTIDADE',experience.identityAvailable]
-  ];
-  const requested = state.ui?.activePanel || experience.activeArea;
-  const active = areas.some(([id,,available]) => id === requested && available) ? requested : 'archive';
-  const panes = {
-    archive: `<div class="panel-label">arquivo persistente</div><div class="integrity" aria-label="integridade ${puzzle.integrity}%"><span style="--integrity:${puzzle.integrity / 100}"></span></div><div class="status-grid"><div class="status-cell muted">INTEGRIDADE<strong>${puzzle.integrity}%</strong></div><div class="status-cell muted">MODO<strong>LEITURA</strong></div></div><nav class="archive-nav" aria-label="Registros recuperados">${renderArchiveIndex(state)}</nav>`,
-    receiver: renderReceiverStatus(state),
-    evidence: renderEvidenceBoard(state),
-    'cold-storage': renderColdStorage(state),
-    identity: renderIdentity(state)
-  };
-  const tabs = areas.map(([id,label,available]) => `<button type="button" role="tab" class="workspace-tab ${id === active ? 'is-active' : ''}" data-action="workspace-tab" data-panel="${id}" aria-selected="${id === active}" ${available ? '' : 'disabled aria-disabled="true"'}>${label}</button>`).join('');
-  const content = areas.map(([id,label]) => `<section role="tabpanel" class="workspace-pane ${id === active ? 'is-active' : ''}" data-workspace-pane="${id}" aria-label="${label}" ${id === active ? '' : 'hidden'}>${panes[id]}</section>`).join('');
-  return `<nav class="workspace-tabs" role="tablist" aria-label="Ambientes do sistema">${tabs}</nav><div class="workspace-panes">${content}</div>`;
+const { archiveRecordFor, renderArchiveDocument, renderArchiveIndex, renderArchiveSearch } = __require("js/archive.js");
+const { renderPhaseOneComputer } = __require("js/phase-one-computer.js");
+const { escapeHtml } = __require("js/utils.js");
+const { renderDevPanel, renderSceneTools } = __require("js/scenes/shared.js");
+const PHASE_NAMES = Object.freeze({
+  boot:'COMPUTADOR', logs:'EVENTO_1010', 'tv-intro':'RECEPTOR', morse:'PORTADORA', 'file-properties':'MONTAGEM',
+  document:'DOCUMENTO', files:'DIRETÓRIO', binary:'PACOTE', 'moon-one':'LUA', 'return-event':'RETORNO', conflict:'CONFLITO',
+  'phone-memory':'MEMÓRIA', 'tv-sequence':'AFTERIMAGE', books:'BOOKSCAN', 'clock-calibration':'RELÓGIO', bedside:'CABECEIRA',
+  'tv-tuning':'FONTE VERDE', location:'MARGEM', identity:'FONTES', room:'CÔMODO ZERO', impossible:'INTEGRIDADE',
+  'books-node':'HISTÓRIAS', 'clock-origin':'ORIGEM', meta:'CHAVE', final:'RECUPERAÇÃO'
+});
+
+function visiblePhases(puzzles, state) {
+  const highest = Math.max(...state.unlocked.map(Number), 1);
+  return puzzles.filter((puzzle) => Number(puzzle.id) <= Math.min(puzzles.length, highest + 2));
 }
 
-function receiverBeacon(state, available) {
-  if (!available) return '';
-  return `<button type="button" class="receiver-beacon ${state.tv.power ? 'is-on' : 'is-off'}" data-action="workspace-tab" data-panel="receiver" data-persistent-receiver aria-label="Abrir estado do receptor"><span>RECEPTOR</span><strong>CAN ${String(state.tv.channel).padStart(2, '0')}</strong><i>${state.tv.power ? 'ATIVO' : 'INATIVO'}</i></button>`;
+function phaseState(puzzle, current, state) {
+  if (puzzle.id === current.id) return 'current';
+  if (state.completed.includes(puzzle.id)) return 'complete';
+  if (state.unlocked.includes(puzzle.id)) return 'discovered';
+  return 'locked';
+}
+
+function progressRail(puzzle, puzzles, state) {
+  const phases = visiblePhases(puzzles, state);
+  return `<ol class="phase-progress">${phases.map((item) => {
+    const status = phaseState(item,puzzle,state);
+    const label = PHASE_NAMES[item.renderer] || item.code;
+    const changed = item.id === '10' && !state.completed.includes('10') && Number(state.currentPuzzle) >= 10;
+    return `<li class="is-${status}${changed?' has-change':''}"><button type="button" data-action="navigate" data-target="${item.id}" ${status==='locked'?'disabled aria-disabled="true"':''} ${status==='current'?'aria-current="step"':''}><i>${item.id}</i><span>${status==='locked'?'BLOQUEADO':escapeHtml(label)}</span><b aria-label="${status}">${status==='complete'?'●':status==='current'?'◉':status==='discovered'?'◌':'○'}</b>${changed?'<em aria-label="conteúdo alterado">*</em>':''}</button></li>`;
+  }).join('')}</ol>`;
+}
+
+function phaseRail(puzzle, puzzles, state, active) {
+  const archiveAvailable = state.unlocked.some((id) => Number(id) >= 2);
+  return `<aside class="phase-rail" aria-label="Navegação da investigação">
+    <header><span>RECUPERAÇÃO</span><strong>1010</strong><i></i></header>
+    <nav aria-label="Fases recuperadas">${progressRail(puzzle,puzzles,state)}</nav>
+    <section class="phase-objective"><span>INTENÇÃO</span><em>${escapeHtml(puzzle.intent)}</em><span>AÇÃO ATUAL</span><strong>${escapeHtml(puzzle.objective)}</strong><small>${escapeHtml(puzzle.interaction)}</small><div class="phase-hints">${renderHintPanel(puzzle.id)}</div></section>
+    <div class="phase-rail__tools"><button type="button" class="phase-tool ${active==='task'?'is-active':''}" data-action="workspace-tab" data-panel="task">VOLTAR À FASE</button>${archiveAvailable?`<button type="button" class="phase-tool ${active==='archive'?'is-active':''}" data-action="workspace-tab" data-panel="archive">ARQUIVO</button>`:''}${renderSceneTools(state,{compact:true})}</div>
+    ${renderDevPanel(state)}
+  </aside>`;
+}
+
+function archiveStage(state) {
+  const recordId = state.ui.archiveView?.recordId;
+  if (recordId && archiveRecordFor(state,recordId)) return renderArchiveDocument(state,recordId);
+  return `<section class="phase-archive"><header><span>ARQUIVO MUTÁVEL</span><strong>${state.flags.eventChanged?'CONTEÚDO ALTERADO':'CONSULTA LOCAL'}</strong></header>${renderArchiveSearch(state)}<nav aria-label="Registros recuperados">${renderArchiveIndex(state)}</nav></section>`;
 }
 
 function renderSystemScene(context) {
-  const { puzzle, state, content, animate, experience, elapsed, recovered } = context;
-  const requestedRecord = state.ui?.archiveView?.recordId;
-  const archiveDocument = requestedRecord && archiveRecordFor(state, requestedRecord)
-    ? renderArchiveDocument(state, requestedRecord)
-    : '';
-  const mainContent = archiveDocument || `<div class="scene-header"><div><span class="scene-code">${puzzle.code}</span><h1 class="scene-title">${puzzle.title}</h1></div>${renderSceneTools(state)}</div>
-        ${renderPuzzleBrief(puzzle, state, { floating: true })}${content}${puzzle.id !== '25' ? `<aside class="system-scene__hint">${renderHintPanel(puzzle.id)}</aside>` : ''}${renderNarrativeLoader()}`;
-  return `<div class="shell system-scene ${recovered ? 'recovered-shell' : ''}" data-act="${experience.act}" data-area="${experience.activeArea}" data-scene-family="system" data-motion-scope="scene">
-    <header class="system-bar"><span>${experience.systemState} · ATO ${experience.act}</span><span class="brand">${GAME_CONFIG.systemName}</span><span class="system-bar__right">${experience.operatorRole} · ${elapsed}</span></header>
-    <div class="workspace">
-      <main class="main-panel system-panel${animate ? ' scene-enter is-entering' : ''}">
-        ${mainContent}
-      </main>
-      <aside class="side-panel">${receiverBeacon(state, experience.receiverAvailable)}${workspaceTabs(puzzle, state, experience)}${renderDevPanel(state)}</aside>
-    </div>
+  const { puzzle, puzzles, state, content, experience } = context;
+  const requested = state.ui.activePanel || 'task';
+  const active = requested === 'archive' && state.unlocked.some((id) => Number(id) >= 2) ? 'archive' : 'task';
+  const stage = renderPhaseOneComputer(puzzle,state,content);
+  return `<div class="phase-shell" data-act="${experience.act}" data-area="${active}" data-scene-family="computer" data-motion-scope="scene">
+    ${phaseRail(puzzle,puzzles,state,active)}
+    <main class="phase-stage">
+      <section class="phase-pane ${active==='task'?'is-active':''}" data-workspace-pane="task" ${active==='task'?'':'hidden'}>${stage}</section>
+      <section class="phase-pane ${active==='archive'?'is-active':''}" data-workspace-pane="archive" ${active==='archive'?'':'hidden'}>${archiveStage(state)}</section>
+    </main>
   </div>`;
 }
 
@@ -1121,14 +1126,14 @@ function renderHintPanel(id) {
       <summary>SOLICITAR AJUDA? <span class="faint">[ infelizmente ]</span></summary>
       <div class="hint-content">
         ${current ? `<p data-hint-message>${current}</p>` : '<p class="muted" data-hint-message>O AUTOR SABERÁ QUE VOCÊ PEDIU.</p>'}
-        ${used < 3 ? `<button type="button" class="micro-button" data-action="hint" data-puzzle="${id}">${used ? 'aprofundar anomalia' : 'solicitar nível 1'}</button>` : '<span class="warn">LIMITE DE AJUDA ATINGIDO</span>'}
+        ${used < 4 ? `<button type="button" class="micro-button" data-action="hint" data-puzzle="${id}">${used ? `solicitar nível ${used + 1}` : 'solicitar nível 1'}</button>` : '<span class="warn">LIMITE DE AJUDA ATINGIDO</span>'}
       </div>
     </details>`;
 }
 
 function useHint(id) {
   updateState((state) => {
-    state.hintsUsed[id] = Math.min(3, (state.hintsUsed[id] || 0) + 1);
+    state.hintsUsed[id] = Math.min(4, (state.hintsUsed[id] || 0) + 1);
     state.flags.assistanceJokeSeen = true;
   });
 }
@@ -1136,11 +1141,17 @@ function useHint(id) {
 exports.renderHintPanel = renderHintPanel;
 exports.useHint = useHint;
 },
+"data/hints.js": function(module, exports, __require) {
+const { PUZZLES } = __require("js/puzzles/catalog.js");
+// Compatibility view derived from the canonical puzzle catalog.
+const HINTS = Object.freeze(Object.fromEntries(PUZZLES.map((puzzle) => [puzzle.id, puzzle.hints])));
+
+exports.HINTS = HINTS;
+},
 "js/state.js": function(module, exports, __require) {
 const { GAME_CONFIG } = __require("js/config.js");
-const { clearStoredState, loadStoredState, saveStoredState } = __require("js/storage.js");
 const { unique } = __require("js/utils.js");
-const initialState = () => ({
+const createInitialState = () => ({
   version: GAME_CONFIG.version,
   startedAt: null,
   updatedAt: Date.now(),
@@ -1155,13 +1166,21 @@ const initialState = () => ({
   pagesVisited: {},
   events: [],
   motionEvents: {},
-  ui: { activePanel: null, archiveView: null },
-  archive: { reads: {} },
+  ui: { activePanel: null, archiveView: null, archiveQuery: '', focusReturn: null },
+  desktopOs: {
+    selectedIcon: null,
+    windows: [],
+    zCounter: 20,
+    startOpen: false,
+    clockHour: 10,
+    clockMinute: 10,
+    clockPanelOpen: false
+  },
+  phone: { open:false, locked:true, app:'home', thread:null, unread:0, battery:73, events:[] },
+  archive: { reads: {}, searches: [] },
   flags: {
     initialized: false,
     event1010Seen: false,
-    deskNodeScanned: false,
-    deskNodeValidated: false,
     moonFirstFound: false,
     eventChanged: false,
     mulletConfirmed: false,
@@ -1169,82 +1188,76 @@ const initialState = () => ({
     tvChannel11Primed: false,
     booksFound: false,
     bedsideFound: false,
+    greenNodeScanned: false,
+    greenNodeValidated: false,
     yardNodeScanned: false,
     yardNodeValidated: false,
     tvTuned: false,
     locationRecovered: false,
     identityLinked: false,
     roomRebuilt: false,
+    houseAnomalyRevealed: false,
+    roomNodeScanned: false,
+    roomNodeValidated: false,
     booksNodeScanned: false,
     booksNodeValidated: false,
-    moonSecondFound: false,
+    bookPairResolved: false,
+    bookPairIdentified: false,
+    clock0317Triggered: false,
+    clockOriginRestored: false,
     fakeFinalSeen: false,
     finalRecovered: false,
     assistanceJokeSeen: false
   },
-  tv: { power: true, channel: 1, volume: 3, antenna: 0, unlocked: false, morsePlays: 0 },
-  physicalNodes: { desk: 'unknown', yard: 'unknown', books: 'unknown' },
+  tv: { power: true, channel: 1, volume: 3, fine: 0, antenna: 0, unlocked: false, morsePlays: 0 },
+  physicalNodes: { green: 'unknown', yard: 'unknown', room: 'unknown', books: 'unknown' },
   room: {},
-  fragments: [],
+  documentFragments: [],
+  bookSelections: [],
   forensicSelections: [],
   locationFragments: [],
-  metaSelections: [],
+  relationSelection: [],
+  relationLinks: [],
+  roomPlacement: { selectedObject: null, selectedAnchor: null },
   stats: { tvInteractions: 0, wrongAnswers: 0, returns: 0, clicks: 0 },
   settings: { muted: false, volume: 0.45 },
   lastProgressAt: Date.now()
 });
 
-function mergeState(stored) {
-  const fresh = initialState();
-  if (!stored) return fresh;
-  const settings = {
-    ...fresh.settings,
-    ...(stored.settings || {}),
-    ...((stored.version ?? 0) < 2 ? { muted: false } : {})
-  };
-  return {
-    ...fresh,
-    ...stored,
-    version: fresh.version,
-    flags: { ...fresh.flags, ...(stored.flags || {}) },
-    tv: { ...fresh.tv, ...(stored.tv || {}) },
-    physicalNodes: { ...fresh.physicalNodes, ...(stored.physicalNodes || {}) },
-    motionEvents: { ...fresh.motionEvents, ...(stored.motionEvents || {}) },
-    ui: { ...fresh.ui, ...(stored.ui || {}) },
-    archive: { ...fresh.archive, ...(stored.archive || {}), reads: { ...fresh.archive.reads, ...(stored.archive?.reads || {}) } },
-    stats: { ...fresh.stats, ...(stored.stats || {}) },
-    settings
-  };
+let gameState = createInitialState();
+const ARRAY_FIELDS = Object.freeze(['unlocked','completed','discoveries','events','documentFragments','bookSelections','forensicSelections','locationFragments','relationSelection','relationLinks']);
+
+function normalizeState(state) {
+  ARRAY_FIELDS.forEach((key) => { if (!Array.isArray(state[key])) state[key] = []; });
+  if (!state.ui || typeof state.ui !== 'object') state.ui = { activePanel: null, archiveView: null, archiveQuery: '', focusReturn: null };
+  if (!state.room || typeof state.room !== 'object') state.room = {};
+  if (!state.roomPlacement || typeof state.roomPlacement !== 'object') state.roomPlacement = { selectedObject: null, selectedAnchor: null };
+  if (!state.flags || typeof state.flags !== 'object') state.flags = createInitialState().flags;
+  if (!state.archive || typeof state.archive !== 'object') state.archive = { reads: {}, searches: [] };
+  state.currentPuzzle = /^\d{2}$/.test(String(state.currentPuzzle)) ? String(state.currentPuzzle) : '01';
+  state.tv.channel = Math.max(1, Math.min(12, Number(state.tv.channel) || 1));
+  state.tv.volume = Math.max(0, Math.min(10, Number(state.tv.volume) || 0));
 }
 
-let gameState = mergeState(loadStoredState());
-const listeners = new Set();
+function sealSchema(state) {
+  ['ui','desktopOs','phone','flags','tv','physicalNodes','stats','settings','archive','roomPlacement'].forEach((key) => Object.seal(state[key]));
+  return Object.seal(state);
+}
+
+gameState = sealSchema(gameState);
 
 function commit(progress = false) {
+  normalizeState(gameState);
   gameState.updatedAt = Date.now();
   if (progress) gameState.lastProgressAt = Date.now();
-  saveStoredState(gameState);
-  listeners.forEach((listener) => listener(gameState));
 }
 
 function getState() { return gameState; }
-function subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); }
 
 function updateState(mutator, { progress = false } = {}) {
   mutator(gameState);
   commit(progress);
   return gameState;
-}
-
-function startGame() {
-  updateState((state) => {
-    state.startedAt ||= Date.now();
-    state.flags.initialized = true;
-  }, { progress: true });
-}
-
-function unlockPuzzle(id) {
-  updateState((state) => { state.unlocked = unique([...state.unlocked, id]); }, { progress: true });
 }
 
 function completePuzzle(id, next = []) {
@@ -1280,8 +1293,7 @@ function addEvent(type, detail = '') {
 }
 
 function resetState() {
-  clearStoredState();
-  gameState = initialState();
+  gameState = sealSchema(createInitialState());
   commit();
 }
 
@@ -1294,11 +1306,9 @@ function unlockThrough(id) {
   }, { progress: true });
 }
 
+exports.createInitialState = createInitialState;
 exports.getState = getState;
-exports.subscribe = subscribe;
 exports.updateState = updateState;
-exports.startGame = startGame;
-exports.unlockPuzzle = unlockPuzzle;
 exports.completePuzzle = completePuzzle;
 exports.recordVisit = recordVisit;
 exports.recordAttempt = recordAttempt;
@@ -1306,197 +1316,8 @@ exports.addEvent = addEvent;
 exports.resetState = resetState;
 exports.unlockThrough = unlockThrough;
 },
-"js/storage.js": function(module, exports, __require) {
-const { GAME_CONFIG } = __require("js/config.js");
-function loadStoredState() {
-  try {
-    const raw = localStorage.getItem(GAME_CONFIG.storageKey);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (parsed?.version !== GAME_CONFIG.version) {
-      localStorage.removeItem(GAME_CONFIG.storageKey);
-      return null;
-    }
-    return parsed && typeof parsed === 'object' ? parsed : null;
-  } catch (error) {
-    console.warn('RECOVERY storage unreadable.', error);
-    return null;
-  }
-}
-
-function saveStoredState(state) {
-  try {
-    localStorage.setItem(GAME_CONFIG.storageKey, JSON.stringify(state));
-  } catch (error) {
-    console.warn('RECOVERY storage unavailable.', error);
-  }
-}
-
-function clearStoredState() {
-  localStorage.removeItem(GAME_CONFIG.storageKey);
-}
-
-exports.loadStoredState = loadStoredState;
-exports.saveStoredState = saveStoredState;
-exports.clearStoredState = clearStoredState;
-},
-"js/evidence-board.js": function(module, exports, __require) {
-const { escapeHtml } = __require("js/utils.js");
-const EVIDENCE = [
-  { id: 'EVT-1010', type: 'EVENTO', origin: 'ARQUIVO', confidence: '98%', residual: '—', unlock: '02' },
-  { id: 'VX-04', type: 'RESÍDUO', origin: 'SEM PORTADORA', confidence: '21%', residual: 'BLOQUEADO', unlock: '02' },
-  { id: 'PORT-04', type: 'PORTADORA', origin: 'RECEPTOR', confidence: '96%', residual: 'OBJETO: MESA', unlock: '04' },
-  { id: 'DOC-1708', type: 'DOCUMENTO', origin: 'ARQUIVO', confidence: '91%', residual: 'DATA', unlock: '06' },
-  { id: 'FILE-1010', type: 'METADADO', origin: 'DIRETÓRIO J', confidence: '96%', residual: '10:10', unlock: '07' },
-  { id: 'PACKET-24', type: 'PACOTE', origin: 'ARQUIVO', confidence: '94%', residual: 'OBJETO: LUA', unlock: '08' },
-  { id: 'MEM-MULLET', type: 'MEMÓRIA', origin: 'CONFLITO', confidence: '99.4%', residual: 'S', unlock: '12' },
-  { id: 'IMG-251', type: 'IMAGEM RESIDUAL', origin: 'RECEPTOR', confidence: '89%', residual: '02 · 05 · 01', unlock: '13' },
-  { id: 'INST-NOITE', type: 'INSTRUÇÃO', origin: 'FRAGMENTOS', confidence: '93%', residual: 'ONDE A NOITE DEIXA O QUE VOCÊ PRECISA', unlock: '15' },
-  { id: 'VX-11', type: 'RESÍDUO', origin: 'SEM PORTADORA', confidence: '18%', residual: 'BLOQUEADO', unlock: '02' },
-  { id: 'NÓ-17', type: 'NÓ FÍSICO', origin: 'LIMIAR PRIVADO', confidence: '100%', residual: 'REPETIR EVENTO', unlock: '17' },
-  { id: 'PORT-1010', type: 'PORTADORA', origin: 'RECEPTOR', confidence: '99%', residual: 'CAN 10 · NÍVEL 10', unlock: '17' },
-  { id: 'LOC-1010', type: 'LOCAL', origin: 'PARQUINHO', confidence: '94%', residual: '—', unlock: '18' },
-  { id: 'ROOM-99', type: 'MODELO', origin: 'ARMAZENAMENTO FRIO', confidence: '99%', residual: 'TV', unlock: '20' },
-  { id: 'NÓ-11', type: 'NÓ FÍSICO', origin: 'ESTANTE', confidence: '100%', residual: 'VALIDADO', unlock: '22' },
-  { id: 'VX-02', type: 'RESÍDUO', origin: 'SEM PORTADORA', confidence: '16%', residual: 'BLOQUEADO', unlock: '02' },
-  { id: 'REL-NÓS', type: 'RELAÇÃO', origin: 'ENTIDADES A/B', confidence: '100%', residual: 'NÓS', unlock: '24' }
-];
-
-function isKnown(state, evidence) {
-  return state.completed.includes(evidence.unlock);
-}
-
-function knownEvidence(state) {
-  return EVIDENCE.filter((item) => isKnown(state, item)).map((item) => {
-    if (item.id === 'VX-04' && state.flags.moonFirstFound) return { ...item, origin: 'LUA', confidence: '74%', residual: 'N' };
-    if (item.id === 'VX-11' && state.flags.bedsideFound) return { ...item, origin: 'RECEPTOR', confidence: '82%', residual: 'O' };
-    if (item.id === 'VX-02' && state.flags.moonSecondFound) return { ...item, origin: 'CONFLITO', confidence: '88%', residual: 'S' };
-    return item;
-  });
-}
-
-function renderEvidenceBoard(state) {
-  const items = knownEvidence(state);
-  if (!items.length) return '<p class="workspace-empty">NENHUMA EVIDÊNCIA INDEXADA.</p>';
-  const lines = items.slice(1).map((_, index) => {
-    const y = 18 + index * 22;
-    return `<path d="M12 ${y} H34" pathLength="1"></path>`;
-  }).join('');
-  return `<div class="evidence-board" data-evidence-board>
-    <header class="evidence-board__header"><span>EVIDÊNCIAS REGISTRADAS</span><strong>${items.length}</strong></header>
-    <svg class="evidence-connections" viewBox="0 0 40 ${Math.max(44, items.length * 24)}" aria-hidden="true">${lines}</svg>
-    <ol class="evidence-list">${items.map((item) => `<li class="evidence-item" data-evidence-id="${escapeHtml(item.id)}">
-      <strong>${escapeHtml(item.id)}</strong>
-      <span>${escapeHtml(item.type)} · ${escapeHtml(item.origin)}</span>
-      <small>CONFIANÇA ${item.confidence} · RESIDUAL ${item.residual}</small>
-    </li>`).join('')}</ol>
-  </div>`;
-}
-
-function renderColdStorage(state) {
-  const nodeStatus = (name, label) => {
-    const value = state.physicalNodes[name];
-    const translated = value === 'validated' ? 'VALIDADO' : value === 'detected' ? 'DETECTADO' : value === 'detected-early' ? 'SEM CONTEXTO' : 'AUSENTE';
-    return `<li><span>${label}</span><strong>${translated}</strong></li>`;
-  };
-  return `<div class="cold-storage-map">
-    <p class="workspace-copy">MEMÓRIAS REMOVIDAS DO SISTEMA E PRESERVADAS FISICAMENTE.</p>
-    <ul>${nodeStatus('desk','NÓ 02 / ESCRIVANINHA')}${nodeStatus('yard','NÓ 17 / LIMIAR EXTERNO')}${nodeStatus('books','NÓ 11 / ESTANTE')}
-      <li><span>OBSERVADOR / LUA</span><strong>${state.flags.moonFirstFound ? (state.flags.moonSecondFound ? '2 CAMADAS' : '1 DE 2') : 'NÃO LIDO'}</strong></li>
-      <li><span>MODELO DO QUARTO</span><strong>${state.flags.roomRebuilt ? '99%' : 'PENDENTE'}</strong></li>
-    </ul>
-  </div>`;
-}
-
-function renderIdentity(state) {
-  const shared = [state.flags.eventChanged, state.flags.mulletConfirmed, state.flags.locationRecovered].filter(Boolean).length;
-  const status = state.flags.finalRecovered ? 'RAYSSA' : state.flags.identityLinked ? 'RAYSSA?' : 'DESCONHECIDA';
-  const author = state.flags.booksNodeValidated || state.flags.finalRecovered ? 'JOÃO' : state.flags.eventChanged ? 'J.' : 'DESCONHECIDO';
-  return `<div class="identity-register">
-    <div><span>AUTOR DO ARQUIVO</span><strong>${author}</strong></div>
-    <div><span>DESTINATÁRIA</span><strong data-entity-b>${status}</strong></div>
-    <div><span>MEMÓRIAS COMPARTILHADAS</span><strong>${shared} / 3</strong></div>
-    <div><span>RELAÇÃO</span><strong>${state.flags.finalRecovered ? 'NÓS' : 'NÃO RESOLVIDA'}</strong></div>
-  </div>`;
-}
-
-function renderReceiverStatus(state) {
-  const mode = state.flags.tvTuned ? 'CONTATO DE ENTIDADE' : state.flags.tvSequenceSeen ? 'IMAGEM RESIDUAL' : state.tv.unlocked ? 'CANAL' : 'SEM SINAL';
-  const target = ['17', '13', '03'].find((id) => state.unlocked.includes(id)) || '03';
-  return `<div class="receiver-status ${state.tv.power ? 'is-on' : 'is-off'}" data-receiver-module>
-    <div class="receiver-summary"><span>RECEPTOR VX-11</span><strong>${state.tv.power ? 'ATIVO' : 'INATIVO'}</strong></div>
-    <dl><div><dt>CANAL</dt><dd>${String(state.tv.channel).padStart(2, '0')}</dd></div><div><dt>ESTADO</dt><dd>${state.tv.power ? mode : 'DESLIGADO'}</dd></div></dl>
-    <button type="button" class="primary-button receiver-open" data-action="navigate" data-target="${target}">ABRIR RECEPTOR</button>
-  </div>`;
-}
-
-exports.knownEvidence = knownEvidence;
-exports.renderEvidenceBoard = renderEvidenceBoard;
-exports.renderColdStorage = renderColdStorage;
-exports.renderIdentity = renderIdentity;
-exports.renderReceiverStatus = renderReceiverStatus;
-},
-"js/scenes/shared.js": function(module, exports, __require) {
-const { GAME_CONFIG } = __require("js/config.js");
-const { clarityFor } = __require("js/puzzles/clarity.js");
-const { escapeHtml } = __require("js/utils.js");
-function renderPuzzleBrief(puzzle, state, { compact = false, floating = false } = {}) {
-  const contract = clarityFor(puzzle.id);
-  const status = contract.status(state);
-  if (floating) {
-    return `<details class="puzzle-brief puzzle-brief--floating">
-      <summary><span>AÇÃO REQUERIDA</span><strong>${escapeHtml(contract.objective)}</strong></summary>
-      <div class="puzzle-brief__drawer">
-        <p class="puzzle-brief__narrative">${escapeHtml(contract.narrative)}</p>
-        <p class="puzzle-brief__guidance">${escapeHtml(contract.actionHint)}</p>
-        <dl class="puzzle-brief__contract"><div><dt>INTERAÇÃO</dt><dd>${escapeHtml(contract.interaction)}</dd></div><div><dt>RESULTADO</dt><dd>${escapeHtml(contract.successMeaning)}</dd></div></dl>
-        <p class="puzzle-brief__status"><span>ESTADO ATUAL</span><strong>${escapeHtml(status)}</strong></p>
-      </div>
-    </details>`;
-  }
-  return `<section class="puzzle-brief ${compact ? 'puzzle-brief--compact' : ''}" aria-label="Orientação operacional da etapa">
-    <p class="puzzle-brief__narrative">${escapeHtml(contract.narrative)}</p>
-    <div class="puzzle-brief__objective"><span>AÇÃO REQUERIDA</span><strong>${escapeHtml(contract.objective)}</strong><small>${escapeHtml(contract.actionHint)}</small></div>
-    <dl class="puzzle-brief__contract"><div><dt>INTERAÇÃO</dt><dd>${escapeHtml(contract.interaction)}</dd></div><div><dt>RESULTADO</dt><dd>${escapeHtml(contract.successMeaning)}</dd></div></dl>
-    <p class="puzzle-brief__status"><span>ESTADO ATUAL</span><strong>${escapeHtml(status)}</strong></p>
-  </section>`;
-}
-
-function renderSceneTools(state, { compact = false } = {}) {
-  return `<div class="scene-tools ${compact ? 'scene-tools--compact' : ''}">
-    <button type="button" class="micro-button" data-action="toggle-mute">${state.settings.muted ? 'SOM DESLIGADO' : 'SOM LIGADO'}</button>
-    <label class="master-volume"><span>VOL</span><input type="range" min="0" max="1" step="0.05" value="${state.settings.volume}" data-master-volume aria-label="Volume geral"><output>${Math.round(state.settings.volume * 100)}%</output></label>
-    <button type="button" class="danger-button" data-action="dev-reset">ZERAR PROGRESSO</button>
-  </div>`;
-}
-
-function renderNarrativeLoader() {
-  return '<div class="narrative-loader" data-narrative-loader hidden aria-live="polite"><span>INDEXANDO BLOCOS DE MEMÓRIA</span><i aria-hidden="true"></i></div>';
-}
-
-function renderReturnControl(puzzle, state, label = 'VOLTAR AO SISTEMA') {
-  const returnTarget = state.unlocked.filter((id) => id !== puzzle.id).at(-1);
-  if (!returnTarget) return '<span class="scene-session-lock">SESSÃO DE INICIALIZAÇÃO</span>';
-  return `<button type="button" class="scene-return" data-action="navigate" data-target="${returnTarget}"><kbd>ESC</kbd>${label}</button>`;
-}
-
-function renderDevPanel(state) {
-  const dev = GAME_CONFIG.devMode || new URLSearchParams(location.search).get('dev') === '1';
-  if (!dev) return '';
-  return `<details class="dev-panel scene-dev-panel"><summary>console de manutenção</summary><div class="dev-actions">
-    <button type="button" class="micro-button" data-action="dev-next">liberar próximo</button>
-    <button type="button" class="danger-button" data-action="dev-reset">reiniciar</button>
-  </div><pre class="dev-state">${JSON.stringify(state, null, 2)}</pre></details>`;
-}
-
-exports.renderPuzzleBrief = renderPuzzleBrief;
-exports.renderSceneTools = renderSceneTools;
-exports.renderNarrativeLoader = renderNarrativeLoader;
-exports.renderReturnControl = renderReturnControl;
-exports.renderDevPanel = renderDevPanel;
-},
 "js/archive.js": function(module, exports, __require) {
-const { escapeHtml } = __require("js/utils.js");
+const { escapeHtml, normalizeAnswer } = __require("js/utils.js");
 const record = (definition) => Object.freeze(definition);
 
 const ARCHIVE_RECORDS = Object.freeze([
@@ -1534,32 +1355,47 @@ const ARCHIVE_RECORDS = Object.freeze([
   record({
     id: 'residuo-vx04', code: 'RESÍDUO_VX-04', type: 'REFERÊNCIA FÍSICA',
     discovered: (state) => state.completed.includes('09'),
-    metadata: () => [['OBJETO', 'LUA'], ['CAMADA', '01 / 02'], ['ESTADO', 'RECUPERADA']],
-    content: () => ['OBSERVADOR // REFERÊNCIA EXTERNA', 'PRIMEIRA CAMADA // VX-04', 'SEGUNDA CAMADA // NÃO LIDA']
+    metadata: () => [['OBJETO', 'LUA'], ['CAMADA', '01 / 01'], ['ESTADO', 'RECUPERADA']],
+    content: () => ['OBSERVADOR // REFERÊNCIA EXTERNA', 'ASSINATURA // VX-04', 'ORIGEM MATERIAL CONFIRMADA']
   }),
   record({
     id: 'imagem-receptor-13', code: 'IMAGEM_RECEPTOR_13', type: 'RESÍDUO DE FÓSFORO',
     discovered: (state) => state.completed.includes('13'),
     metadata: () => [['FONTE', 'CANAL 11'], ['ESTADO', 'SEM PORTADORA'], ['QUADROS', '03']],
-    content: () => ['SEQUÊNCIA PRESERVADA // 02 · 05 · 01', 'ORDEM DE LEITURA // ESQUERDA → DIREITA']
+    content: () => ['RELAÇÃO PRESERVADA // FIM · 01 · COMEÇO', 'DISTÂNCIA // UM VOLUME', 'ORDEM DE LEITURA // ESQUERDA → DIREITA']
   }),
   record({
-    id: 'instrucao-15', code: 'INSTRUÇÃO_15', type: 'RECONSTRUÇÃO DE FRAGMENTOS',
+    id: 'instrucao-15', code: 'INSTRUÇÃO_15', type: 'RESPOSTA DO RELÓGIO',
     discovered: (state) => state.completed.includes('15'),
-    metadata: () => [['FRAGMENTOS', '04'], ['SINTAXE', 'ESTÁVEL'], ['DESTINO', 'EXTERNO']],
-    content: () => ['ONDE A NOITE DEIXA O QUE VOCÊ PRECISA']
+    metadata: () => [['CALIBRAÇÃO', '03:17'], ['RESPOSTA', 'LIBERADA'], ['DESTINO', 'EXTERNO']],
+    content: () => ['03:17 // HORA APLICADA AO SISTEMA', 'ONDE A NOITE DEIXA O QUE VOCÊ PRECISA']
   }),
   record({
-    id: 'limiar-17', code: 'LIMIAR_17', type: 'REFERÊNCIA EXTERNA SEGURA',
+    id: 'croma-verde-14', code: 'CROMA_VERDE_14', type: 'LEITURA DE FONTE EXTERNA',
+    discovered: (state) => state.flags.greenNodeValidated,
+    metadata: () => [['NÓ', '14'], ['OBJETO', 'ASSENTO'], ['AMBIENTE', 'EXTERNO'], ['CANAL PRESERVADO', 'VERDE']],
+    content: () => ['SEQUÊNCIA DE POSIÇÃO // 03 · 01 · 04', 'CADEIRA VINCULADA // ORIENTAÇÃO CONFIRMADA', 'FRAGMENTO // △ ○ ⌁', 'DESTINO // MARGEM SOB CÉU ABERTO']
+  }),
+  record({
+    id: 'limiar-17', code: 'MARGEM_17', type: 'REFERÊNCIA EXTERNA SEGURA',
     discovered: (state) => state.flags.yardNodeValidated,
     metadata: () => [['NÓ', '17'], ['ORIGEM', 'ÁREA PRIVADA'], ['ESTADO', 'AUTENTICADO']],
-    content: () => ['FRAGMENTO // REPITA O EVENTO NOS DOIS CONTROLES', 'VALOR // CONSULTAR EVENTO_1010', 'DESTINO // RECEPTOR VX-11']
+    content: () => ['ORIGEM // MARGEM PRIVADA SOB CÉU ABERTO', 'FRAGMENTO // REPITA O EVENTO NOS DOIS CONTROLES', 'VALOR // CONSULTAR EVENTO_1010', 'DESTINO // RECEPTOR VX-11']
+  }),
+  record({
+    id: 'volume-00', code: 'VOLUME_NÃO_INDEXADO', type: 'DIVERGÊNCIA ESPACIAL',
+    discovered: (state) => state.flags.houseAnomalyRevealed,
+    version: (state) => state.flags.roomNodeValidated ? 2 : 1,
+    metadata: (version) => [['ÁREA CALCULADA', '118,6 m²'], ['ÁREA INDEXADA', '107,4 m²'], ['DIFERENÇA', '+11,2 m²'], ['LEITURAS', version === 2 ? '02' : '01']],
+    content: (version) => version === 2
+      ? ['ORIGEM // NÃO INDEXADA', 'LEITURA ATUAL // SESSÃO LOCAL', 'LEITURA ANTERIOR // 03:17', 'A LEITURA ANTERIOR NÃO POSSUI EVENTO DE ENTRADA']
+      : ['ORIGEM // NÃO INDEXADA', 'OCUPAÇÃO // INCONSISTENTE', 'INTERFACE // INSUFICIENTE', 'ACESSO // FÍSICO']
   }),
   record({
     id: 'portadora-1010', code: 'PORTADORA_1010', type: 'INTERCEPTAÇÃO',
     discovered: (state) => state.completed.includes('17'),
-    metadata: () => [['CANAL', '10'], ['NÍVEL', '10'], ['SINCRONIA', 'FIXADA']],
-    content: () => ['EVENTO_1010 // PORTADORA ESTÁVEL', 'A FREQUÊNCIA RESPONDE À MESMA DATA', 'PRÓXIMO BLOCO // UMA LEMBRANÇA SEM NOME']
+    metadata: () => [['CANAL', '10'], ['NÍVEL', '10'], ['AJUSTE FINO', '+3'], ['SINCRONIA', 'FIXADA']],
+    content: () => ['EVENTO_1010 // PORTADORA ESTÁVEL', 'PICO LOCAL // +3', 'A FREQUÊNCIA RESPONDE À MESMA DATA', 'PRÓXIMO BLOCO // UMA LEMBRANÇA SEM NOME']
   }),
   record({
     id: 'reconstrucao-18', code: 'RECONSTRUÇÃO_18', type: 'MEMÓRIA ESPACIAL',
@@ -1571,9 +1407,83 @@ const ARCHIVE_RECORDS = Object.freeze([
     id: 'cabecalho-audio-22', code: 'CABEÇALHO_ÁUDIO_22', type: 'REGISTRO EXTERNO',
     discovered: (state) => state.completed.includes('22'),
     metadata: () => [['NÓ', '11'], ['ARMAZENAMENTO', 'LIVROS'], ['INTEGRIDADE', 'PARCIAL']],
-    content: () => ['CABEÇALHO // “TÃO FÁCIL SE APAIXONAR…”', 'CANAL EXTERNO // AUTENTICADO']
+    content: () => ['CABEÇALHO // “TÃO FÁCIL SE APAIXONAR…”', 'CANAL EXTERNO // AUTENTICADO', 'NÓ_00 // IMPACTOS 01 · 02 · 03', 'ÍNDICE ÚTIL // SEGUNDA MARCA']
+  }),
+  record({
+    id: 'archive-170491', code: 'ARCHIVE_170491', type: 'MONTAGEM ÓRFÃ',
+    discovered: (state) => state.completed.includes('05'),
+    metadata: () => [['CRIADO', '17 / 04 / 91'], ['DISPOSITIVO', 'AUSENTE'], ['ESTADO', 'MONTADO SOMENTE PARA LEITURA']],
+    content: () => ['ÍNDICE // 170491', 'CONTEÚDO // NÃO RECUPERADO', 'A INFORMAÇÃO PODE ADQUIRIR CONTEXTO EM UMA LEITURA FUTURA']
+  }),
+  record({
+    id: 'checksum-520', code: 'CADEIA_520', type: 'CHECKSUM RELACIONAL',
+    discovered: (state) => state.completed.includes('20'),
+    metadata: () => [['MONTAGEM', 'FASE 05'], ['CÔMODO', 'FASE 20'], ['RESULTADO', '520']],
+    content: () => ['05 // MONTAGEM ÓRFÃ', '20 // CÔMODO ZERO', 'CHECKSUM PRESERVADO // 520']
+  }),
+  record({
+    id: 'endereco-1314', code: 'ENDERECO_1314', type: 'CABEÇALHO DE PERMANÊNCIA',
+    discovered: (state) => state.completed.includes('22'),
+    metadata: () => [['ORIGEM', 'NODE_11'], ['CABEÇALHO', '13 · 14'], ['ENDEREÇO', '1314']],
+    content: () => ['ARMAZENAMENTO // HISTÓRIAS', 'ENDEREÇO DE PERMANÊNCIA // 1314', 'INTERPRETAÇÃO // NÃO SOLICITADA']
+  }),
+  record({
+    id: 'fonte-03', code: 'FONTE_03', type: 'ANOMALIA DE AQUISIÇÃO',
+    discovered: (state) => state.flags.roomNodeValidated,
+    metadata: () => [['FONTES ESPERADAS', '02'], ['FONTES DETECTADAS', '03'], ['ORIGEM', 'NÃO CLASSIFICADA']],
+    content: () => ['ENTIDADE A // PRESENTE', 'ENTIDADE B // PRESENTE', 'ENTIDADE C // HIPÓTESE NÃO CONFIRMADA', 'PRIMEIRA LEITURA // 03:17']
+  }),
+  record({
+    id: 'adjacencia-23', code: 'ORIGEM_TEMPORAL_1010', type: 'AJUSTE DE SISTEMA',
+    discovered: (state) => state.completed.includes('23'),
+    metadata: () => [['CALIBRAÇÃO ANTERIOR', '03:17'], ['ORIGEM RESTAURADA', '10:10'], ['REFERÊNCIA', 'EVENTO_1010']],
+    content: () => ['O RELÓGIO RESPONDEU À ORIGEM DO EVENTO', 'HORA RESTAURADA // 10:10', 'CADEIAS FINAIS // LIBERADAS']
+  }),
+  record({
+    id: 'chaves-24', code: 'CHAVES_COMPOSTAS', type: 'CHECKSUM RELACIONAL',
+    discovered: (state) => state.unlocked.includes('24'),
+    metadata: () => [['CADEIA A', '520'], ['CADEIA B', '1314'], ['OPERAÇÃO', 'CONCATENAÇÃO']],
+    content: () => ['520 // DADO RECUPERADO', '1314 // ENDEREÇO DE PERMANÊNCIA', 'INTERPRETAÇÃO // BLOQUEADA ATÉ A EXECUÇÃO']
   })
 ]);
+
+const SEARCH_ECHOES = Object.freeze([
+  { terms: ['lua'], code: 'OBJETO_LUA', type: 'REFERÊNCIA MATERIAL', text: 'Duas camadas registradas. Uma leitura ainda não ocorreu.', after: '08' },
+  { terms: ['10 10', '1010', '10:10'], code: 'EVENTO_1010', type: 'RECORRÊNCIA TEMPORAL', text: 'O mesmo valor aparece como data, horário e calibração.', after: '02' },
+  { terms: ['verde', 'assento', 'cadeira'], code: 'CROMA_RESIDUAL', type: 'FONTE EXTERNA', text: 'ASSENTO // EXTERNO. Apenas o canal verde preservou informação.', after: '13' },
+  { terms: ['quarto', 'comodo', 'cômodo', '0317', '03:17'], code: 'VOLUME_NAO_INDEXADO', type: 'DIVERGÊNCIA ESPACIAL', text: 'Área calculada excede a planta em 11,2 m². Última leitura: 03:17.', after: '19' },
+  { terms: ['quintal', 'ceu', 'céu', 'margem'], code: 'MARGEM_PRIVADA', type: 'RELAÇÃO ESPACIAL', text: 'Cobertura ausente. Ainda dentro do limite preparado.', after: '17' },
+  { terms: ['rayssa'], code: 'DESTINATARIA_REMOVIDA', type: 'METADADO INSTÁVEL', text: 'Nenhum resultado.', after: '10', contaminated: true }
+]);
+
+function reached(state, id) {
+  return state.unlocked.some((candidate) => Number(candidate) >= Number(id));
+}
+
+function archiveSearchResults(state, query) {
+  const normalized = normalizeAnswer(query);
+  if (!normalized) return [];
+  const recordHits = archiveRecordsFor(state).filter((item) => {
+    const haystack = normalizeAnswer([item.code, item.type, ...item.metadata.flat(), ...item.content].join(' '));
+    return haystack.includes(normalized);
+  }).map((item) => ({ code: item.code, type: item.type, text: item.content[0], recordId: item.id }));
+  const echoHits = SEARCH_ECHOES.filter((item) => reached(state, item.after) && item.terms.some((term) => normalizeAnswer(term) === normalized));
+  return [...recordHits, ...echoHits].slice(0, 8);
+}
+
+function renderArchiveSearch(state) {
+  const query = state.ui?.archiveQuery || '';
+  const results = archiveSearchResults(state, query);
+  return `<section class="archive-search" aria-label="Pesquisa do arquivo">
+    <form class="archive-search__form" data-archive-search>
+      <label for="archive-query">CONSULTA POR PALAVRA, OBJETO OU HORÁRIO</label>
+      <div><input id="archive-query" name="query" value="${escapeHtml(query)}" autocomplete="off" spellcheck="false" placeholder="ex.: lua, 10:10"><button type="submit">PESQUISAR</button></div>
+    </form>
+    ${query ? `<div class="archive-search__results"><header><span>CONSULTA // ${escapeHtml(query.toUpperCase())}</span><strong>${results.length} CORRESPONDÊNCIA${results.length === 1 ? '' : 'S'}</strong></header>${results.length ? results.map((item) => item.recordId
+      ? `<button type="button" data-action="open-archive-record" data-record="${escapeHtml(item.recordId)}"><i>${escapeHtml(item.type)}</i><strong>${escapeHtml(item.code)}</strong><span>${escapeHtml(item.text)}</span></button>`
+      : `<article class="${item.contaminated ? 'is-contaminated' : ''}"><i>${escapeHtml(item.type)}</i><strong>${escapeHtml(item.code)}</strong><span>${escapeHtml(item.text)}</span></article>`).join('') : '<p>NENHUMA ENTRADA INDEXADA. O ARQUIVO NÃO COMPLETA PALAVRAS.</p>'}</div>` : ''}
+  </section>`;
+}
 
 function materialize(definition, state) {
   const version = definition.version?.(state) || 1;
@@ -1630,10 +1540,250 @@ function renderArchiveDocument(state, recordId) {
   </article>`;
 }
 
+exports.archiveSearchResults = archiveSearchResults;
+exports.renderArchiveSearch = renderArchiveSearch;
 exports.archiveRecordsFor = archiveRecordsFor;
 exports.archiveRecordFor = archiveRecordFor;
 exports.renderArchiveIndex = renderArchiveIndex;
 exports.renderArchiveDocument = renderArchiveDocument;
+},
+"js/phase-one-computer.js": function(module, exports, __require) {
+const { escapeHtml } = __require("js/utils.js");
+const { computerWorldAt } = __require("js/worlds/computer-world.js");
+let activePhaseContent = '';
+
+const RESOURCE_LIST = [
+  { id:'computer', name:'Meu computador', type:'folder', parent:'desktop', path:'C:\\', children:['system','documents','temp','backup','images','personal'] },
+  { id:'documents', name:'Documentos', type:'folder', parent:'computer', path:'C:\\DOCUMENTOS', children:['work','shopping','untitled'] },
+  { id:'notes', name:'NOTAS.txt', type:'text', parent:'desktop', created:'09/10/2025 21:02', modified:'09/10/2025 21:06', size:'1 KB', origin:'C:\\DOCUMENTOS', body:['devolver o adaptador','comprar pilhas','não mexer no relógio do sistema'] },
+  { id:'trash', name:'Lixeira', type:'trash', parent:'desktop', path:'LIXEIRA', children:['old-image','draft'] },
+  { id:'receiver-app', name:'RECEPTOR.exe', type:'program', parent:'desktop', created:'10/10/2025 10:10', modified:'10/10/2025 10:10', size:'31 KB', origin:'REGISTRO ISOLADO', target:'03' },
+  { id:'analyzer-app', name:'ANALISADOR.exe', type:'program', parent:'desktop', created:'10/10/2025 10:11', modified:'10/10/2025 10:11', size:'82 KB', origin:'PACOTE RECUPERADO', target:'09' },
+  { id:'recovery-app', name:'RECUPERAR.exe', type:'program', parent:'desktop', created:'10/10/2025 14:25', modified:'10/10/2025 14:25', size:'101 KB', origin:'MODELO RELACIONAL', target:'20' },
+  { id:'bookscan-app', name:'BOOKSCAN.exe', type:'program', parent:'desktop', created:'10/10/2025 13:14', modified:'10/10/2025 13:14', size:'67 KB', origin:'IMAGEM RESIDUAL', target:'14' },
+  { id:'truth-app', name:'INTEGRIDADE.exe', type:'program', parent:'desktop', created:'10/10/2025 23:10', modified:'10/10/2025 23:10', size:'131 KB', origin:'SISTEMA', target:'21' },
+  { id:'mount-app', name:'MOUNT.exe', type:'program', parent:'desktop', created:'17/04/1991 08:00', modified:'10/10/2025 10:12', size:'38 KB', origin:'SISTEMA', target:'05', phaseApp:true },
+  { id:'directory-app', name:'DIRETORIO_J', type:'program', parent:'desktop', created:'10/10/2025 10:08', modified:'10/10/2025 10:10', size:'51 KB', origin:'DOCUMENTOS', target:'07', phaseApp:true },
+  { id:'dump-app', name:'DUMP_24.exe', type:'program', parent:'desktop', created:'10/10/2025 10:10', modified:'10/10/2025 10:11', size:'24 KB', origin:'DIRETORIO_J', target:'08', phaseApp:true },
+  { id:'final-recovery-app', name:'RECUPERAR_FINAL.exe', type:'program', parent:'desktop', created:'10/10/2025 10:10', modified:'10/10/2025 10:10', size:'520 KB', origin:'DUAS CADEIAS', target:'24', phaseApp:true },
+  { id:'clock-note', name:'0317.REC', type:'text', parent:'desktop', created:'17/04/1991 03:17', modified:'10/10/2025 03:17', size:'3 KB', origin:'RELÓGIO DO SISTEMA', body:['CALIBRAÇÃO ACEITA','ONDE A NOITE DEIXA O QUE VOCÊ PRECISA','o sistema não criou este arquivo; apenas deixou de escondê-lo'] },
+  { id:'system', name:'SISTEMA', type:'folder', parent:'computer', path:'C:\\SISTEMA', children:['drivers','registers','config'] },
+  { id:'temp', name:'TEMP', type:'folder', parent:'computer', path:'C:\\TEMP', children:['tmp1','cache','old-image'] },
+  { id:'backup', name:'BACKUP', type:'folder', parent:'computer', path:'C:\\BACKUP', children:['backup1','backup2','event-old'] },
+  { id:'images', name:'IMAGENS', type:'folder', parent:'computer', path:'C:\\IMAGENS', children:['camera-old','moon-thumb'] },
+  { id:'personal', name:'PESSOAL', type:'folder', parent:'computer', path:'C:\\PESSOAL', children:['empty-folder','audio-note'] },
+  { id:'drivers', name:'DRIVERS', type:'folder', parent:'system', path:'C:\\SISTEMA\\DRIVERS', children:['display-driver','audio-driver'] },
+  { id:'registers', name:'REGISTROS', type:'folder', parent:'system', path:'C:\\SISTEMA\\REGISTROS', children:['log-0704','log-0709','event-1010','log-1011','log-1102','source-b'] },
+  { id:'config', name:'CONFIG.SYS', type:'text', parent:'system', created:'17/04/1991 08:00', modified:'07/10/2025 18:42', size:'3 KB', origin:'INSTALAÇÃO LOCAL', body:['DISPLAY=VGA_640','AUDIO=VX_COMPAT','CLOCK=LOCAL','MOUNT=AUTO'] },
+  { id:'work', name:'trabalho.txt', type:'text', parent:'documents', created:'02/10/2025 14:20', modified:'02/10/2025 17:41', size:'5 KB', origin:'USUÁRIO J.', body:['pendências da semana','confirmar manutenção do drive','reorganizar arquivos depois'] },
+  { id:'shopping', name:'compras.txt', type:'text', parent:'documents', created:'09/10/2025 20:58', modified:'09/10/2025 21:06', size:'1 KB', origin:'USUÁRIO J.', body:['pilhas AA','fita removível','café','envelope plástico'] },
+  { id:'untitled', name:'sem_nome.txt', type:'text', parent:'documents', created:'08/10/2025 00:31', modified:'08/10/2025 00:33', size:'0 KB', origin:'USUÁRIO J.', body:[''] },
+  { id:'tmp1', name:'~$0001.tmp', type:'data', parent:'temp', created:'10/10/2025 09:44', modified:'10/10/2025 09:44', size:'16 KB', origin:'SISTEMA', body:['DADOS TEMPORÁRIOS','SEM CONTEÚDO LEGÍVEL'] },
+  { id:'cache', name:'cache.dat', type:'data', parent:'temp', created:'10/10/2025 09:45', modified:'10/10/2025 09:58', size:'128 KB', origin:'SISTEMA', body:['CACHE DE VISUALIZAÇÃO','BLOCO 04 / 18'] },
+  { id:'backup1', name:'backup_01', type:'folder', parent:'backup', path:'C:\\BACKUP\\backup_01', children:[] },
+  { id:'backup2', name:'backup_02', type:'folder', parent:'backup', path:'C:\\BACKUP\\backup_02', children:[] },
+  { id:'event-old', name:'evento.old', type:'data', parent:'backup', created:'09/10/2025 23:48', modified:'09/10/2025 23:48', size:'2 KB', origin:'BACKUP LOCAL', body:['VERSÃO ENCERRADA','NENHUM EVENTO ASSOCIADO'] },
+  { id:'camera-old', name:'camera_01.bmp', type:'image', parent:'images', created:'08/10/2025 22:14', modified:'08/10/2025 22:14', size:'301 KB', origin:'CÂMERA DOMÉSTICA', source:'./assets/images/camera-01.svg' },
+  { id:'moon-thumb', name:'tecido_scan.bmp', type:'image', parent:'images', created:'10/10/2025 10:08', modified:'10/10/2025 10:08', size:'184 KB', origin:'SCANNER LOCAL', source:'./assets/images/moon-scan.svg' },
+  { id:'old-image', name:'img_old.bmp', type:'image', parent:'trash', created:'17/09/2025 03:17', modified:'17/09/2025 03:17', size:'42 KB', origin:'TEMP', source:'./assets/images/camera-02.svg' },
+  { id:'draft', name:'rascunho.txt', type:'text', parent:'trash', created:'01/10/2025 11:22', modified:'01/10/2025 11:23', size:'1 KB', origin:'DOCUMENTOS', body:['isso parece menos suspeito no papel'] },
+  { id:'empty-folder', name:'SEM_NOME', type:'folder', parent:'personal', path:'C:\\PESSOAL\\SEM_NOME', children:[] },
+  { id:'audio-note', name:'calibracao.wav', type:'audio', parent:'personal', created:'07/10/2025 19:10', modified:'07/10/2025 19:10', size:'64 KB', origin:'GERADOR LOCAL', body:['00:04','RUÍDO DE ALINHAMENTO','SEM FALA'] },
+  { id:'display-driver', name:'VGA_640.drv', type:'data', parent:'drivers', created:'17/04/1991 08:00', modified:'17/04/1991 08:00', size:'42 KB', origin:'INSTALAÇÃO LOCAL', body:['CONTROLADOR DE VÍDEO','ESTADO NOMINAL'] },
+  { id:'audio-driver', name:'VX_AUDIO.drv', type:'data', parent:'drivers', created:'17/04/1991 08:00', modified:'07/04/1993 11:40', size:'31 KB', origin:'INSTALAÇÃO LOCAL', body:['CONTROLADOR DE ÁUDIO','PORTADORA NÃO CATALOGADA'] },
+  { id:'log-0704', name:'REG_070411.idx', type:'log', parent:'registers', created:'10/10/2025 07:04', modified:'10/10/2025 07:04', size:'4 KB', origin:'ESTAÇÃO R-1010', body:['07:04:11  NÓ_01  nominal','ORIGEM  estação local','ASSINATURA  válida'] },
+  { id:'log-0709', name:'REG_070932.idx', type:'log', parent:'registers', created:'10/10/2025 07:09', modified:'10/10/2025 07:09', size:'4 KB', origin:'ESTAÇÃO R-1010', body:['07:09:32  REGISTRO_674','verificação divergente','ORIGEM  estação local'] },
+  { id:'event-1010', name:'REG_101000.idx', type:'log', parent:'registers', created:'17/04/1991 03:17', modified:'10/10/2025 10:10', size:'10 KB', origin:'VOLUME EXTERNO / NÃO MONTADO', attributes:'SISTEMA · OCULTO · SOMENTE LEITURA', body:['10:10:00  EVENTO_1010','origem desconhecida','volume correspondente ausente','índice anterior à pasta atual'], anomaly:true },
+  { id:'log-1011', name:'REG_101108.idx', type:'log', parent:'registers', created:'10/10/2025 10:11', modified:'10/10/2025 10:11', size:'4 KB', origin:'ESTAÇÃO R-1010', body:['10:11:08  VX-04','sem portadora','ORIGEM  estação local'] },
+  { id:'log-1102', name:'REG_110214.idx', type:'log', parent:'registers', created:'10/10/2025 11:02', modified:'10/10/2025 11:02', size:'4 KB', origin:'ESTAÇÃO R-1010', body:['11:02:14  VX-11','adiado','ORIGEM  estação local'] },
+  { id:'source-b', name:'REG_142510.idx', type:'log', parent:'registers', created:'10/10/2025 14:25', modified:'10/10/2025 14:25', size:'4 KB', origin:'ESTAÇÃO R-1010', body:['14:25:10  SRC-B','correlação adiada','ORIGEM  estação local'] }
+];
+
+const RESOURCES = Object.freeze(Object.fromEntries(RESOURCE_LIST.map((resource) => [resource.id, Object.freeze(resource)])));
+const BASE_DESKTOP_ICONS = Object.freeze([['computer',5,7],['documents',5,27],['notes',5,49],['trash',5,71]]);
+
+function desktopResource(id) { return RESOURCES[id] || null; }
+
+function glyph(type) {
+  const shape = type === 'folder' ? '<path d="M3 8h7l2-3h9v15H3z"/><path d="M3 9h18"/>'
+    : type === 'trash' ? '<path d="M7 7h10l-1 13H8zM5 7h14M9 4h6"/>'
+      : type === 'image' ? '<rect x="3" y="4" width="18" height="16"/><path d="m5 17 5-6 4 4 2-2 4 4"/><circle cx="16" cy="8" r="1.5"/>'
+        : type === 'audio' ? '<path d="M4 9v6h4l5 4V5L8 9zM17 9c2 2 2 4 0 6"/>'
+          : type === 'log' || type === 'data' ? '<path d="M5 3h10l4 4v14H5zM15 3v5h4"/><path d="M8 12h8M8 15h8M8 18h5"/>'
+            : '<path d="M5 3h10l4 4v14H5zM15 3v5h4"/><path d="M8 12h8M8 15h8"/>';
+  return `<svg class="retro-glyph retro-glyph--${type}" viewBox="0 0 24 24" aria-hidden="true">${shape}</svg>`;
+}
+
+function iconMarkup(resource, location = 'window', position = null) {
+  const style = position ? ` style="--os-x:${position[0]}%;--os-y:${position[1]}%"` : '';
+  return `<button type="button" class="os-icon os-icon--${location}" data-action="os-select" data-os-resource="${resource.id}" aria-label="${escapeHtml(resource.name)}" aria-selected="false"${style}>${glyph(resource.type)}<span>${escapeHtml(resource.name)}</span></button>`;
+}
+
+function folderBody(resource) {
+  const children = (resource.children || []).map((id) => RESOURCES[id]).filter(Boolean);
+  return `<div class="os-address"><span>ENDEREÇO</span><strong>${escapeHtml(resource.path || resource.name)}</strong></div><div class="os-folder-grid">${children.length ? children.map((child) => iconMarkup(child)).join('') : '<p class="os-empty-folder">Esta pasta está vazia.</p>'}</div><footer class="os-statusbar">${children.length} objeto${children.length === 1 ? '' : 's'}<span>${escapeHtml(resource.path || '')}</span></footer>`;
+}
+
+function textBody(resource) {
+  return `<div class="os-document-reader">${(resource.body || []).map((line) => `<p>${escapeHtml(line) || '&nbsp;'}</p>`).join('')}</div><footer class="os-statusbar">SOMENTE LEITURA<span>${escapeHtml(resource.size || '0 KB')}</span></footer>`;
+}
+
+function logBody(resource, state) {
+  const isolated = state.completed.includes('02');
+  const altered = resource.anomaly && computerWorldAt(state,state.currentPuzzle).mutations.some((mutation)=>mutation.id==='event-rewrite');
+  const lines = [...(resource.body || []), ...(altered ? ['10:10:00  ASSINATURA REESCRITA','DUAS FONTES PRESENTES NO MESMO EVENTO','CHECKSUM ANTERIOR ≠ CHECKSUM ATUAL'] : [])];
+  const anomalyAction = !isolated
+    ? '<button type="button" class="os-dialog-button" data-action="os-isolate-event">ISOLAR REGISTRO</button>'
+    : altered && !state.flags.eventChanged
+      ? '<button type="button" class="os-dialog-button os-dialog-button--alert" data-action="os-ack-change">PROCESSAR ALTERAÇÃO</button>'
+      : `<p class="os-isolated">${altered?'VERSÃO 02 PROCESSADA // DUAS FONTES':'REGISTRO ISOLADO // CONSULTA'}</p>`;
+  return `<div class="os-log-viewer"><header><span>LEITOR DE ÍNDICE</span><strong>${escapeHtml(resource.name)}</strong></header>${lines.map((line) => `<code>${escapeHtml(line)}</code>`).join('')}${resource.anomaly ? `<div class="os-log-origin"><span>ORIGEM DECLARADA</span><strong>${escapeHtml(resource.origin)}</strong></div>${anomalyAction}` : ''}</div>`;
+}
+
+function imageBody(resource) {
+  return `<figure class="os-image-viewer"><header><button type="button" data-action="os-image-zoom" data-delta="-.25">−</button><span>ZOOM <output data-image-zoom>100%</output></span><button type="button" data-action="os-image-zoom" data-delta=".25">+</button><button type="button" data-action="os-image-enhance">REALÇAR</button></header><div data-image-canvas><img src="${resource.source}" alt="Imagem antiga: ${escapeHtml(resource.name)}"></div><figcaption>${escapeHtml(resource.name)} · ${escapeHtml(resource.size)} · ${escapeHtml(resource.origin || 'ORIGEM DESCONHECIDA')}</figcaption></figure>`;
+}
+
+function audioBody(resource) {
+  return `<div class="os-audio-player"><div class="os-audio-reels" aria-hidden="true"><i></i><span></span><i></i></div><strong>${escapeHtml(resource.name)}</strong><p>${escapeHtml((resource.body || []).join(' · '))}</p><button type="button" data-action="os-audio-preview">REPRODUZIR</button></div>`;
+}
+
+function programBody(resource, state) {
+  if (resource.phaseApp && resource.target === state.currentPuzzle) return `<div class="os-native-app">${activePhaseContent}</div>`;
+  if (resource.id === 'bookscan-app' && resource.target === state.currentPuzzle) return `<div class="os-native-app">${activePhaseContent}</div>`;
+  if (resource.id === 'truth-app' && resource.target === state.currentPuzzle) return `<div class="os-native-app">${activePhaseContent}</div>`;
+  return `<div class="os-program"><div class="os-program__mark">R</div><span>PROGRAMA INSTALADO PELO SISTEMA</span><strong>${escapeHtml(resource.name)}</strong><p>Este dispositivo opera fora da estação gráfica.</p><button type="button" class="os-dialog-button" data-action="navigate" data-target="${resource.target}">EXECUTAR</button></div>`;
+}
+
+function propertiesBody(resource) {
+  const rows = [
+    ['TIPO',resource.type.toUpperCase()],['LOCAL',resource.path || `C:\\${String(resource.parent || '').toUpperCase()}`],
+    ['CRIADO',resource.created || '—'],['MODIFICADO',resource.modified || '—'],['TAMANHO',resource.size || '—'],
+    ['ORIGEM',resource.origin || 'ESTAÇÃO R-1010'],['ATRIBUTOS',resource.attributes || 'ARQUIVO']
+  ];
+  return `<div class="os-properties"><div class="os-properties__identity">${glyph(resource.type)}<strong>${escapeHtml(resource.name)}</strong></div><dl>${rows.map(([label,value]) => `<div><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl><footer><button type="button" class="os-dialog-button" data-action="os-window-close">FECHAR</button></footer></div>`;
+}
+
+function resourceBody(entry, state) {
+  const resource = RESOURCES[entry.resourceId];
+  if (!resource) return '<p>OBJETO INDISPONÍVEL</p>';
+  if (entry.kind === 'properties') return propertiesBody(resource);
+  if (resource.type === 'folder' || resource.type === 'trash') return folderBody(resource);
+  if (resource.type === 'image') return imageBody(resource);
+  if (resource.type === 'audio') return audioBody(resource);
+  if (resource.type === 'program') return programBody(resource, state);
+  if (resource.type === 'log' || resource.type === 'data') return logBody(resource, state);
+  return textBody(resource);
+}
+
+function desktopWindowMarkup(entry, state) {
+  const resource = RESOURCES[entry.resourceId];
+  if (!resource) return '';
+  const title = entry.kind === 'properties' ? `Propriedades de ${resource.name}` : resource.name;
+  const classes = ['os-window', `os-window--${entry.kind === 'properties' ? 'properties' : resource.type}`, entry.maximized ? 'is-maximized' : '', entry.minimized ? 'is-minimized' : ''].filter(Boolean).join(' ');
+  return `<section class="${classes}" data-os-window="${entry.key}" data-resource="${resource.id}" style="--win-x:${entry.x}px;--win-y:${entry.y}px;--win-z:${entry.z}" aria-label="Janela ${escapeHtml(title)}">
+    <header class="os-titlebar" data-os-titlebar><span>${glyph(resource.type)}<strong>${escapeHtml(title)}</strong></span><div><button type="button" data-action="os-window-minimize" aria-label="Minimizar">_</button><button type="button" data-action="os-window-maximize" aria-label="Maximizar">□</button><button type="button" data-action="os-window-close" aria-label="Fechar">×</button></div></header>
+    <div class="os-window__body">${resourceBody(entry,state)}</div>
+  </section>`;
+}
+
+function bootScreen() {
+  return `<section class="retro-boot"><div class="retro-boot__mark"><i></i><span>R</span></div><div><span>ESTAÇÃO GRÁFICA R-1010</span><strong>SISTEMA LOCAL // 1998.10</strong><p>Uma sessão interrompida pode ser retomada manualmente.</p></div><button type="button" data-action="boot-fragment">INICIAR SISTEMA</button><small>NENHUMA CONEXÃO EXTERNA · VOLUME A: PRESENTE</small></section>`;
+}
+
+function clockPanel(state) {
+  const hh = String(state.desktopOs.clockHour).padStart(2,'0');
+  const mm = String(state.desktopOs.clockMinute).padStart(2,'0');
+  return `<section class="os-clock-panel" aria-label="Ajustar relógio do sistema" ${state.desktopOs.clockPanelOpen ? '' : 'hidden'}><header>DATA / HORA DO SISTEMA</header><div class="os-clock-adjust"><div><button type="button" data-action="os-clock-delta" data-unit="hour" data-delta="1">▲</button><output data-clock-hour>${hh}</output><button type="button" data-action="os-clock-delta" data-unit="hour" data-delta="-1">▼</button><small>HORA</small></div><b>:</b><div><button type="button" data-action="os-clock-delta" data-unit="minute" data-delta="1">▲</button><output data-clock-minute>${mm}</output><button type="button" data-action="os-clock-delta" data-unit="minute" data-delta="-1">▼</button><small>MINUTO</small></div></div><p>10/10/2025 · fuso local</p><footer><button type="button" data-action="os-clock-apply">APLICAR AO SISTEMA</button><button type="button" data-action="os-clock-toggle">CANCELAR</button></footer></section>`;
+}
+
+function desktop(puzzle, state, content) {
+  const windows = state.desktopOs.windows || [];
+  activePhaseContent = content;
+  const world = computerWorldAt(state,puzzle?.id);
+  const iconPositions = [[18,7],[18,29],[18,51],[18,73],[31,7],[31,29],[31,51],[31,73]];
+  const icons = [...BASE_DESKTOP_ICONS, ...world.icons.map((id,index) => [id,...iconPositions[index % iconPositions.length]])];
+  const clock = `${String(state.desktopOs.clockHour).padStart(2,'0')}:${String(state.desktopOs.clockMinute).padStart(2,'0')}`;
+  return `<section class="retro-desktop retro-desktop--phase-${puzzle?.id || '01'} retro-desktop--${world.wallpaper}" data-retro-desktop data-world="computer">
+    <div class="retro-wallpaper" aria-hidden="true"><i></i><span>RECUPERAÇÃO</span></div>
+    <div class="os-desktop-icons">${icons.map(([id,x,y]) => iconMarkup(RESOURCES[id],'desktop',[x,y])).join('')}</div>
+    <div class="os-world-notice" ${world.notice ? '' : 'hidden'}><i></i><span>${escapeHtml(world.notice)}</span></div>
+    <div class="os-window-layer">${windows.map((entry) => desktopWindowMarkup(entry,state)).join('')}</div>
+    <div class="os-context-menu" data-os-context-menu hidden><button type="button" data-action="os-open-context">Abrir</button><button type="button" data-action="os-properties">Propriedades</button></div>
+    <div class="os-start-menu ${state.desktopOs.startOpen ? 'is-open' : ''}" data-os-start-menu ${state.desktopOs.startOpen ? '' : 'hidden'}><header><strong>R</strong><span>ESTAÇÃO 1010</span></header><button type="button" data-action="os-open-resource" data-resource="computer">Meu computador</button><button type="button" data-action="os-open-resource" data-resource="documents">Documentos</button><hr><button type="button" data-action="os-shutdown">Suspender</button></div>
+    ${clockPanel(state)}
+    <footer class="os-taskbar"><button type="button" class="os-start" data-action="os-start"><i>R</i><span>SISTEMA</span></button><div class="os-running-windows">${windows.map((entry) => `<button type="button" data-action="os-task-window" data-window="${entry.key}">${escapeHtml(RESOURCES[entry.resourceId]?.name || 'Janela')}</button>`).join('')}</div><button type="button" class="os-clock-button ${world.clockMode ? 'is-relevant' : ''}" data-action="os-clock-toggle" data-os-clock>${clock}</button></footer>
+  </section>`;
+}
+
+function renderPhaseOneComputer(puzzle, state, content = '') {
+  return `<div class="retro-computer" data-phase-object="computer"><div class="retro-monitor"><div class="retro-monitor__screen">${state.flags.initialized ? desktop(puzzle,state,content) : bootScreen()}</div><div class="retro-monitor__brand"><i></i><span>R-1010</span><small>COLOR DISPLAY</small></div></div></div>`;
+}
+
+exports.desktopResource = desktopResource;
+exports.desktopWindowMarkup = desktopWindowMarkup;
+exports.renderPhaseOneComputer = renderPhaseOneComputer;
+},
+"js/scenes/shared.js": function(module, exports, __require) {
+const { GAME_CONFIG } = __require("js/config.js");
+const { clarityFor } = __require("js/puzzles/clarity.js");
+const { escapeHtml } = __require("js/utils.js");
+function renderPuzzleBrief(puzzle, state, { compact = false, floating = false } = {}) {
+  const contract = clarityFor(puzzle.id);
+  const status = contract.status(state);
+  if (floating) {
+    return `<details class="puzzle-brief puzzle-brief--floating">
+      <summary><span>AÇÃO REQUERIDA</span><strong>${escapeHtml(contract.objective)}</strong></summary>
+      <div class="puzzle-brief__drawer">
+        <p class="puzzle-brief__intent"><span>INTENÇÃO</span>${escapeHtml(puzzle.intent)}</p>
+        <p class="puzzle-brief__narrative">${escapeHtml(contract.narrative)}</p>
+        <p class="puzzle-brief__guidance">${escapeHtml(contract.actionHint)}</p>
+        <dl class="puzzle-brief__contract"><div><dt>INTERAÇÃO</dt><dd>${escapeHtml(contract.interaction)}</dd></div><div><dt>RESULTADO</dt><dd>${escapeHtml(contract.successMeaning)}</dd></div></dl>
+        <p class="puzzle-brief__status"><span>ESTADO ATUAL</span><strong>${escapeHtml(status)}</strong></p>
+      </div>
+    </details>`;
+  }
+  return `<section class="puzzle-brief ${compact ? 'puzzle-brief--compact' : ''}" aria-label="Orientação operacional da etapa">
+    <p class="puzzle-brief__intent"><span>INTENÇÃO</span>${escapeHtml(puzzle.intent)}</p>
+    <p class="puzzle-brief__narrative">${escapeHtml(contract.narrative)}</p>
+    <div class="puzzle-brief__objective"><span>AÇÃO REQUERIDA</span><strong>${escapeHtml(contract.objective)}</strong><small>${escapeHtml(contract.actionHint)}</small></div>
+    <dl class="puzzle-brief__contract"><div><dt>INTERAÇÃO</dt><dd>${escapeHtml(contract.interaction)}</dd></div><div><dt>RESULTADO</dt><dd>${escapeHtml(contract.successMeaning)}</dd></div></dl>
+    <p class="puzzle-brief__status"><span>ESTADO ATUAL</span><strong>${escapeHtml(status)}</strong></p>
+  </section>`;
+}
+
+function renderSceneTools(state, { compact = false } = {}) {
+  return `<div class="scene-tools ${compact ? 'scene-tools--compact' : ''}">
+    <button type="button" class="micro-button" data-action="toggle-mute">${state.settings.muted ? 'SOM DESLIGADO' : 'SOM LIGADO'}</button>
+    <label class="master-volume"><span>VOL</span><input type="range" min="0" max="1" step="0.05" value="${state.settings.volume}" data-master-volume aria-label="Volume geral"><output>${Math.round(state.settings.volume * 100)}%</output></label>
+    <button type="button" class="danger-button" data-action="dev-reset">ZERAR PROGRESSO</button>
+  </div>`;
+}
+
+function renderNarrativeLoader() {
+  return '<div class="narrative-loader" data-narrative-loader hidden aria-live="polite"><span>INDEXANDO BLOCOS DE MEMÓRIA</span><i aria-hidden="true"></i></div>';
+}
+
+function renderReturnControl(puzzle, state, label = 'VOLTAR AO SISTEMA') {
+  const returnTarget = state.unlocked.filter((id) => id !== puzzle.id).at(-1);
+  if (!returnTarget) return '<span class="scene-session-lock">SESSÃO DE INICIALIZAÇÃO</span>';
+  return `<button type="button" class="scene-return" data-action="navigate" data-target="${returnTarget}"><kbd>ESC</kbd>${label}</button>`;
+}
+
+function renderDevPanel(state) {
+  const dev = GAME_CONFIG.devMode || new URLSearchParams(location.search).get('dev') === '1';
+  if (!dev) return '';
+  return `<details class="dev-panel scene-dev-panel"><summary>console de manutenção</summary><div class="dev-actions">
+    <button type="button" class="micro-button" data-action="dev-next">liberar próximo</button>
+    <button type="button" class="danger-button" data-action="dev-reset">reiniciar</button>
+  </div><pre class="dev-state">${JSON.stringify(state, null, 2)}</pre></details>`;
+}
+
+exports.renderPuzzleBrief = renderPuzzleBrief;
+exports.renderSceneTools = renderSceneTools;
+exports.renderNarrativeLoader = renderNarrativeLoader;
+exports.renderReturnControl = renderReturnControl;
+exports.renderDevPanel = renderDevPanel;
 },
 "js/scenes/receiver-scene.js": function(module, exports, __require) {
 const { renderHintPanel } = __require("js/hints.js");
@@ -1659,7 +1809,7 @@ const { renderDevPanel, renderNarrativeLoader, renderPuzzleBrief, renderReturnCo
 function renderEvidenceScene(context) {
   const { puzzle, state, content, animate } = context;
   return `<section class="investigation-scene${animate ? ' scene-enter is-entering' : ''}" data-scene-family="forensic" data-motion-scope="scene">
-    <header class="investigation-docket"><div><span>CASO RECUPERACAO_1010</span><strong>${puzzle.code}</strong><small>REGISTRO ${puzzle.id} · ACESSO RESTRITO</small></div>${renderSceneTools(state, { compact: true })}</header>
+    <header class="investigation-docket"><div><span>CASO RECUPERACAO_1010</span><strong>${puzzle.title}</strong><small>FONTE VINCULADA · ACESSO RESTRITO</small></div>${renderSceneTools(state, { compact: true })}</header>
     ${renderPuzzleBrief(puzzle, state, { floating: true })}
     <div class="investigation-stage"><div class="investigation-coordinates" aria-hidden="true"><span>00:10:10</span><span>HASH 54F1-A09C</span><span>FONTE // DESCONHECIDA</span></div><main class="investigation-surface">${content}</main><aside class="investigation-notes"><span>ANÁLISE EM CURSO</span><i></i><p>Não presumir que o arquivo descreve apenas uma pessoa.</p>${renderHintPanel(puzzle.id)}</aside></div>
     <footer class="investigation-footer">${renderReturnControl(puzzle, state)}<span>EVIDÊNCIA NÃO DEVE SAIR DESTA SESSÃO</span></footer>
@@ -1674,10 +1824,10 @@ const { renderHintPanel } = __require("js/hints.js");
 const { renderDevPanel, renderNarrativeLoader, renderPuzzleBrief, renderReturnControl, renderSceneTools } = __require("js/scenes/shared.js");
 function renderDocumentScene(context) {
   const { puzzle, state, content, animate, total } = context;
-  return `<section class="document-scene${animate ? ' scene-enter is-entering' : ''}" data-scene-family="archive" data-motion-scope="scene">
-    <header class="document-scene__toolbar">${renderReturnControl(puzzle, state, 'FECHAR ARQUIVO')}<span>DOCUMENTO_${puzzle.id}_RECUPERADO</span>${renderSceneTools(state, { compact: true })}</header>
+  return `<section class="document-scene${animate ? ' scene-enter is-entering' : ''}" data-scene-family="archive" data-puzzle-id="${puzzle.id}" data-motion-scope="scene">
+    <header class="document-scene__toolbar">${renderReturnControl(puzzle, state, 'FECHAR ARQUIVO')}<span>DOCUMENTO_RECUPERADO</span>${renderSceneTools(state, { compact: true })}</header>
     ${renderPuzzleBrief(puzzle, state, { floating: true })}
-    <div class="document-scene__desk"><aside class="document-scene__metadata"><strong>${puzzle.code}</strong><span>INTEGRIDADE ${puzzle.integrity}%</span><span>ÍNDICE ${puzzle.id}/${total}</span><span>LEITURA LOCAL</span><i></i><small>assinatura parcial<br>10.10 // origem desconhecida</small></aside><main class="document-scene__paper">${content}</main></div>
+    <div class="document-scene__desk"><aside class="document-scene__metadata"><strong>${puzzle.title}</strong><span>INTEGRIDADE ${puzzle.integrity}%</span><span>ORIGEM NÃO ORDENADA</span><span>LEITURA LOCAL</span><i></i><small>assinatura parcial<br>10.10 // origem desconhecida</small></aside><main class="document-scene__paper">${content}</main></div>
     <div class="document-scene__hint">${renderHintPanel(puzzle.id)}</div>${renderNarrativeLoader()}${renderDevPanel(state)}
   </section>`;
 }
@@ -1690,7 +1840,7 @@ const { renderDevPanel, renderNarrativeLoader, renderPuzzleBrief, renderReturnCo
 function renderReconstructionScene(context) {
   const { puzzle, state, content, animate, experience } = context;
   return `<section class="reconstruction-scene${animate ? ' scene-enter is-entering' : ''}" data-scene-family="reconstruction" data-motion-scope="scene" data-area="${experience.activeArea}">
-    <header class="reconstruction-scene__index"><span>MEMÓRIA / ${puzzle.id}</span><strong>${puzzle.code}</strong>${renderSceneTools(state, { compact: true })}</header>
+    <header class="reconstruction-scene__index"><span>MEMÓRIA / FONTE ATIVA</span><strong>${puzzle.title}</strong>${renderSceneTools(state, { compact: true })}</header>
     ${renderPuzzleBrief(puzzle, state, { floating: true })}
     <main class="reconstruction-scene__field"><div class="reconstruction-scene__title"><span>${experience.systemState}</span><h1>${puzzle.title}</h1></div>${content}</main>
     <footer class="reconstruction-scene__footer">${renderReturnControl(puzzle, state)}<span>INTEGRIDADE ${puzzle.integrity}%</span></footer>
@@ -1701,7 +1851,7 @@ function renderReconstructionScene(context) {
 function renderOverrideScene(context) {
   const { puzzle, state, content, animate, total } = context;
   return `<section class="override-scene override-scene--${puzzle.id}${animate ? ' scene-enter is-entering' : ''}" data-scene-family="override" data-motion-scope="scene">
-    <div class="override-scene__mark">${puzzle.code}<span>${puzzle.id} / ${total}</span></div>${renderPuzzleBrief(puzzle, state, { floating: true })}<main class="override-scene__content">${content}</main>
+    <div class="override-scene__mark">${puzzle.title}<span>SESSÃO NÃO LINEAR</span></div>${puzzle.id === '25' ? '' : renderPuzzleBrief(puzzle, state, { floating: true })}<main class="override-scene__content">${content}</main>
     <footer class="override-scene__controls">${renderReturnControl(puzzle, state)}${renderSceneTools(state, { compact: true })}</footer>
     ${puzzle.id !== '25' ? `<aside class="override-scene__hint">${renderHintPanel(puzzle.id)}</aside>` : ''}${renderNarrativeLoader()}${renderDevPanel(state)}
   </section>`;
@@ -1710,54 +1860,114 @@ function renderOverrideScene(context) {
 exports.renderReconstructionScene = renderReconstructionScene;
 exports.renderOverrideScene = renderOverrideScene;
 },
-"js/scenes/scene-blueprints.js": function(module, exports, __require) {
-const blueprint = (family, narrative, objective, object, mechanic, feedback, transition) => Object.freeze({
-  family, narrative, objective, object, mechanic, feedback, transition
-});
-
-const SCENE_BLUEPRINTS = Object.freeze({
-  '01': blueprint('override', 'inicialização interrompida', 'ativar recuperação', 'nó de sistema', 'completar comando', 'boot físico', 'hard-reset'),
-  '02': blueprint('system', 'arquivo sobrevivente', 'encontrar registro anômalo', 'índice de logs', 'inspeção de metadados', 'anomalia localizada', 'frame-ghost'),
-  '03': blueprint('device', 'interceptação', 'encontrar a portadora', 'televisão CRT', 'sintonização', 'interferência analógica', 'receiver-channel-lock'),
-  '04': blueprint('device', 'sinal codificado', 'interpretar a transmissão', 'televisão CRT', 'leitura de Morse', 'objeto identificado', 'signal-recovery'),
-  '05': blueprint('reconstruction', 'nó físico', 'validar código', 'armazenamento frio', 'autenticação', 'acesso concedido', 'signal-recovery'),
-  '06': blueprint('archive', 'duas versões', 'localizar invariante', 'documento recuperado', 'comparação por varredura', 'texto estabilizado', 'hard-reset'),
-  '07': blueprint('archive', 'diretório suspeito', 'identificar arquivo real', 'pasta recuperada', 'análise de metadados', 'falso positivo', 'frame-ghost'),
-  '08': blueprint('system', 'pacote sem cabeçalho', 'decodificar objeto', 'dump binário', 'agrupamento visual', 'palavra recuperada', 'frame-ghost'),
-  '09': blueprint('reconstruction', 'resíduo lunar', 'validar índice', 'memória fria', 'correspondência', 'memória reativada', 'signal-recovery'),
-  '10': blueprint('system', 'índice divergente', 'localizar registro alterado', 'arquivo persistente', 'consulta histórica', 'soma de verificação alterada', 'frame-ghost'),
-  '11': blueprint('forensic', 'conflito de identidade', 'reconstruir geometria', 'mesa forense', 'seleção de camadas', 'modelo desenhado', 'hard-reset'),
-  '12': blueprint('reconstruction', 'memória negada', 'confirmar lembrança', 'fragmento humano', 'resposta em conflito', 'negação do sistema', 'vertical-desync'),
-  '13': blueprint('device', 'portadora alterada', 'revelar imagem residual', 'televisão CRT', 'canal e desligamento', 'imagem residual', 'receiver-power-off'),
-  '14': blueprint('reconstruction', 'índices físicos', 'ordenar posições', 'arquivo de livros', 'soma de fragmentos', 'sequência encontrada', 'signal-recovery'),
-  '15': blueprint('forensic', 'instrução rasgada', 'recompor sintaxe', 'mesa de fragmentos', 'montagem de papéis', 'frase estabilizada', 'hard-reset'),
-  '16': blueprint('reconstruction', 'objeto de cabeceira', 'validar fragmento', 'memória espacial', 'correspondência física', 'índice VX-11', 'signal-recovery'),
-  '17': blueprint('device', 'controle recorrente', 'fixar portadora', 'receptor analógico', 'canal e volume', 'sincronização', 'signal-recovery'),
-  '18': blueprint('forensic', 'local sem nome', 'reconstruir lugar', 'mapa de evidências', 'coexistência espacial', 'contorno recuperado', 'hard-reset'),
-  '19': blueprint('reconstruction', 'memórias duplicadas', 'ligar pares', 'matriz de identidade', 'relações semânticas', 'vínculos desenhados', 'phosphor-burn'),
-  '20': blueprint('reconstruction', 'quarto incompleto', 'reconstruir relações', 'planta top-down', 'posicionamento espacial', 'objeto impossível', 'vertical-desync'),
-  '21': blueprint('override', 'falso encerramento', 'romper a conclusão', 'final adulterado', 'interrupção narrativa', 'integridade 99%', 'system-signal-loss'),
-  '22': blueprint('reconstruction', 'segundo nó físico', 'validar cabeçalho', 'arquivo de áudio', 'autenticação', 'canal externo', 'signal-recovery'),
-  '23': blueprint('reconstruction', 'segunda camada', 'confirmar resíduo', 'registro de identidade', 'retorno físico', 'entidade exposta', 'phosphor-burn'),
-  '24': blueprint('override', 'relação órfã', 'classificar vínculo', 'núcleo do sistema', 'meta associação', 'fusão de entidades', 'hard-reset'),
-  '25': blueprint('override', 'memória restaurada', 'permanecer', 'estado final', 'conclusão narrativa', 'sistema estável', 'signal-recovery')
-});
-
-function sceneBlueprintFor(puzzle) {
-  return SCENE_BLUEPRINTS[puzzle.id] || SCENE_BLUEPRINTS['02'];
+"js/scenes/phone-scene.js": function(module, exports, __require) {
+const { renderHintPanel } = __require("js/hints.js");
+const { renderPhoneDevice } = __require("js/phone.js");
+const { renderDevPanel, renderNarrativeLoader, renderPuzzleBrief, renderReturnControl, renderSceneTools } = __require("js/scenes/shared.js");
+function renderPhoneScene({ puzzle, state, animate }) {
+  return `<section class="phone-scene${animate?' scene-enter is-entering':''}" data-scene-family="phone" data-motion-scope="scene"><div class="phone-scene__room" aria-hidden="true"></div><header>${renderReturnControl(puzzle,state,'ABAIXAR CELULAR')}${renderSceneTools(state,{compact:true})}</header>${renderPuzzleBrief(puzzle,state,{floating:true})}<main>${renderPhoneDevice(state,{embedded:true})}</main><aside>${renderHintPanel(puzzle.id)}</aside>${renderNarrativeLoader()}${renderDevPanel(state)}</section>`;
 }
 
-exports.SCENE_BLUEPRINTS = SCENE_BLUEPRINTS;
-exports.sceneBlueprintFor = sceneBlueprintFor;
+exports.renderPhoneScene = renderPhoneScene;
+},
+"js/phone.js": function(module, exports, __require) {
+const { escapeHtml } = __require("js/utils.js");
+const THREADS = Object.freeze({
+  j: {
+    name:'J.', preview:'eu sabia que você ia achar essa foto',
+    messages:[
+      ['in','você ainda chama aquilo de “só um corte”?'],
+      ['out','não começa'],
+      ['in','eu achei a foto antiga. a metadata sobreviveu.'],
+    ]
+  },
+  unknown: {
+    name:'NÚMERO NÃO SALVO', preview:'esse não era o primeiro',
+    messages:[['in','você abriu justamente esse.'],['in','esse não era o primeiro horário.']]
+  }
+});
+
+function statusBar(state) {
+  const time = `${String(state.desktopOs.clockHour).padStart(2,'0')}:${String(state.desktopOs.clockMinute).padStart(2,'0')}`;
+  return `<header class="phone-status"><time>${time}</time><span>▮▮▮</span><span>${state.phone.battery}%</span></header>`;
+}
+
+function lockScreen(state) {
+  const time = `${String(state.desktopOs.clockHour).padStart(2,'0')}:${String(state.desktopOs.clockMinute).padStart(2,'0')}`;
+  return `<section class="phone-lock"><time>${time}</time><span>10 de outubro</span>${state.phone.unread ? `<button type="button" data-action="phone-unlock"><i>MENSAGENS</i><strong>${state.phone.unread} notificação${state.phone.unread === 1 ? '' : 'ões'}</strong><small>deslize para consultar</small></button>` : ''}<button type="button" class="phone-unlock" data-action="phone-unlock">DESBLOQUEAR</button></section>`;
+}
+
+function home(state) {
+  const reached = Math.max(...state.unlocked.map(Number),1);
+  const apps = [
+    ['messages','▣','Mensagens',true],['gallery','▧','Galeria',reached>=12],['recorder','≋','Gravador',reached>=17],['notes','▤','Notas',reached>=20]
+  ];
+  return `<section class="phone-home"><div class="phone-app-grid">${apps.filter(([, , ,available])=>available).map(([app,icon,label])=>`<button type="button" data-action="phone-app" data-phone-app="${app}"><i>${icon}</i><span>${label}</span>${app==='messages'&&state.phone.unread?`<b>${state.phone.unread}</b>`:''}</button>`).join('')}</div><p>dispositivo local · sem rede</p></section>`;
+}
+
+function messages(state) {
+  if (state.phone.thread) {
+    const thread = THREADS[state.phone.thread] || THREADS.j;
+    const reactiveMessages = state.phone.thread === 'unknown' ? [
+      state.phone.events.includes('message:first-file') && ['in','você abriu justamente esse.'],
+      state.phone.events.includes('message:not-first') && ['in','esse não era o primeiro.'],
+      state.phone.events.includes('message:first-time') && ['in','esse não era o primeiro horário.']
+    ].filter(Boolean) : thread.messages;
+    return `<section class="phone-app phone-thread"><header><button type="button" data-action="phone-app" data-phone-app="messages">‹</button><strong>${thread.name}</strong></header><div class="phone-chat">${reactiveMessages.map(([side,text])=>`<p class="is-${side}">${escapeHtml(text)}</p>`).join('')}${state.phone.thread==='j'?`<article class="phone-attachment"><div class="phone-photo-placeholder"><i></i><span>IMG_2019</span></div><strong>IMG_2019_MULLET.jpg</strong><small>17/04/2019 · câmera frontal · comentário: “ele vai negar até o fim”</small><button type="button" data-action="phone-confirm-memory">ANEXAR METADATA AO ARQUIVO</button></article>`:''}</div></section>`;
+  }
+  const reached=Math.max(...state.unlocked.map(Number),1);
+  return `<section class="phone-app phone-messages"><header><button type="button" data-action="phone-home">‹</button><strong>MENSAGENS</strong></header>${Object.entries(THREADS).filter(([id])=>id!=='j'||reached>=12).map(([id,thread])=>`<button type="button" data-action="phone-thread" data-thread="${id}"><i>${thread.name.slice(0,1)}</i><span><strong>${thread.name}</strong><small>${thread.preview}</small></span>${id==='unknown'&&state.phone.unread?'<b></b>':''}</button>`).join('')}</section>`;
+}
+
+function gallery() {
+  return `<section class="phone-app phone-gallery"><header><button type="button" data-action="phone-home">‹</button><strong>GALERIA</strong></header><div><article><i>REC</i><span>estante_01</span></article><article><i>IMG</i><span>IMG_2019</span></article><article class="is-corrupt"><i>?</i><span>sem_data</span></article></div><p>A captura da estante também existe no computador, mas com compressão diferente.</p></section>`;
+}
+
+function recorder() {
+  return `<section class="phone-app phone-recorder"><header><button type="button" data-action="phone-home">‹</button><strong>GRAVADOR</strong></header><div class="phone-wave">${Array.from({length:31},(_,i)=>`<i style="--h:${18+((i*17)%68)}%"></i>`).join('')}</div><strong>fonte_03.m4a</strong><span>00:07 · três impactos · ruído de sala</span><button type="button" data-action="phone-audio">REPRODUZIR</button></section>`;
+}
+
+function notes() {
+  return `<section class="phone-app phone-notes"><header><button type="button" data-action="phone-home">‹</button><strong>NOTAS</strong></header><p>não é a primeira leitura.</p><p>devolver o relógio para onde tudo começou.</p></section>`;
+}
+
+function phoneContent(state) {
+  if (state.phone.locked) return lockScreen(state);
+  if (state.phone.app === 'messages') return messages(state);
+  if (state.phone.app === 'gallery') return gallery();
+  if (state.phone.app === 'recorder') return recorder();
+  if (state.phone.app === 'notes') return notes();
+  return home(state);
+}
+
+function renderPhoneDevice(state, { embedded = false } = {}) {
+  return `<div class="phone-device ${embedded ? 'is-embedded' : ''}" data-phone-device data-motion-scope="device">${statusBar(state)}<main>${phoneContent(state)}</main><footer><button type="button" data-action="phone-home" aria-label="Tela inicial"></button></footer></div>`;
+}
+
+function renderPhoneDock(state, puzzle) {
+  const available = Number(puzzle.id) >= 10 || state.unlocked.includes('12');
+  if (!available || puzzle.id === '25' || puzzle.world === 'phone') return '';
+  return `<aside class="phone-dock ${state.phone.open ? 'is-open' : ''}" data-phone-dock aria-label="Celular da investigação"><button type="button" class="phone-dock__toggle" data-action="phone-toggle" aria-expanded="${state.phone.open}"><i></i><span>CELULAR</span>${state.phone.unread?`<b>${state.phone.unread}</b>`:''}</button><div class="phone-dock__device" ${state.phone.open?'':'hidden'}>${renderPhoneDevice(state)}</div></aside>`;
+}
+
+exports.renderPhoneDevice = renderPhoneDevice;
+exports.renderPhoneDock = renderPhoneDock;
 },
 "js/router.js": function(module, exports, __require) {
 const { getState, recordVisit } = __require("js/state.js");
+const { uiFeedback } = __require("js/ui-feedback.js");
 let onRoute = null;
+let lastDenied = null;
 
 function currentRoute() {
   const match = location.hash.match(/^#\/record\/(\d{2})$/);
   const requested = match?.[1] || getState().currentPuzzle || '01';
-  return getState().unlocked.includes(requested) ? requested : getState().currentPuzzle;
+  if (getState().unlocked.includes(requested)) { lastDenied = null; return requested; }
+  if (requested !== lastDenied) {
+    lastDenied = requested;
+    queueMicrotask(() => uiFeedback.toast(`REGISTRO ${requested} AINDA NÃO FOI INDEXADO`, { kind: 'error' }));
+  }
+  return getState().currentPuzzle;
 }
 
 function navigate(id, { replace = false } = {}) {
@@ -1776,13 +1986,413 @@ function route() {
 function initRouter(callback) {
   onRoute = callback;
   window.addEventListener('hashchange', route);
-  if (!location.hash) navigate(getState().currentPuzzle || '01', { replace: true });
+  if (!location.hash) { navigate(getState().currentPuzzle || '01', { replace: true }); return; }
   route();
 }
 
 exports.currentRoute = currentRoute;
 exports.navigate = navigate;
 exports.initRouter = initRouter;
+},
+"js/ui-feedback.js": function(module, exports, __require) {
+const { Motion } = __require("js/motion-engine.js");
+const IMPACT_COPY = {
+  success: 'REGISTRO ESTABILIZADO',
+  error: 'ANOMALIA DETECTADA',
+  denied: 'ACESSO NEGADO',
+  discovery: 'NOVA CAMADA ENCONTRADA'
+};
+
+class UIFeedbackController {
+  constructor() {
+    this.transitionSequence = 0;
+    this.impactSequence = 0;
+  }
+
+  get reducedMotion() {
+    return Motion.reduced;
+  }
+
+  duration(level = 'normal') {
+    return Motion.duration(level);
+  }
+
+  cancel(key) {
+    Motion.cancel(key);
+  }
+
+  schedule(key, callback, delay) {
+    return Motion.schedule(key, callback, delay);
+  }
+
+  wait(level = 'normal') {
+    return Motion.wait(level);
+  }
+
+  toast(message, { kind = 'info', duration = 3200 } = {}) {
+    const region = document.querySelector('[data-toast-region]');
+    if (!region) return;
+    const node = document.createElement('div');
+    const id = `toast-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    node.className = `toast toast--${kind} is-entering`;
+    node.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+    node.textContent = message;
+    region.append(node);
+    this.schedule(id, () => {
+      node.classList.remove('is-entering');
+      node.classList.add('is-leaving');
+      this.schedule(`${id}-remove`, () => node.remove(), this.duration('fast'));
+    }, duration);
+  }
+
+  message(message, kind = 'info') {
+    const target = document.querySelector('[data-feedback]');
+    if (!target) {
+      this.toast(message, { kind });
+      return null;
+    }
+    target.className = `feedback ${kind} is-revealed`;
+    target.textContent = message;
+    return target;
+  }
+
+  clearFieldState(input) {
+    const form = input?.closest('[data-answer], [data-node-auth]');
+    form?.classList.remove('is-error', 'is-success');
+    input?.removeAttribute('aria-invalid');
+  }
+
+  error(message, { critical = false, target } = {}) {
+    const form = target?.matches?.('form') ? target : target?.closest?.('[data-answer], [data-node-auth]');
+    const component = form || target;
+    component?.classList.remove('is-success');
+    component?.classList.add('is-error');
+    const input = form?.querySelector('.answer-input') || (target?.matches?.('.answer-input') ? target : null);
+    input?.setAttribute('aria-invalid', 'true');
+    this.message(message, 'error');
+    Motion.emit('motion:error', { message, critical });
+    if (critical) this.screenImpact('error', message, { level: 'dramatic' });
+  }
+
+  success(message, { impact = false, target } = {}) {
+    const component = target || document.querySelector('[data-answer]') || document.querySelector('.main-panel');
+    component?.classList.remove('is-error');
+    component?.classList.add('is-success');
+    component?.querySelector?.('.answer-input')?.removeAttribute('aria-invalid');
+    if (document.querySelector('[data-feedback]')) this.message(message, 'good');
+    this.toast(message, { kind: 'success' });
+    Motion.emit('motion:complete', { name: 'puzzle-success', message });
+    if (impact) this.screenImpact('success', message, { level: impact === 'dramatic' ? 'dramatic' : 'slow' });
+  }
+
+  reveal(target, { kind = 'discovery' } = {}) {
+    if (!target) return;
+    target.dataset.revealKind = kind;
+    target.classList.add('is-revealed');
+  }
+
+  screenImpact(kind, message, { level = 'slow' } = {}) {
+    const layer = document.querySelector('[data-screen-feedback]');
+    if (!layer) return;
+    this.cancel('screen-impact');
+    this.cancel('screen-impact-reset');
+    const sequence = ++this.impactSequence;
+    const kicker = layer.querySelector('[data-screen-feedback-kicker]');
+    const content = layer.querySelector('[data-screen-feedback-message]');
+    layer.className = `screen-feedback screen-feedback--${kind}`;
+    layer.setAttribute('aria-hidden', 'false');
+    if (kicker) kicker.textContent = IMPACT_COPY[kind] || IMPACT_COPY.discovery;
+    if (content) content.textContent = message;
+    const visibleFor = Math.max(this.duration(level), 560);
+    layer.style.setProperty('--impact-duration', `${visibleFor}ms`);
+    requestAnimationFrame(() => {
+      if (sequence === this.impactSequence) layer.classList.add('is-active');
+    });
+    this.schedule('screen-impact', () => {
+      if (sequence !== this.impactSequence) return;
+      layer.classList.remove('is-active');
+      this.schedule('screen-impact-reset', () => {
+        if (sequence !== this.impactSequence) return;
+        layer.setAttribute('aria-hidden', 'true');
+        if (content) content.textContent = '';
+      }, this.duration('normal'));
+    }, visibleFor);
+  }
+
+  async transition(root, commit) {
+    const panel = root.querySelector('.main-panel');
+    const sequence = ++this.transitionSequence;
+    if (!panel || this.reducedMotion) {
+      commit();
+      return;
+    }
+    root.classList.add('is-transitioning');
+    root.setAttribute('aria-busy', 'true');
+    panel.classList.remove('is-entering', 'scene-enter');
+    panel.classList.add('is-leaving');
+    await this.wait('normal');
+    if (sequence !== this.transitionSequence) return;
+    commit();
+    root.classList.remove('is-transitioning');
+    root.removeAttribute('aria-busy');
+  }
+
+  cancelTransition() {
+    this.transitionSequence += 1;
+  }
+}
+
+const uiFeedback = new UIFeedbackController();
+
+exports.uiFeedback = uiFeedback;
+},
+"js/motion-engine.js": function(module, exports, __require) {
+const FALLBACKS = { instant: 90, fast: 160, normal: 260, slow: 420, dramatic: 720, sequence: 1200 };
+const MOTION_SCOPE = Object.freeze({ LOCAL: 'local', DEVICE: 'device', SCENE: 'scene', GLOBAL: 'global' });
+
+function parseTime(value, fallback) {
+  const normalized = value.trim();
+  if (normalized.endsWith('ms')) return Number.parseFloat(normalized);
+  if (normalized.endsWith('s')) return Number.parseFloat(normalized) * 1000;
+  return fallback;
+}
+
+class MotionEngine {
+  constructor() {
+    this.timers = new Map();
+    this.sequences = new Map();
+    this.sequenceId = 0;
+    this.registerDefaults();
+  }
+
+  get reduced() {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  duration(level = 'normal') {
+    if (this.reduced) return 0;
+    const fallback = FALLBACKS[level] ?? FALLBACKS.normal;
+    const raw = getComputedStyle(document.documentElement).getPropertyValue(`--motion-${level}`);
+    return parseTime(raw, fallback);
+  }
+
+  emit(name, detail = {}) {
+    document.dispatchEvent(new CustomEvent(name, { detail }));
+  }
+
+  cancel(key) {
+    const timer = this.timers.get(key);
+    if (timer) window.clearTimeout(timer);
+    this.timers.delete(key);
+  }
+
+  schedule(key, callback, delay) {
+    this.cancel(key);
+    const timer = window.setTimeout(() => {
+      this.timers.delete(key);
+      callback();
+    }, delay);
+    this.timers.set(key, timer);
+    return timer;
+  }
+
+  wait(level = 'normal') {
+    return new Promise((resolve) => window.setTimeout(resolve, this.duration(level)));
+  }
+
+  pause(milliseconds, { reduce = true } = {}) {
+    return new Promise((resolve) => window.setTimeout(resolve, reduce && this.reduced ? 0 : milliseconds));
+  }
+
+  register(name, definition, { scope = MOTION_SCOPE.LOCAL } = {}) {
+    this.sequences.set(name, { definition, scope });
+  }
+
+  resolveTarget(scope, requestedTarget) {
+    if (scope === MOTION_SCOPE.GLOBAL) return document.body;
+    if (scope === MOTION_SCOPE.DEVICE) {
+      return requestedTarget?.closest?.('[data-motion-scope="device"]')
+        || (requestedTarget?.matches?.('[data-motion-scope="device"]') ? requestedTarget : null);
+    }
+    if (scope === MOTION_SCOPE.SCENE) {
+      return requestedTarget?.closest?.('[data-motion-scope="scene"]')
+        || (requestedTarget?.matches?.('[data-motion-scope="scene"]') ? requestedTarget : null);
+    }
+    return requestedTarget || null;
+  }
+
+  async play(name, context = {}) {
+    const sequence = this.sequences.get(name);
+    if (!sequence) return false;
+    const target = this.resolveTarget(sequence.scope, context.target);
+    if (!target) {
+      console.warn(`[Motion] Evento "${name}" ignorado: target ${sequence.scope} ausente.`);
+      return false;
+    }
+    const id = ++this.sequenceId;
+    const resolvedContext = { ...context, target, id, scope: sequence.scope };
+    this.emit('motion:start', { name, ...resolvedContext });
+    await sequence.definition({ ...resolvedContext, reduced: this.reduced, engine: this });
+    this.emit('motion:complete', { name, ...resolvedContext });
+    return true;
+  }
+
+  pulse(target, className, level = 'normal') {
+    if (!target) return Promise.resolve();
+    const pulseId = ++this.sequenceId;
+    target.classList.remove(className);
+    requestAnimationFrame(() => target.classList.add(className));
+    return new Promise((resolve) => this.schedule(`pulse-${className}-${pulseId}`, () => {
+      target.classList.remove(className);
+      resolve();
+    }, this.duration(level)));
+  }
+
+  registerDefaults() {
+    const signalEvents = {
+      'screen-tear': ['crt-event--tear', 'fast', MOTION_SCOPE.DEVICE],
+      'horizontal-roll': ['crt-event--roll', 'slow', MOTION_SCOPE.DEVICE],
+      'vertical-desync': ['crt-event--desync', 'normal', MOTION_SCOPE.SCENE],
+      'frame-ghost': ['crt-event--ghost', 'normal', MOTION_SCOPE.LOCAL],
+      'phosphor-burn': ['crt-event--burn', 'slow', MOTION_SCOPE.DEVICE],
+      'signal-recovery': ['crt-event--recovery', 'slow', MOTION_SCOPE.DEVICE],
+      'system-signal-loss': ['crt-event--loss', 'dramatic', MOTION_SCOPE.GLOBAL],
+      'system-corruption': ['motion-corruption', 'slow', MOTION_SCOPE.GLOBAL]
+    };
+    Object.entries(signalEvents).forEach(([name, [className, level, scope]]) => {
+      this.register(name, ({ target, engine }) => engine.pulse(target, className, level), { scope });
+    });
+    this.register('receiver-power-off', ({ target, engine }) => engine.pulse(target, 'receiver-motion--power-off', 'dramatic'), { scope: MOTION_SCOPE.DEVICE });
+    this.register('receiver-power-on', ({ target, engine }) => engine.pulse(target, 'receiver-motion--power-on', 'slow'), { scope: MOTION_SCOPE.DEVICE });
+    this.register('receiver-channel-loss', ({ target, engine }) => engine.pulse(target, 'crt-event--tear', 'normal'), { scope: MOTION_SCOPE.DEVICE });
+    this.register('receiver-channel-lock', ({ target, engine }) => engine.pulse(target, 'receiver-motion--signal-lock', 'slow'), { scope: MOTION_SCOPE.DEVICE });
+    this.register('hard-reset', ({ target, swap, engine }) => new Promise((resolve) => {
+      target.classList.remove('crt-event--hard-reset');
+      requestAnimationFrame(() => target.classList.add('crt-event--hard-reset'));
+      const midpoint = engine.reduced ? 0 : Math.round(engine.duration('dramatic') * .42);
+      engine.schedule('hard-reset-swap', () => {
+        swap?.();
+        engine.schedule('hard-reset-finish', () => {
+          target.classList.remove('crt-event--hard-reset');
+          resolve();
+        }, engine.reduced ? 0 : Math.round(engine.duration('dramatic') * .58));
+      }, midpoint);
+    }), { scope: MOTION_SCOPE.GLOBAL });
+    this.register('scene-transition', ({ target, from = 'system', to = 'system', swap, engine }) => new Promise((resolve) => {
+      const family = ['system', 'computer'].includes(to) ? 'return' : to;
+      const className = `scene-transition--${family}`;
+      target.classList.remove(className);
+      requestAnimationFrame(() => target.classList.add(className));
+      const duration = engine.duration('dramatic');
+      engine.schedule('scene-transition-swap', () => {
+        swap?.();
+        engine.schedule('scene-transition-finish', () => {
+          target.classList.remove(className);
+          resolve();
+        }, engine.reduced ? 0 : Math.round(duration * .54));
+      }, engine.reduced ? 0 : Math.round(duration * .46));
+    }), { scope: MOTION_SCOPE.GLOBAL });
+    this.register('boot-sequence', ({ target, engine }) => new Promise((resolve) => {
+      if (!target) return resolve();
+      target.setAttribute('aria-hidden', 'false');
+      target.classList.add('is-active');
+      engine.schedule('boot-sequence-finish', () => {
+        target.classList.add('is-complete');
+        engine.schedule('boot-sequence-reset', () => {
+          target.classList.remove('is-active', 'is-complete');
+          target.setAttribute('aria-hidden', 'true');
+          resolve();
+        }, engine.duration('normal'));
+      }, engine.reduced ? 0 : 2300);
+    }));
+    this.register('record-corruption', async ({ target, engine }) => {
+      engine.emit('motion:impact', { kind: 'corruption' });
+      await engine.pulse(target, 'motion-corruption', 'slow');
+    });
+    this.register('narrative-loading', ({ target, label, engine }) => new Promise((resolve) => {
+      if (!target) return resolve();
+      const text = target.querySelector('span');
+      if (text && label) text.textContent = label;
+      target.hidden = false;
+      target.classList.add('is-active');
+      engine.schedule('narrative-loading-finish', () => {
+        target.classList.remove('is-active');
+        target.hidden = true;
+        resolve();
+      }, engine.duration('slow'));
+    }));
+    this.register('entity-detected', async ({ target, engine }) => {
+      await engine.pulse(target, 'motion-entity-detected', 'fast');
+    });
+    this.register('entity-conflict', ({ target, feedback, engine }) => new Promise((resolve) => {
+      target?.classList.add('is-system-conflict');
+      if (feedback) feedback.textContent = 'RESPOSTA CORRETA';
+      engine.schedule('entity-conflict-denial', () => {
+        if (feedback) feedback.textContent = 'RESPOSTA INCORRETA';
+      }, engine.reduced ? 0 : 330);
+      engine.schedule('entity-conflict-resolve', () => {
+        target?.classList.remove('is-system-conflict');
+        if (feedback) feedback.textContent = 'MEMÓRIA CONFIRMADA. ... sério?';
+        engine.emit('entity:detected', { source: 'memory-conflict' });
+        resolve();
+      }, engine.reduced ? 0 : 760);
+    }));
+    this.register('tv-afterimage', async ({ target, engine }) => {
+      engine.emit('tv:afterimage');
+      await Promise.all([
+        engine.pulse(target, 'motion-afterimage', 'dramatic'),
+        engine.play('phosphor-burn', { target })
+      ]);
+    }, { scope: MOTION_SCOPE.DEVICE });
+    this.register('memory-reconstruction', async ({ target, engine }) => {
+      await engine.pulse(target, 'motion-reconstruction', 'dramatic');
+      engine.emit('memory:restored');
+    });
+    this.register('system-desync', async ({ target, engine }) => {
+      await engine.pulse(target, 'motion-desync', 'slow');
+      engine.emit('system:mutation', { state: 'desync' });
+    }, { scope: MOTION_SCOPE.SCENE });
+    this.register('object-impossible', async ({ target, engine }) => {
+      engine.emit('motion:impact', { kind: 'impossible' });
+      await engine.pulse(target, 'is-dismantling', 'dramatic');
+    });
+    this.register('relation-merge', async ({ target, engine }) => {
+      engine.emit('motion:impact', { kind: 'merge' });
+      if (target?.matches?.('[data-merge-layer]')) target.setAttribute('aria-hidden', 'false');
+      await engine.pulse(target, 'is-merging', 'sequence');
+      if (target?.matches?.('[data-merge-layer]')) target.setAttribute('aria-hidden', 'true');
+    });
+    this.register('silent-observation', ({ target, label = 'ENTIDADE B: ENCONTRADA', engine }) => new Promise((resolve) => {
+      if (!target) return resolve();
+      const original = target.textContent;
+      target.textContent = label;
+      target.classList.add('motion-entity-detected');
+      engine.emit('entity:detected');
+      engine.schedule('silent-observation-reset', () => {
+        target.textContent = original;
+        target.classList.remove('motion-entity-detected');
+        resolve();
+      }, engine.reduced ? 240 : 80);
+    }));
+    this.register('receiver-observation', ({ target, engine }) => new Promise((resolve) => {
+      if (!target) return resolve();
+      target.classList.add('is-observing');
+      const screen = target.querySelector('.receiver-summary strong');
+      const original = screen?.textContent;
+      if (screen) screen.textContent = 'CAN B';
+      engine.schedule('receiver-observation-reset', () => {
+        if (screen) screen.textContent = original;
+        target.classList.remove('is-observing');
+        resolve();
+      }, engine.reduced ? 500 : 400);
+    }));
+  }
+}
+
+const Motion = new MotionEngine();
+
+exports.MOTION_SCOPE = MOTION_SCOPE;
+exports.Motion = Motion;
 },
 "js/events.js": function(module, exports, __require) {
 const { GAME_CONFIG } = __require("js/config.js");
@@ -1797,7 +2407,12 @@ const { evaluateRoom } = __require("js/room-model.js");
 const { completionFor, isAcceptedAnswer } = __require("js/progression.js");
 const { clarityFor, validateInputFormat } = __require("js/puzzles/clarity.js");
 const { archiveRecordFor } = __require("js/archive.js");
-const { syncClarityStatus, syncForensicSelection, syncFragmentPlacement, syncHintPanel, syncIdentityRelations, syncLocationSelection, syncMetaSelection, syncMuteControls, syncRoomState, syncTv } = __require("js/dom-sync.js");
+const { syncClarityStatus, syncDocumentExtraction, syncForensicSelection, syncHintPanel, syncIdentityRelations, syncLocationSelection, syncMuteControls, syncRoomState, syncTv } = __require("js/dom-sync.js");
+const { handleComputerClick, handleComputerKeydown, returnComputerToTask } = __require("js/events/computer.js");
+const { handleReconstructionClick } = __require("js/events/reconstruction.js");
+const { handleDesktopBackgroundClick, handleDesktopClick, handleDesktopDoubleClick, handleDesktopKeydown, handleDesktopPointerDown, handleDesktopPointerMove, handleDesktopPointerUp, handleDesktopContextMenu, openDesktopResource } = __require("js/events/desktop-os.js");
+const { renderPhoneDevice } = __require("js/phone.js");
+const { emitWorldEvent } = __require("js/worlds/world-events.js");
 let refresh = () => {};
 let go = () => {};
 let current = () => '01';
@@ -1861,22 +2476,24 @@ function setTv(property, value) {
   updateState((state) => {
     state.tv[property] = value;
   });
-  const eventName = property === 'power' ? 'tv:power' : property === 'channel' ? 'tv:channel' : 'tv:volume';
+  const eventName = property === 'power' ? 'tv:power' : property === 'channel' ? 'tv:channel' : property === 'fine' ? 'tv:fine' : 'tv:volume';
   Motion.emit(eventName, { property, value });
 }
 
 function handleTv(action, button) {
   const state = getState();
-  if (current() === '17' && !state.flags.yardNodeValidated) return;
+  if (current() === '17' && !state.flags.greenNodeValidated) return;
   if (action === 'tv-power') setTv('power', !state.tv.power);
   if (action === 'tv-channel') setTv('channel', clamp(state.tv.channel + Number(button.dataset.delta), 1, 12));
   if (action === 'tv-volume') setTv('volume', clamp(state.tv.volume + Number(button.dataset.delta), 0, 10));
+  if (action === 'tv-fine') setTv('fine', clamp(state.tv.fine + Number(button.dataset.delta), -5, 5));
   const updated = getState();
   syncTv(updated);
   const id = current();
   if (id === '03' && updated.tv.power && !state.unlocked.includes('13') && updated.tv.channel === 4) {
     updateState((draft) => { draft.tv.unlocked = true; });
     Motion.play('receiver-channel-lock', { target: document.querySelector('.tv-cabinet') });
+    emitWorldEvent('tv.channel.04.locked');
     progress('03',['04'],'CANAL ANÔMALO ENCONTRADO');
     return;
   }
@@ -1891,10 +2508,10 @@ function handleTv(action, button) {
     updateState((draft) => { draft.flags.tvSequenceSeen = true; });
     syncTv(getState());
     Motion.play('tv-afterimage', { target: document.querySelector('.tv-screen') });
-    progress('13',['14'],'IMAGEM RESIDUAL RECUPERADA: 02 / 05 / 01', { delay: 1000 });
+    progress('13',['14'],'IMAGEM RESIDUAL RECUPERADA: FIM / 01 / COMEÇO', { delay: 1000 });
     return;
   }
-  if (id === '17' && updated.tv.power && updated.tv.channel === 10 && updated.tv.volume === 10) {
+  if (id === '17' && updated.tv.power && updated.tv.channel === 10 && updated.tv.volume === 10 && updated.tv.fine === 3) {
     updateState((draft) => { draft.flags.tvTuned = true; });
     Motion.play('receiver-channel-lock', { target: document.querySelector('.tv-cabinet') });
     progress('17',['18'],'PORTADORA DO EVENTO_1010 FIXADA');
@@ -1926,7 +2543,7 @@ async function initializeSystem(button) {
     Motion.play('boot-sequence', { target: document.querySelector('[data-boot-layer]') }),
     audioManager.playBoot()
   ]);
-  progress('01', ['02'], 'RECUPERAÇÃO INICIADA', { delay: 0 });
+  progress('01',['02'],'SISTEMA GRÁFICO DISPONÍVEL // INVESTIGUE A MÁQUINA');
 }
 
 async function playMorse() {
@@ -1995,40 +2612,99 @@ function validateRoom() {
     feedback(`COMPATIBILIDADE ${evaluation.score}%: REVISE AS RELAÇÕES ACIMA, AO LADO E À DIREITA`, 'warn');
     return;
   }
-  updateState((state) => { state.flags.roomRebuilt = true; });
+  updateState((state) => {
+    state.flags.roomRebuilt = true;
+    state.flags.houseAnomalyRevealed = true;
+  }, { progress: true });
   Motion.play('object-impossible', { target: document.querySelector('[data-room]') });
-  progress('20',['21'],'COMPATIBILIDADE 99% // TV SEM CORRESPONDÊNCIA FÍSICA', { delay: 700 });
+  uiFeedback.screenImpact('error', 'ÁREA CALCULADA EXCEDE ÁREA INDEXADA // +11,2 m²', { level: 'dramatic' });
+  Motion.schedule('room-anomaly-reveal', () => refresh(), 700);
 }
 
 function handleClick(event) {
+  handleDesktopBackgroundClick(event);
   const button = event.target.closest('[data-action]');
   if (!button) return;
   const action = button.dataset.action;
   trackClick(action.startsWith('tv-') ? `tv:${action}` : action);
-  if (action === 'workspace-tab') {
-    const panel = button.dataset.panel;
-    updateState((state) => { state.ui.activePanel = panel; });
-    document.querySelectorAll('.workspace-tab[data-action="workspace-tab"]').forEach((tab) => {
-      const selected = tab.dataset.panel === panel;
-      tab.classList.toggle('is-active', selected);
-      tab.setAttribute('aria-selected', String(selected));
-    });
-    document.querySelectorAll('[data-workspace-pane]').forEach((pane) => {
-      const selected = pane.dataset.workspacePane === panel;
-      pane.classList.toggle('is-active', selected);
-      pane.hidden = !selected;
-      if (selected) {
-        pane.classList.remove('is-switching');
-        requestAnimationFrame(() => pane.classList.add('is-switching'));
-        Motion.schedule(`workspace-pane-switch-${pane.dataset.workspacePane}`, () => pane.classList.remove('is-switching'), Motion.duration('normal'));
-      }
-    });
-    document.body.dataset.activeArea = panel;
-    Motion.emit('workspace:area-change', { panel });
+  if (handleDesktopClick(action, button, event)) return;
+  if (handleComputerClick(action, button)) return;
+  if (handleReconstructionClick(action, button)) return;
+  if (action === 'navigate') return go(button.dataset.target);
+  if (action === 'phone-toggle') {
+    let open = false;
+    updateState((state)=>{state.phone.open=!state.phone.open;open=state.phone.open;});
+    const dock = button.closest('[data-phone-dock]');
+    dock?.classList.toggle('is-open',open);
+    dock?.querySelector('.phone-dock__device')?.toggleAttribute('hidden',!open);
+    button.setAttribute('aria-expanded',String(open));
+    audioManager.playEvent('phone.lock',{volume:.09});
     return;
   }
-  if (action === 'navigate') return go(button.dataset.target);
+  if (['phone-unlock','phone-home','phone-app','phone-thread'].includes(action)) {
+    updateState((state)=>{
+      if (action==='phone-unlock') { state.phone.locked=false; state.phone.app='home'; }
+      if (action==='phone-home') { state.phone.locked=false; state.phone.app='home'; state.phone.thread=null; }
+      if (action==='phone-app') { state.phone.app=button.dataset.phoneApp || 'home'; state.phone.thread=null; if(state.phone.app==='messages') state.phone.unread=0; }
+      if (action==='phone-thread') { state.phone.app='messages'; state.phone.thread=button.dataset.thread || 'j'; state.phone.unread=0; }
+    });
+    document.querySelectorAll('[data-phone-device]').forEach((device)=>device.outerHTML=renderPhoneDevice(getState(),{embedded:device.classList.contains('is-embedded')}));
+    document.querySelectorAll('.phone-dock__toggle b').forEach((badge)=>badge.remove());
+    audioManager.playEvent(action==='phone-unlock'?'phone.unlock':'ui.contact',{volume:.07});
+    return;
+  }
+  if (action === 'phone-confirm-memory') {
+    if (current() !== '12') return feedback('EVIDÊNCIA DETECTADA // CONTEXTO FORENSE AINDA INCOMPLETO','warn');
+    updateState((state)=>{state.phone.events=[...new Set([...state.phone.events,'memory:2019'])];});
+    return correctAnswer('12','mullet');
+  }
+  if (action === 'phone-audio') {
+    audioManager.playEvent('source.03',{volume:.12});
+    button.textContent='00:07 // TRÊS IMPACTOS';
+    return;
+  }
   if (action === 'boot-fragment') return initializeSystem(button);
+  if (action === 'os-isolate-event') {
+    Motion.emit('archive:record-open', { record: 'evento-1010', altered: false });
+    audioManager.playEvent('system.disk', { volume: .12 });
+    updateState((state) => {
+      state.flags.event1010Seen = true;
+      state.archive.reads['evento-1010'] = Math.max(1, state.archive.reads['evento-1010'] || 0);
+    });
+    emitWorldEvent('computer.event.isolated');
+    return progress('02',['03'],'REGISTRO EXTERNO ISOLADO // EVENTO_1010');
+  }
+  if (action === 'os-ack-change') {
+    if (current() !== '10') return feedback('ALTERAÇÃO FORA DA FASE ATUAL', 'warn');
+    updateState((state) => {
+      state.flags.eventChanged = true;
+      state.archive.reads['evento-1010'] = 2;
+    });
+    emitWorldEvent('computer.event.rewritten');
+    return progress('10',['11'],'EVENTO_1010: DUAS FONTES CONFIRMADAS');
+  }
+  if (action === 'os-clock-apply') {
+    const state = getState();
+    const time = `${String(state.desktopOs.clockHour).padStart(2,'0')}:${String(state.desktopOs.clockMinute).padStart(2,'0')}`;
+    audioManager.playEvent('computer.clock.apply',{volume:.12});
+    if (current() === '15') {
+      if (time !== '03:17') return wrong('15',time,'O BOOKSCAN não aponta para essa hora.');
+      updateState((draft) => { draft.desktopOs.clockPanelOpen = false; draft.flags.clock0317Triggered = true; });
+      emitWorldEvent('computer.clock.0317');
+      document.querySelector('.retro-desktop')?.classList.add('is-clock-reacting');
+      audioManager.playEvent('system.disk',{volume:.16,duration:.55});
+      Motion.schedule('clock-0317-resource',()=>openDesktopResource('clock-note'),420);
+      return progress('15',['16'],'03:17 // ARQUIVO OCULTO RECUPERADO',{delay:1800});
+    }
+    if (current() === '23') {
+      if (time !== '10:10') return wrong('23',time,'A hora não corresponde ao EVENTO_1010.');
+      updateState((draft) => { draft.desktopOs.clockPanelOpen = false; draft.flags.bookPairResolved = true; draft.flags.clockOriginRestored = true; });
+      document.querySelector('.retro-desktop')?.classList.add('is-clock-synchronized');
+      audioManager.playEvent('system.relay',{volume:.18});
+      return progress('23',['24'],'ORIGEM TEMPORAL SINCRONIZADA // RECUPERAR.exe REESCRITO',{delay:1400});
+    }
+    return feedback(`RELÓGIO AJUSTADO // ${time}`, 'good');
+  }
   if (action === 'open-event') {
     updateState((state) => {
       state.flags.event1010Seen = true;
@@ -2042,6 +2718,7 @@ function handleClick(event) {
     Motion.emit('archive:record-open', { record: record.id, altered: record.status === 'ALTERADO' });
     updateState((state) => {
       state.archive.reads[record.id] = Math.max(state.archive.reads[record.id] || 0, record.version);
+      state.ui.focusReturn = record.id;
       state.ui.archiveView = {
         recordId: record.id,
         originPuzzle: current(),
@@ -2066,8 +2743,34 @@ function handleClick(event) {
     return progress('10',['11'],'EVENTO_1010: SIGNIFICADO ALTERADO');
   }
   if (action === 'inspect-log') return feedback('NENHUM CONTEÚDO RECUPERÁVEL', 'muted');
-  if (['tv-power','tv-channel','tv-volume'].includes(action)) return handleTv(action, button);
+  if (['tv-power','tv-channel','tv-volume','tv-fine'].includes(action)) return handleTv(action, button);
   if (action === 'play-morse') return playMorse();
+  if (action === 'document-row') {
+    const token = button.dataset.token;
+    Motion.emit('evidence:contact', { source: 'document-comparison', row: button.dataset.row });
+    if (!token) {
+      recordAttempt('06', button.dataset.row, false);
+      uiFeedback.error('TRECHO ALTERADO // As duas versões divergem neste índice.');
+      return Motion.pulse(button, 'is-invalid', 'fast');
+    }
+    updateState((state) => {
+      const selected = state.documentFragments || [];
+      state.documentFragments = selected.includes(token)
+        ? selected.filter((fragment) => fragment !== token)
+        : [...selected, token];
+    });
+    syncDocumentExtraction(getState());
+    Motion.emit('evidence:linked', { source: 'document-invariant', token });
+    return Motion.pulse(button, 'is-revealed', 'fast');
+  }
+  if (action === 'commit-document') {
+    const order = ['A DATA', 'ABRE', 'O ARQUIVO'];
+    const selected = order.filter((token) => (getState().documentFragments || []).includes(token));
+    if (selected.length !== order.length) return feedback('EXTRAÇÃO INCOMPLETA // Encontre os três trechos preservados.', 'warn');
+    button.disabled = true;
+    Motion.emit('evidence:resolve', { source: 'document-invariant' });
+    return correctAnswer('06', order.join(' '));
+  }
   if (action === 'open-file') {
     Motion.emit('archive:open', { file: button.dataset.file });
     const preview = document.querySelector('[data-file-preview]');
@@ -2098,27 +2801,32 @@ function handleClick(event) {
     return Motion.pulse(button, 'is-revealed', 'fast');
   }
   if (action === 'ack-conflict') {
-    if ((getState().forensicSelections || []).length < 4) return feedback('DADOS INSUFICIENTES: SELECIONE AO MENOS QUATRO CAMADAS', 'warn');
+    const required=['volume','sides','length','silhouette'];
+    if (!required.every((item)=>(getState().forensicSelections||[]).includes(item))) return feedback('MODELO INCONCLUSIVO: USE AS QUATRO CAMADAS QUE DESCREVEM GEOMETRIA', 'warn');
     Motion.emit('evidence:resolve', { source: 'forensic-model' });
     Motion.play('memory-reconstruction', { target: document.querySelector('[data-forensic]') });
     return progress('11',['12'],'GEOMETRIA DO CONFLITO EXTRAÍDA', { delay: 900 });
   }
-  if (action === 'fragment') {
-    updateState((state)=>{ if(!state.fragments.includes(button.dataset.fragment)) state.fragments.push(button.dataset.fragment); });
-    syncFragmentPlacement(button, getState(), true);
-    Motion.emit('fragment:placed', { fragment: button.dataset.fragment, material: 'paper' });
-    return Motion.pulse(button, 'is-settling', 'fast');
+  if (action === 'bookscan-book') {
+    const id = button.dataset.book;
+    updateState((state)=>{
+      const current = state.bookSelections || [];
+      state.bookSelections = current.includes(id) ? current.filter((item)=>item!==id) : [...current.slice(-1),id];
+    });
+    document.querySelectorAll('[data-action="bookscan-book"]').forEach((item)=>{
+      const selected=getState().bookSelections.includes(item.dataset.book);
+      item.classList.toggle('is-selected',selected);item.setAttribute('aria-pressed',String(selected));
+    });
+    audioManager.playEvent('ui.contact',{volume:.05});
+    return;
   }
-  if (action === 'fragment-remove') {
-    updateState((state)=>{state.fragments=state.fragments.filter((item)=>item!==button.dataset.fragment);});
-    syncFragmentPlacement(button, getState(), false);
-    Motion.emit('fragment:removed', { fragment: button.dataset.fragment, material: 'paper' });
-    return Motion.pulse(button, 'is-settling', 'fast');
-  }
-  if (action === 'check-fragments') {
-    const phrase = getState().fragments.join('|');
-    if (phrase === 'ONDE|A NOITE|DEIXA|O QUE VOCÊ PRECISA') return progress('15',['16'],'SINTAXE RESTAURADA');
-    return wrong('15', phrase, 'ORDEM INCORRETA // A frase só é gramatical em uma ordem.');
+  if (action === 'bookscan-confirm-pair') {
+    const pair=[...(getState().bookSelections||[])].sort().join('|');
+    if (pair!=='acaba|comeca') return wrong('14',pair,'Os títulos selecionados não formam FIM e COMEÇO a distância 01.');
+    updateState((state)=>{state.flags.bookPairIdentified=true;},{progress:true});
+    document.querySelector('.bookscan-return')?.removeAttribute('hidden');
+    Motion.emit('evidence:linked',{source:'bookscan-adjacency'});
+    return feedback('PAR IDENTIFICADO // AGORA CONSULTE OS VOLUMES FÍSICOS','good');
   }
   if (action === 'relation') return handleRelation(button);
   if (action === 'location-fragment') {
@@ -2131,6 +2839,10 @@ function handleClick(event) {
     return Motion.pulse(button, 'is-revealed', 'fast');
   }
   if (action === 'validate-room') return validateRoom();
+  if (action === 'confirm-room-return') {
+    if (!getState().flags.roomNodeValidated) return feedback('LEITURA FÍSICA AUSENTE', 'warn');
+    return progress('20',['21'],'ESPAÇO NÃO CLASSIFICADO ANEXADO // ÚLTIMA LEITURA 03:17');
+  }
   if (action === 'fake-end') {
     updateState((state)=>{state.flags.fakeFinalSeen=true;});
     refresh();
@@ -2138,16 +2850,6 @@ function handleClick(event) {
     return uiFeedback.screenImpact('error', 'INTEGRIDADE 99% // 1 RELAÇÃO NÃO RESOLVIDA', { level: 'dramatic' });
   }
   if (action === 'continue-after-fake') return progress('21',['22'],'CANAL EXTERNO ENCONTRADO');
-  if (action === 'meta-item') {
-    updateState((state)=>{
-      const key=button.dataset.key;
-      if(state.metaSelections.includes(key)) state.metaSelections=state.metaSelections.filter((item)=>item!==key);
-      else state.metaSelections=state.metaSelections.length>=3?[key]:[...state.metaSelections,key];
-    });
-    syncMetaSelection(getState());
-    Motion.emit('residue:selected', { key: button.dataset.key, count: getState().metaSelections.length });
-    return Motion.pulse(button, 'is-revealed', 'fast');
-  }
   if (action === 'hint') {
     useHint(button.dataset.puzzle);
     syncHintPanel(button.dataset.puzzle, getState());
@@ -2166,31 +2868,49 @@ function handleClick(event) {
     });
   }
   if (action === 'dev-next') { const next=String(Math.min(Number(last()),Number(current())+1)).padStart(2,'0'); unlockThrough(next); return go(next); }
-  if (action === 'dev-reset' && confirm('Resetar todo o progresso local?')) { resetState(); return go('01'); }
+  if (action === 'dev-reset' && confirm('Reiniciar esta sessão em memória?')) { resetState(); return go('01'); }
 }
 
 function handleSubmit(event) {
+  const archiveSearch = event.target.closest('[data-archive-search]');
+  if (archiveSearch) {
+    event.preventDefault();
+    const query = String(new FormData(archiveSearch).get('query') || '').trim();
+    updateState((state) => {
+      state.ui.archiveQuery = query;
+      if (query) state.archive.searches = [...new Set([...(state.archive.searches || []), normalizeAnswer(query)])].slice(-24);
+    }, { progress: Boolean(query) });
+    addEvent('archive-search', query);
+    return refresh();
+  }
   const nodeForm = event.target.closest('[data-node-auth]');
   if (nodeForm) {
     event.preventDefault();
     const node = nodeForm.dataset.nodeAuth;
     const token = new FormData(nodeForm).get('token');
-    const expected = node === 'yard' ? GAME_CONFIG.yardNodeCode : '';
+    const expected = {
+      green: GAME_CONFIG.greenNodeCode,
+      yard: GAME_CONFIG.yardNodeCode,
+      room: GAME_CONFIG.roomNodeCode
+    }[node] || '';
+    const attemptId = `${node}-node`;
     if (!normalizeAnswer(token)) return uiFeedback.error('ENTRADA INVÁLIDA // Informe o código exibido pelo NÓ.', { target: nodeForm.querySelector('.answer-input') });
     if (!expected || normalizeAnswer(token) !== normalizeAnswer(expected)) {
-      recordAttempt('17-node', token, false);
-      return uiFeedback.error('NÓ REJEITADO // O código não pertence ao limiar preparado.', { target: nodeForm.querySelector('.answer-input') });
+      recordAttempt(attemptId, token, false);
+      return uiFeedback.error('NÓ REJEITADO // A assinatura não pertence a esta fonte.', { target: nodeForm.querySelector('.answer-input') });
     }
-    recordAttempt('17-node', token, true);
+    recordAttempt(attemptId, token, true);
     updateState((state) => {
-      state.flags.yardNodeScanned = true;
-      state.flags.yardNodeValidated = true;
-      state.physicalNodes.yard = 'validated';
-      state.discoveries = [...new Set([...state.discoveries, 'node:yard', 'fragment:repeat-event'])];
+      state.flags[`${node}NodeScanned`] = true;
+      state.flags[`${node}NodeValidated`] = true;
+      state.physicalNodes[node] = 'validated';
+      const fragment = node === 'green' ? 'fragment:yard-symbols' : node === 'yard' ? 'fragment:repeat-event' : 'fragment:reading-0317';
+      state.discoveries = [...new Set([...state.discoveries, `node:${node}`, fragment])];
     }, { progress: true });
-    addEvent('external-node-authenticated', 'yard');
-    Motion.emit('evidence:resolve', { source: 'yard-node' });
-    uiFeedback.toast('NÓ_17 AUTENTICADO // CALIBRAÇÃO PARCIAL RECUPERADA', { kind: 'discovery' });
+    addEvent('external-node-authenticated', node);
+    Motion.emit('evidence:resolve', { source: `${node}-node` });
+    const labels = { green: 'NÓ_14 // FONTE VERDE VINCULADA', yard: 'NÓ_17 // MARGEM AUTENTICADA', room: 'NÓ_00 // LEITURA 03:17 ANEXADA' };
+    uiFeedback.toast(labels[node] || 'NÓ AUTENTICADO', { kind: 'discovery' });
     return refresh();
   }
   const form = event.target.closest('[data-answer]');
@@ -2211,15 +2931,10 @@ function handleInput(event) {
     const output = event.target.closest('.master-volume')?.querySelector('output');
     if (output) output.textContent = `${Math.round(Number(event.target.value) * 100)}%`;
   }
-  if (event.target.matches('[data-version-slider]')) {
-    const compare = event.target.closest('.version-control')?.previousElementSibling;
-    compare?.style.setProperty('--version-split', `${event.target.value}%`);
-    const output = event.target.closest('.version-control')?.querySelector('[data-version-output]');
-    if (output) output.textContent = `${event.target.value}%`;
-  }
 }
 
 function handlePointerDown(event) {
+  if (handleDesktopPointerDown(event)) return;
   const object = event.target.closest('.room-object[data-object]');
   const room = object?.closest('[data-room]');
   if (!object || !room || (event.pointerType === 'mouse' && event.button !== 0)) return;
@@ -2248,6 +2963,7 @@ function handlePointerDown(event) {
 }
 
 function handlePointerMove(event) {
+  if (handleDesktopPointerMove(event)) return;
   if (!roomPointer || roomPointer.pointerId !== event.pointerId) return;
   event.preventDefault();
   const { object, roomRect, startLeft, startTop, offsetX, offsetY } = roomPointer;
@@ -2291,9 +3007,15 @@ function finishRoomPointer(event, cancelled = false) {
 }
 
 function handleKeydown(event) {
-  if (event.key !== 'Escape' || !getState().ui?.archiveView) return;
-  const close = document.querySelector('[data-action="close-archive-record"]');
-  close?.click();
+  if (handleDesktopKeydown(event)) return;
+  if (handleComputerKeydown(event)) return;
+  if (event.key !== 'Escape') return;
+  if (getState().ui?.archiveView) {
+    document.querySelector('[data-action="close-archive-record"]')?.click();
+    return;
+  }
+  if (returnComputerToTask()) return;
+  document.querySelector('.scene-return[data-action="navigate"]')?.click();
 }
 
 function initInteractions(options) {
@@ -2302,17 +3024,19 @@ function initInteractions(options) {
   current = options.current;
   last = options.last || last;
   document.addEventListener('click', handleClick);
+  document.addEventListener('dblclick', handleDesktopDoubleClick);
+  document.addEventListener('contextmenu', handleDesktopContextMenu);
   document.addEventListener('submit', handleSubmit);
   document.addEventListener('input', handleInput);
   document.addEventListener('pointerdown', handlePointerDown);
   document.addEventListener('pointermove', handlePointerMove, { passive: false });
-  document.addEventListener('pointerup', (event) => finishRoomPointer(event));
-  document.addEventListener('pointercancel', (event) => finishRoomPointer(event, true));
+  document.addEventListener('pointerup', (event) => { if (!handleDesktopPointerUp(event)) finishRoomPointer(event); });
+  document.addEventListener('pointercancel', (event) => { if (!handleDesktopPointerUp(event, true)) finishRoomPointer(event, true); });
   document.addEventListener('keydown', handleKeydown);
 }
 
 function notifyNodeDetection(node, early) {
-  const labels = { desk: 'ESCRIVANINHA', yard: 'LIMIAR', books: 'ESTANTE' };
+  const labels = { green: 'FONTE VERDE', yard: 'MARGEM', room: 'ESPAÇO NÃO CLASSIFICADO', books: 'ESTANTE' };
   const label = labels[node] || 'EXTERNO';
   const message = early ? `NÓ ${label} DETECTADO // ACESSO NEGADO // CONTEXTO INSUFICIENTE` : `NÓ ${label} DETECTADO`;
   uiFeedback.toast(message, { kind: early ? 'error' : 'discovery' });
@@ -2335,6 +3059,7 @@ const ENVIRONMENT_BY_FAMILY = Object.freeze({
   system: 'system',
   archive: 'archive',
   device: 'device',
+  phone: 'phone',
   forensic: 'forensic',
   reconstruction: 'reconstruction',
   override: 'override'
@@ -2524,7 +3249,7 @@ class AudioExperience {
       else if (detail.to === 'archive') { this.engine.duck(['ambience'], { depth: .3, hold: .18 }); this.engine.play('archive.seek', { when: .12 }); }
       else if (detail.to === 'forensic') { this.engine.duck(['ambience'], { depth: .38, hold: .2 }); this.engine.play('forensic.contact', { when: .14 }); }
       else if (detail.to === 'reconstruction') { this.engine.duck(['ambience'], { depth: .25, hold: .25 }); this.engine.play('memory.resolve', { when: .1, volume: .07 }); }
-      else if (detail.to === 'system') this.engine.play('system.relay', { when: .28, volume: .12 });
+      else if (['system', 'computer'].includes(detail.to)) this.engine.play('system.relay', { when: .28, volume: .12 });
       return;
     }
     if (name === 'hard-reset') return this.engine.hardReset();
@@ -2637,6 +3362,7 @@ function bindMotionAudio() {
   document.addEventListener('tv:power', (event) => audioManager.handleTvPower(event.detail));
   document.addEventListener('tv:channel', () => audioManager.handleTvChannel());
   document.addEventListener('tv:volume', () => audioManager.handleTvVolume());
+  document.addEventListener('tv:fine', () => { audioManager.playEvent('receiver.knob',{volume:.08}); audioManager.playEvent('receiver.static',{when:.03,duration:.08,volume:.035}); });
   document.addEventListener('tv:afterimage', () => { audioManager.duck(['ambience', 'device'], { depth: .08, hold: .5 }); audioManager.playEvent('rare.fragment', { volume: .08 }); });
   document.addEventListener('entity:detected', () => { audioManager.duck(['ambience'], { depth: .02, hold: .18 }); audioManager.playEvent('narrative.entity'); });
   document.addEventListener('memory:restored', () => audioManager.playEvent('memory.resolve'));
@@ -2660,254 +3386,6 @@ function bindMotionAudio() {
 
 exports.audioManager = audioManager;
 exports.bindMotionAudio = bindMotionAudio;
-},
-"js/motion-engine.js": function(module, exports, __require) {
-const FALLBACKS = { instant: 90, fast: 160, normal: 260, slow: 420, dramatic: 720, sequence: 1200 };
-const MOTION_SCOPE = Object.freeze({ LOCAL: 'local', DEVICE: 'device', SCENE: 'scene', GLOBAL: 'global' });
-
-function parseTime(value, fallback) {
-  const normalized = value.trim();
-  if (normalized.endsWith('ms')) return Number.parseFloat(normalized);
-  if (normalized.endsWith('s')) return Number.parseFloat(normalized) * 1000;
-  return fallback;
-}
-
-class MotionEngine {
-  constructor() {
-    this.timers = new Map();
-    this.sequences = new Map();
-    this.sequenceId = 0;
-    this.registerDefaults();
-  }
-
-  get reduced() {
-    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  }
-
-  duration(level = 'normal') {
-    if (this.reduced) return 0;
-    const fallback = FALLBACKS[level] ?? FALLBACKS.normal;
-    const raw = getComputedStyle(document.documentElement).getPropertyValue(`--motion-${level}`);
-    return parseTime(raw, fallback);
-  }
-
-  emit(name, detail = {}) {
-    document.dispatchEvent(new CustomEvent(name, { detail }));
-  }
-
-  cancel(key) {
-    const timer = this.timers.get(key);
-    if (timer) window.clearTimeout(timer);
-    this.timers.delete(key);
-  }
-
-  schedule(key, callback, delay) {
-    this.cancel(key);
-    const timer = window.setTimeout(() => {
-      this.timers.delete(key);
-      callback();
-    }, delay);
-    this.timers.set(key, timer);
-    return timer;
-  }
-
-  wait(level = 'normal') {
-    return new Promise((resolve) => window.setTimeout(resolve, this.duration(level)));
-  }
-
-  pause(milliseconds, { reduce = true } = {}) {
-    return new Promise((resolve) => window.setTimeout(resolve, reduce && this.reduced ? 0 : milliseconds));
-  }
-
-  register(name, definition, { scope = MOTION_SCOPE.LOCAL } = {}) {
-    this.sequences.set(name, { definition, scope });
-  }
-
-  resolveTarget(scope, requestedTarget) {
-    if (scope === MOTION_SCOPE.GLOBAL) return document.body;
-    if (scope === MOTION_SCOPE.DEVICE) {
-      return requestedTarget?.closest?.('[data-motion-scope="device"]')
-        || (requestedTarget?.matches?.('[data-motion-scope="device"]') ? requestedTarget : null);
-    }
-    if (scope === MOTION_SCOPE.SCENE) {
-      return requestedTarget?.closest?.('[data-motion-scope="scene"]')
-        || (requestedTarget?.matches?.('[data-motion-scope="scene"]') ? requestedTarget : null);
-    }
-    return requestedTarget || null;
-  }
-
-  async play(name, context = {}) {
-    const sequence = this.sequences.get(name);
-    if (!sequence) return false;
-    const target = this.resolveTarget(sequence.scope, context.target);
-    if (!target) {
-      console.warn(`[Motion] Evento "${name}" ignorado: target ${sequence.scope} ausente.`);
-      return false;
-    }
-    const id = ++this.sequenceId;
-    const resolvedContext = { ...context, target, id, scope: sequence.scope };
-    this.emit('motion:start', { name, ...resolvedContext });
-    await sequence.definition({ ...resolvedContext, reduced: this.reduced, engine: this });
-    this.emit('motion:complete', { name, ...resolvedContext });
-    return true;
-  }
-
-  pulse(target, className, level = 'normal') {
-    if (!target) return Promise.resolve();
-    const pulseId = ++this.sequenceId;
-    target.classList.remove(className);
-    requestAnimationFrame(() => target.classList.add(className));
-    return new Promise((resolve) => this.schedule(`pulse-${className}-${pulseId}`, () => {
-      target.classList.remove(className);
-      resolve();
-    }, this.duration(level)));
-  }
-
-  registerDefaults() {
-    const signalEvents = {
-      'screen-tear': ['crt-event--tear', 'fast', MOTION_SCOPE.DEVICE],
-      'horizontal-roll': ['crt-event--roll', 'slow', MOTION_SCOPE.DEVICE],
-      'vertical-desync': ['crt-event--desync', 'normal', MOTION_SCOPE.SCENE],
-      'frame-ghost': ['crt-event--ghost', 'normal', MOTION_SCOPE.LOCAL],
-      'phosphor-burn': ['crt-event--burn', 'slow', MOTION_SCOPE.DEVICE],
-      'signal-recovery': ['crt-event--recovery', 'slow', MOTION_SCOPE.DEVICE],
-      'system-signal-loss': ['crt-event--loss', 'dramatic', MOTION_SCOPE.GLOBAL],
-      'system-corruption': ['motion-corruption', 'slow', MOTION_SCOPE.GLOBAL]
-    };
-    Object.entries(signalEvents).forEach(([name, [className, level, scope]]) => {
-      this.register(name, ({ target, engine }) => engine.pulse(target, className, level), { scope });
-    });
-    this.register('receiver-power-off', ({ target, engine }) => engine.pulse(target, 'receiver-motion--power-off', 'dramatic'), { scope: MOTION_SCOPE.DEVICE });
-    this.register('receiver-power-on', ({ target, engine }) => engine.pulse(target, 'receiver-motion--power-on', 'slow'), { scope: MOTION_SCOPE.DEVICE });
-    this.register('receiver-channel-loss', ({ target, engine }) => engine.pulse(target, 'crt-event--tear', 'normal'), { scope: MOTION_SCOPE.DEVICE });
-    this.register('receiver-channel-lock', ({ target, engine }) => engine.pulse(target, 'receiver-motion--signal-lock', 'slow'), { scope: MOTION_SCOPE.DEVICE });
-    this.register('hard-reset', ({ target, swap, engine }) => new Promise((resolve) => {
-      target.classList.remove('crt-event--hard-reset');
-      requestAnimationFrame(() => target.classList.add('crt-event--hard-reset'));
-      const midpoint = engine.reduced ? 0 : Math.round(engine.duration('dramatic') * .42);
-      engine.schedule('hard-reset-swap', () => {
-        swap?.();
-        engine.schedule('hard-reset-finish', () => {
-          target.classList.remove('crt-event--hard-reset');
-          resolve();
-        }, engine.reduced ? 0 : Math.round(engine.duration('dramatic') * .58));
-      }, midpoint);
-    }), { scope: MOTION_SCOPE.GLOBAL });
-    this.register('scene-transition', ({ target, from = 'system', to = 'system', swap, engine }) => new Promise((resolve) => {
-      const family = to === 'system' ? 'return' : to;
-      const className = `scene-transition--${family}`;
-      target.classList.remove(className);
-      requestAnimationFrame(() => target.classList.add(className));
-      const duration = engine.duration('dramatic');
-      engine.schedule('scene-transition-swap', () => {
-        swap?.();
-        engine.schedule('scene-transition-finish', () => {
-          target.classList.remove(className);
-          resolve();
-        }, engine.reduced ? 0 : Math.round(duration * .54));
-      }, engine.reduced ? 0 : Math.round(duration * .46));
-    }), { scope: MOTION_SCOPE.GLOBAL });
-    this.register('boot-sequence', ({ target, engine }) => new Promise((resolve) => {
-      if (!target) return resolve();
-      target.setAttribute('aria-hidden', 'false');
-      target.classList.add('is-active');
-      engine.schedule('boot-sequence-finish', () => {
-        target.classList.add('is-complete');
-        engine.schedule('boot-sequence-reset', () => {
-          target.classList.remove('is-active', 'is-complete');
-          target.setAttribute('aria-hidden', 'true');
-          resolve();
-        }, engine.duration('normal'));
-      }, engine.reduced ? 0 : 2300);
-    }));
-    this.register('record-corruption', async ({ target, engine }) => {
-      engine.emit('motion:impact', { kind: 'corruption' });
-      await engine.pulse(target, 'motion-corruption', 'slow');
-    });
-    this.register('narrative-loading', ({ target, label, engine }) => new Promise((resolve) => {
-      if (!target) return resolve();
-      const text = target.querySelector('span');
-      if (text && label) text.textContent = label;
-      target.hidden = false;
-      target.classList.add('is-active');
-      engine.schedule('narrative-loading-finish', () => {
-        target.classList.remove('is-active');
-        target.hidden = true;
-        resolve();
-      }, engine.duration('slow'));
-    }));
-    this.register('entity-detected', async ({ target, engine }) => {
-      await engine.pulse(target, 'motion-entity-detected', 'fast');
-    });
-    this.register('entity-conflict', ({ target, feedback, engine }) => new Promise((resolve) => {
-      target?.classList.add('is-system-conflict');
-      if (feedback) feedback.textContent = 'RESPOSTA CORRETA';
-      engine.schedule('entity-conflict-denial', () => {
-        if (feedback) feedback.textContent = 'RESPOSTA INCORRETA';
-      }, engine.reduced ? 0 : 330);
-      engine.schedule('entity-conflict-resolve', () => {
-        target?.classList.remove('is-system-conflict');
-        if (feedback) feedback.textContent = 'MEMÓRIA CONFIRMADA. ... sério?';
-        engine.emit('entity:detected', { source: 'memory-conflict' });
-        resolve();
-      }, engine.reduced ? 0 : 760);
-    }));
-    this.register('tv-afterimage', async ({ target, engine }) => {
-      engine.emit('tv:afterimage');
-      await Promise.all([
-        engine.pulse(target, 'motion-afterimage', 'dramatic'),
-        engine.play('phosphor-burn', { target })
-      ]);
-    }, { scope: MOTION_SCOPE.DEVICE });
-    this.register('memory-reconstruction', async ({ target, engine }) => {
-      await engine.pulse(target, 'motion-reconstruction', 'dramatic');
-      engine.emit('memory:restored');
-    });
-    this.register('system-desync', async ({ target, engine }) => {
-      await engine.pulse(target, 'motion-desync', 'slow');
-      engine.emit('system:mutation', { state: 'desync' });
-    }, { scope: MOTION_SCOPE.SCENE });
-    this.register('object-impossible', async ({ target, engine }) => {
-      engine.emit('motion:impact', { kind: 'impossible' });
-      await engine.pulse(target, 'is-dismantling', 'dramatic');
-    });
-    this.register('relation-merge', async ({ target, engine }) => {
-      engine.emit('motion:impact', { kind: 'merge' });
-      if (target?.matches?.('[data-merge-layer]')) target.setAttribute('aria-hidden', 'false');
-      await engine.pulse(target, 'is-merging', 'sequence');
-      if (target?.matches?.('[data-merge-layer]')) target.setAttribute('aria-hidden', 'true');
-    });
-    this.register('silent-observation', ({ target, label = 'ENTIDADE B: ENCONTRADA', engine }) => new Promise((resolve) => {
-      if (!target) return resolve();
-      const original = target.textContent;
-      target.textContent = label;
-      target.classList.add('motion-entity-detected');
-      engine.emit('entity:detected');
-      engine.schedule('silent-observation-reset', () => {
-        target.textContent = original;
-        target.classList.remove('motion-entity-detected');
-        resolve();
-      }, engine.reduced ? 240 : 80);
-    }));
-    this.register('receiver-observation', ({ target, engine }) => new Promise((resolve) => {
-      if (!target) return resolve();
-      target.classList.add('is-observing');
-      const screen = target.querySelector('.receiver-summary strong');
-      const original = screen?.textContent;
-      if (screen) screen.textContent = 'CAN B';
-      engine.schedule('receiver-observation-reset', () => {
-        if (screen) screen.textContent = original;
-        target.classList.remove('is-observing');
-        resolve();
-      }, engine.reduced ? 500 : 400);
-    }));
-  }
-}
-
-const Motion = new MotionEngine();
-
-exports.MOTION_SCOPE = MOTION_SCOPE;
-exports.Motion = Motion;
 },
 "js/audio/engine.js": function(module, exports, __require) {
 const { AUDIO_BUSES, AUDIO_ENVIRONMENTS, AUDIO_MANIFEST } = __require("js/audio/manifest.js");
@@ -3311,6 +3789,15 @@ const AUDIO_MANIFEST = Object.freeze({
   'ui.accept': { generator: 'relay', bus: 'ui', volume: .18, duration: .16, variants: [{ frequency: 430 }, { frequency: 470 }] },
   'system.relay': { generator: 'relay', bus: 'device', volume: .28, duration: .13, variants: [{ frequency: 170 }, { frequency: 195 }, { frequency: 152 }] },
   'system.disk': { generator: 'disk', bus: 'device', volume: .12, duration: .24, variants: [{ frequency: 930 }, { frequency: 1080 }] },
+  'computer.window.open': { generator: 'relay', bus: 'ui', volume: .08, duration: .075, frequency: 260 },
+  'computer.window.close': { generator: 'click', bus: 'ui', volume: .07, duration: .045, frequency: 190 },
+  'computer.folder.open': { generator: 'disk', bus: 'device', volume: .07, duration: .16, frequency: 860 },
+  'computer.clock.apply': { generator: 'relay', bus: 'device', volume: .14, duration: .18, frequency: 205 },
+  'phone.lock': { generator: 'click', bus: 'device', volume: .11, duration: .045, frequency: 520 },
+  'phone.unlock': { generator: 'tone', bus: 'device', volume: .09, duration: .1, frequency: 620, endFrequency: 820, type: 'sine' },
+  'phone.message': { generator: 'tone', bus: 'device', volume: .12, duration: .18, frequency: 880, endFrequency: 660, type: 'triangle' },
+  'phone.vibration': { generator: 'noise', bus: 'device', volume: .08, duration: .24, filterType: 'lowpass', filter: 180, q: 1.2 },
+  'source.03': { generator: 'impact', bus: 'signal', volume: .11, duration: .7, frequency: 72, endFrequency: 48 },
   'system.flyback': { generator: 'tone', bus: 'device', volume: .035, duration: .62, frequency: 10800, endFrequency: 12600, type: 'sine' },
   'receiver.knob': { generator: 'click', bus: 'device', volume: .24, duration: .045, variants: [{ frequency: 372 }, { frequency: 410 }, { frequency: 438 }, { frequency: 465 }, { frequency: 492 }], rateVariation: .025 },
   'receiver.volume': { generator: 'click', bus: 'device', volume: .12, duration: .03, variants: [{ frequency: 590 }, { frequency: 625 }, { frequency: 660 }, { frequency: 695 }] },
@@ -3350,9 +3837,11 @@ const AUDIO_MANIFEST = Object.freeze({
 });
 
 const AUDIO_ENVIRONMENTS = Object.freeze({
+  computer: { bus: 'ambience', hum: [49.8, 99.6], noise: .0045, volume: .032, filter: 280 },
   system: { bus: 'ambience', hum: [49.8, 99.6], noise: .0045, volume: .032, filter: 280 },
   archive: { bus: 'ambience', hum: [42, 84], noise: .008, volume: .024, filter: 520 },
   device: { bus: 'device', hum: [59.7, 119.4], noise: .018, volume: .042, filter: 1100, whine: 11800 },
+  phone: { bus: 'device', hum: [61], noise: .002, volume: .018, filter: 420 },
   forensic: { bus: 'ambience', hum: [54, 108], noise: .006, volume: .026, filter: 360 },
   reconstruction: { bus: 'ambience', hum: [36, 71.6, 143.2], noise: .005, volume: .026, filter: 240 },
   override: { bus: 'ambience', hum: [27.5], noise: .002, volume: .012, filter: 150 }
@@ -3384,197 +3873,37 @@ function finalStats(state) {
 exports.trackClick = trackClick;
 exports.finalStats = finalStats;
 },
-"js/ui-feedback.js": function(module, exports, __require) {
-const { Motion } = __require("js/motion-engine.js");
-const IMPACT_COPY = {
-  success: 'REGISTRO ESTABILIZADO',
-  error: 'ANOMALIA DETECTADA',
-  denied: 'ACESSO NEGADO',
-  discovery: 'NOVA CAMADA ENCONTRADA'
-};
-
-class UIFeedbackController {
-  constructor() {
-    this.transitionSequence = 0;
-    this.impactSequence = 0;
-  }
-
-  get reducedMotion() {
-    return Motion.reduced;
-  }
-
-  duration(level = 'normal') {
-    return Motion.duration(level);
-  }
-
-  cancel(key) {
-    Motion.cancel(key);
-  }
-
-  schedule(key, callback, delay) {
-    return Motion.schedule(key, callback, delay);
-  }
-
-  wait(level = 'normal') {
-    return Motion.wait(level);
-  }
-
-  toast(message, { kind = 'info', duration = 3200 } = {}) {
-    const region = document.querySelector('[data-toast-region]');
-    if (!region) return;
-    const node = document.createElement('div');
-    const id = `toast-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    node.className = `toast toast--${kind} is-entering`;
-    node.setAttribute('role', kind === 'error' ? 'alert' : 'status');
-    node.textContent = message;
-    region.append(node);
-    this.schedule(id, () => {
-      node.classList.remove('is-entering');
-      node.classList.add('is-leaving');
-      this.schedule(`${id}-remove`, () => node.remove(), this.duration('fast'));
-    }, duration);
-  }
-
-  message(message, kind = 'info') {
-    const target = document.querySelector('[data-feedback]');
-    if (!target) {
-      this.toast(message, { kind });
-      return null;
-    }
-    target.className = `feedback ${kind} is-revealed`;
-    target.textContent = message;
-    return target;
-  }
-
-  clearFieldState(input) {
-    const form = input?.closest('[data-answer]');
-    form?.classList.remove('is-error', 'is-success');
-    input?.removeAttribute('aria-invalid');
-  }
-
-  error(message, { critical = false, target } = {}) {
-    const form = target?.closest?.('[data-answer]') || document.querySelector('[data-answer]');
-    const component = form || target;
-    component?.classList.remove('is-success');
-    component?.classList.add('is-error');
-    const input = form?.querySelector('.answer-input');
-    input?.setAttribute('aria-invalid', 'true');
-    this.message(message, 'error');
-    Motion.emit('motion:error', { message, critical });
-    if (critical) this.screenImpact('error', message, { level: 'dramatic' });
-  }
-
-  success(message, { impact = false, target } = {}) {
-    const component = target || document.querySelector('[data-answer]') || document.querySelector('.main-panel');
-    component?.classList.remove('is-error');
-    component?.classList.add('is-success');
-    component?.querySelector?.('.answer-input')?.removeAttribute('aria-invalid');
-    if (document.querySelector('[data-feedback]')) this.message(message, 'good');
-    this.toast(message, { kind: 'success' });
-    Motion.emit('motion:complete', { name: 'puzzle-success', message });
-    if (impact) this.screenImpact('success', message, { level: impact === 'dramatic' ? 'dramatic' : 'slow' });
-  }
-
-  reveal(target, { kind = 'discovery' } = {}) {
-    if (!target) return;
-    target.dataset.revealKind = kind;
-    target.classList.add('is-revealed');
-  }
-
-  screenImpact(kind, message, { level = 'slow' } = {}) {
-    const layer = document.querySelector('[data-screen-feedback]');
-    if (!layer) return;
-    this.cancel('screen-impact');
-    this.cancel('screen-impact-reset');
-    const sequence = ++this.impactSequence;
-    const kicker = layer.querySelector('[data-screen-feedback-kicker]');
-    const content = layer.querySelector('[data-screen-feedback-message]');
-    layer.className = `screen-feedback screen-feedback--${kind}`;
-    layer.setAttribute('aria-hidden', 'false');
-    if (kicker) kicker.textContent = IMPACT_COPY[kind] || IMPACT_COPY.discovery;
-    if (content) content.textContent = message;
-    const visibleFor = Math.max(this.duration(level), 560);
-    layer.style.setProperty('--impact-duration', `${visibleFor}ms`);
-    requestAnimationFrame(() => {
-      if (sequence === this.impactSequence) layer.classList.add('is-active');
-    });
-    this.schedule('screen-impact', () => {
-      if (sequence !== this.impactSequence) return;
-      layer.classList.remove('is-active');
-      this.schedule('screen-impact-reset', () => {
-        if (sequence !== this.impactSequence) return;
-        layer.setAttribute('aria-hidden', 'true');
-        if (content) content.textContent = '';
-      }, this.duration('normal'));
-    }, visibleFor);
-  }
-
-  async transition(root, commit) {
-    const panel = root.querySelector('.main-panel');
-    const sequence = ++this.transitionSequence;
-    if (!panel || this.reducedMotion) {
-      commit();
-      return;
-    }
-    root.classList.add('is-transitioning');
-    root.setAttribute('aria-busy', 'true');
-    panel.classList.remove('is-entering', 'scene-enter');
-    panel.classList.add('is-leaving');
-    await this.wait('normal');
-    if (sequence !== this.transitionSequence) return;
-    commit();
-    root.classList.remove('is-transitioning');
-    root.removeAttribute('aria-busy');
-  }
-
-  cancelTransition() {
-    this.transitionSequence += 1;
-  }
-}
-
-const uiFeedback = new UIFeedbackController();
-
-exports.uiFeedback = uiFeedback;
-},
 "js/progression.js": function(module, exports, __require) {
-const { GAME_CONFIG } = __require("js/config.js");
+const { puzzleFor } = __require("js/puzzles/catalog.js");
 const { answerMatches } = __require("js/utils.js");
-const ANSWERS = Object.freeze({
-  '04': ['mesa','escrivaninha'],
-  '05': [GAME_CONFIG.deskNodeCode],
-  '06': ['data','a data abre o arquivo','data abre arquivo'],
-  '08': ['lua'],
-  '09': ['vx 04','vx04','voce ja passou por isso'],
-  '12': [GAME_CONFIG.memoryAnswer,...GAME_CONFIG.memoryAliases],
-  '14': [GAME_CONFIG.bookFragmentToken],
-  '16': ['vx 11','vx11','receptor','tv','televisao'],
-  '18': [GAME_CONFIG.locationAnswer,...GAME_CONFIG.locationAliases],
-  '22': [GAME_CONFIG.booksNodeCode],
-  '23': ['vx 02','vx02','mullet','conflito'],
-  '24': [GAME_CONFIG.finalAnswer,...GAME_CONFIG.finalAliases]
-});
-
-const COMPLETIONS = Object.freeze({
-  '04': { next: ['05'], message: 'SINAL INTERPRETADO: MESA' },
-  '05': { next: ['06'], message: 'NÓ 02 ENCONTRADO', mutate: (state) => { state.flags.deskNodeValidated = true; state.physicalNodes.desk = 'validated'; } },
-  '06': { next: ['07'], message: 'CONTEÚDO INVARIANTE EXTRAÍDO', delay: 850, motion: 'document' },
-  '08': { next: ['09'], message: 'REFERÊNCIA DO OBJETO: LUA' },
-  '09': { next: ['10'], message: 'PRIMEIRA CAMADA DO OBSERVADOR RECUPERADA', mutate: (state) => { state.flags.moonFirstFound = true; } },
-  '12': { next: ['13'], message: 'MEMÓRIA CONFIRMADA. A ENTIDADE B CONTINUA NEGANDO.', delay: 1100, motion: 'entity-conflict', mutate: (state) => { state.flags.mulletConfirmed = true; } },
-  '14': { next: ['15'], message: 'QUATRO FRAGMENTOS FÍSICOS REGISTRADOS', mutate: (state) => { state.flags.booksFound = true; } },
-  '16': { next: ['17'], message: 'NÓ NOTURNO CONFIRMADO', mutate: (state) => { state.flags.bedsideFound = true; } },
-  '18': { next: ['19'], message: 'LOCALIZAÇÃO RECUPERADA: PARQUINHO DA BEIRA-MAR', delay: 900, motion: 'location', mutate: (state) => { state.flags.locationRecovered = true; } },
-  '22': { next: ['23'], message: 'NÓ 11 ENCONTRADO', mutate: (state) => { state.flags.booksNodeValidated = true; state.physicalNodes.books = 'validated'; } },
-  '23': { next: ['24'], message: 'A SEGUNDA CAMADA ESTEVE PRESENTE O TEMPO TODO', mutate: (state) => { state.flags.moonSecondFound = true; } },
-  '24': { next: ['25'], message: 'RELAÇÃO IDENTIFICADA: NÓS', delay: 1250, motion: 'merge', mutate: (state) => { state.flags.finalRecovered = true; } }
+const EFFECTS = Object.freeze({
+  moonFirstFound(state) { state.flags.moonFirstFound = true; },
+  mulletConfirmed(state) { state.flags.mulletConfirmed = true; },
+  booksFound(state) { state.flags.booksFound = true; },
+  bedsideFound(state) { state.flags.bedsideFound = true; },
+  locationRecovered(state) { state.flags.locationRecovered = true; },
+  booksNodeValidated(state) { state.flags.booksNodeValidated = true; state.physicalNodes.books = 'validated'; },
+  bookPairResolved(state) { state.flags.bookPairResolved = true; },
+  finalRecovered(state) { state.flags.finalRecovered = true; }
 });
 
 function isAcceptedAnswer(id, answer) {
-  return answerMatches(answer, ANSWERS[id] || []);
+  return answerMatches(answer, puzzleFor(id).solution?.accepted || []);
 }
 
 function completionFor(id) {
-  return COMPLETIONS[id] || null;
+  const puzzle = puzzleFor(id);
+  if (!puzzle.completion) return null;
+  const completion = puzzle.completion;
+  return Object.freeze({
+    next: puzzle.next,
+    message: completion.message,
+    delay: completion.delay,
+    motion: completion.motion,
+    mutate(state) {
+      (completion.effects || []).forEach((effect) => EFFECTS[effect]?.(state));
+    }
+  });
 }
 
 exports.isAcceptedAnswer = isAcceptedAnswer;
@@ -3598,6 +3927,33 @@ function syncClarityStatus(id, state) {
   document.querySelectorAll('.puzzle-brief__status strong').forEach((status) => {
     status.textContent = clarityFor(id).status(state);
   });
+}
+
+function syncDocumentExtraction(state) {
+  const order = ['A DATA', 'ABRE', 'O ARQUIVO'];
+  const selected = order.filter((token) => (state.documentFragments || []).includes(token));
+  document.querySelectorAll('[data-action="document-row"]').forEach((row) => {
+    const active = Boolean(row.dataset.token && selected.includes(row.dataset.token));
+    row.classList.toggle('is-selected', active);
+    row.setAttribute('aria-pressed', String(active));
+  });
+  document.querySelectorAll('[data-document-slot]').forEach((slot, index) => {
+    const token = slot.dataset.documentSlot;
+    const filled = selected.includes(token);
+    slot.classList.toggle('is-filled', filled);
+    slot.innerHTML = `<small>0${index + 1}</small>${filled ? token : 'TRECHO AUSENTE'}`;
+  });
+  const count = document.querySelector('[data-document-count]');
+  if (count) count.textContent = `${selected.length} / ${order.length}`;
+  const commit = document.querySelector('[data-action="commit-document"]');
+  if (commit) commit.disabled = selected.length !== order.length;
+  const status = document.querySelector('[data-document-status]');
+  if (status) status.textContent = selected.length === order.length
+    ? 'INSTRUÇÃO RECONSTRUÍDA // PRONTA PARA EXTRAÇÃO'
+    : selected.length
+      ? `${selected.length} TRECHO${selected.length > 1 ? 'S' : ''} PRESERVADO${selected.length > 1 ? 'S' : ''} // CONTINUE COMPARANDO`
+      : 'COMPARE O MESMO ÍNDICE NAS DUAS VERSÕES';
+  syncClarityStatus('06', state);
 }
 
 function syncTv(state) {
@@ -3626,8 +3982,10 @@ function syncTv(state) {
   wrap.querySelector('.tv-knob-control--volume .tv-knob')?.style.setProperty('--knob-angle', `${view.volumeAngle}deg`);
   const channelOutput = wrap.querySelector('[data-tv-channel-output]');
   const volumeOutput = wrap.querySelector('[data-tv-volume-output]');
+  const fineOutput = wrap.querySelector('[data-tv-fine-output]');
   if (channelOutput) channelOutput.textContent = String(state.tv.channel).padStart(2, '0');
   if (volumeOutput) volumeOutput.textContent = String(state.tv.volume).padStart(2, '0');
+  if (fineOutput) fineOutput.textContent = `${state.tv.fine > 0 ? '+' : ''}${state.tv.fine}`;
   syncClarityStatus(document.body.dataset.puzzle, state);
 }
 
@@ -3640,17 +3998,6 @@ function syncForensicSelection(button, state) {
   const counter = document.querySelector('.forensic-status strong');
   if (counter) counter.textContent = `${selected.length} / 6`;
   syncClarityStatus('11', state);
-}
-
-function syncFragmentPlacement(button, state, placed) {
-  const destination = document.querySelector(placed ? '.fragment-target' : '.fragment-tray');
-  if (!destination) return;
-  destination.append(button);
-  button.dataset.action = placed ? 'fragment-remove' : 'fragment';
-  button.classList.toggle('is-placed', placed);
-  button.classList.remove('is-selected');
-  button.setAttribute('aria-pressed', String(placed));
-  syncClarityStatus('15', state);
 }
 
 function syncLocationSelection(button, state) {
@@ -3715,34 +4062,6 @@ function syncRoomState(state) {
   return evaluation;
 }
 
-function syncMetaSelection(state) {
-  const selected = state.metaSelections || [];
-  document.querySelectorAll('.meta-console [data-key]').forEach((item) => {
-    const active = selected.includes(item.dataset.key);
-    item.classList.toggle('is-active', active);
-    item.setAttribute('aria-pressed', String(active));
-  });
-  document.querySelectorAll('[data-classification-threshold]').forEach((line) => {
-    const processed = selected.length >= Number(line.dataset.classificationThreshold);
-    line.classList.toggle('is-processed', processed);
-    const value = line.querySelector('strong');
-    if (value) value.textContent = processed ? 'INVÁLIDO' : 'AGUARDANDO';
-  });
-  const coherent = selected.join(',') === 'lua,tv,mullet';
-  const result = document.querySelector('.relation-result strong');
-  if (result) result.textContent = coherent ? 'RESÍDUO COERENTE' : 'NÃO RESOLVIDA';
-  const residues = { lua: 'N', tv: 'O', mullet: 'S' };
-  const residue = document.querySelector('[data-meta-residue]');
-  if (residue) residue.textContent = `RESÍDUO: ${selected.map((key) => residues[key] || '·').join(' ') || '· · ·'}`;
-  const answer = document.querySelector('[data-meta-answer]');
-  answer?.classList.toggle('is-ready', coherent);
-  if (answer) {
-    answer.toggleAttribute('inert', !coherent);
-    answer.setAttribute('aria-hidden', String(!coherent));
-  }
-  syncClarityStatus('24', state);
-}
-
 function syncHintPanel(id, state) {
   const used = state.hintsUsed[id] || 0;
   document.querySelectorAll(`[data-hint-panel="${id}"]`).forEach((panel) => {
@@ -3753,12 +4072,12 @@ function syncHintPanel(id, state) {
       message.classList.toggle('muted', !used);
     }
     const action = panel.querySelector('[data-action="hint"]');
-    if (used >= 3 && action) {
+    if (used >= 4 && action) {
       const limit = document.createElement('span');
       limit.className = 'warn';
       limit.textContent = 'LIMITE DE AJUDA ATINGIDO';
       action.replaceWith(limit);
-    } else if (action) action.textContent = used ? 'aprofundar anomalia' : 'solicitar nível 1';
+    } else if (action) action.textContent = used ? `solicitar nível ${used + 1}` : 'solicitar nível 1';
   });
 }
 
@@ -3769,15 +4088,471 @@ function syncMuteControls(muted) {
 }
 
 exports.syncClarityStatus = syncClarityStatus;
+exports.syncDocumentExtraction = syncDocumentExtraction;
 exports.syncTv = syncTv;
 exports.syncForensicSelection = syncForensicSelection;
-exports.syncFragmentPlacement = syncFragmentPlacement;
 exports.syncLocationSelection = syncLocationSelection;
 exports.syncIdentityRelations = syncIdentityRelations;
 exports.syncRoomState = syncRoomState;
-exports.syncMetaSelection = syncMetaSelection;
 exports.syncHintPanel = syncHintPanel;
 exports.syncMuteControls = syncMuteControls;
+},
+"js/events/computer.js": function(module, exports, __require) {
+const { getState, updateState } = __require("js/state.js");
+const { Motion } = __require("js/motion-engine.js");
+function switchWorkspace(panel) {
+  updateState((state) => { state.ui.activePanel = panel; });
+  document.querySelectorAll('.phase-tool[data-action="workspace-tab"]').forEach((tab) => {
+    const selected = tab.dataset.panel === panel;
+    tab.classList.toggle('is-active',selected);
+    tab.setAttribute('aria-selected',String(selected));
+  });
+  document.querySelectorAll('[data-workspace-pane]').forEach((pane) => {
+    const selected = pane.dataset.workspacePane === panel;
+    pane.classList.toggle('is-active',selected);
+    pane.hidden = !selected;
+    if (selected) {
+      pane.classList.remove('is-switching');
+      requestAnimationFrame(() => pane.classList.add('is-switching'));
+      Motion.schedule(`phase-pane-${panel}`,() => pane.classList.remove('is-switching'),Motion.duration('normal'));
+    }
+  });
+  document.body.dataset.activeArea = panel;
+  document.querySelector('.phase-shell[data-area]')?.setAttribute('data-area',panel);
+  Motion.emit('workspace:area-change',{panel});
+}
+
+function handleComputerClick(action,button) {
+  if (action !== 'workspace-tab') return false;
+  switchWorkspace(button.dataset.panel);
+  return true;
+}
+
+function handleComputerKeydown(event) {
+  const tool = event.target.closest?.('.phase-tool');
+  if (!tool || !['ArrowLeft','ArrowRight'].includes(event.key)) return false;
+  const tools = [...tool.parentElement.querySelectorAll('.phase-tool:not(:disabled)')];
+  const index = (tools.indexOf(tool) + (event.key === 'ArrowRight' ? 1 : -1) + tools.length) % tools.length;
+  event.preventDefault();
+  tools[index].focus();
+  tools[index].click();
+  return true;
+}
+
+function returnComputerToTask() {
+  if (!document.querySelector('.phase-shell') || !getState().ui.activePanel || getState().ui.activePanel === 'task') return false;
+  switchWorkspace('task');
+  document.querySelector('.phase-tool[data-panel="task"]')?.focus();
+  return true;
+}
+
+exports.handleComputerClick = handleComputerClick;
+exports.handleComputerKeydown = handleComputerKeydown;
+exports.returnComputerToTask = returnComputerToTask;
+},
+"js/events/reconstruction.js": function(module, exports, __require) {
+const { getState, updateState } = __require("js/state.js");
+const { syncRoomState } = __require("js/dom-sync.js");
+const { Motion } = __require("js/motion-engine.js");
+const { uiFeedback } = __require("js/ui-feedback.js");
+function selectRoomObject(button) {
+  const object = button.dataset.object;
+  if (object === 'tv') {
+    uiFeedback.toast('O OBJETO NÃO POSSUI ÂNCORA FÍSICA', { kind:'error' });
+    Motion.emit('room:object-rejected', { object, material:button.dataset.material });
+    return;
+  }
+  updateState((state)=>{state.roomPlacement.selectedObject=object;});
+  document.querySelectorAll('.room-object').forEach((item)=>item.classList.toggle('is-selected',item===button));
+  document.querySelector('[data-room-placement-status]')?.replaceChildren(`OBJETO SELECIONADO // ${button.textContent.trim().replace('VERIFICADO','').trim()}`);
+  document.querySelector('[data-action="room-anchor"]')?.focus();
+  Motion.emit('room:object-pick', { object, material:button.dataset.material, input:'keyboard' });
+}
+
+function placeAtAnchor(button) {
+  const objectId = getState().roomPlacement.selectedObject;
+  if (!objectId) {
+    uiFeedback.toast('SELECIONE UM OBJETO ANTES DA ÂNCORA', { kind:'error' });
+    return;
+  }
+  const x = Number(button.dataset.x);
+  const y = Number(button.dataset.y);
+  updateState((state)=>{
+    state.room[objectId]={x,y,moved:true};
+    state.roomPlacement.selectedAnchor=button.dataset.anchor;
+    state.roomPlacement.selectedObject=null;
+  },{progress:true});
+  const object = document.querySelector(`.room-object[data-object="${objectId}"]`);
+  if (object) {
+    object.style.left=`${x}%`; object.style.top=`${y}%`;
+    object.classList.remove('is-selected'); object.classList.add('is-verified');
+    object.querySelector('[data-room-object-state]')?.removeAttribute('hidden');
+  }
+  document.querySelector('[data-room-placement-status]')?.replaceChildren(`POSIÇÃO REGISTRADA // ${objectId.toUpperCase()} → ${button.textContent.trim()}`);
+  const evaluation=syncRoomState(getState());
+  Motion.emit('room:object-drop',{object:objectId,input:'keyboard'});
+  if(evaluation.ready) Motion.emit('room:structure-ready',{relations:evaluation.verifiedRelations.length});
+  object?.focus();
+}
+
+function handleReconstructionClick(action, button) {
+  if(action==='room-object'){selectRoomObject(button);return true;}
+  if(action==='room-anchor'){placeAtAnchor(button);return true;}
+  return false;
+}
+
+exports.handleReconstructionClick = handleReconstructionClick;
+},
+"js/events/desktop-os.js": function(module, exports, __require) {
+const { audioManager } = __require("js/audio.js");
+const { getState, updateState } = __require("js/state.js");
+const { desktopResource, desktopWindowMarkup } = __require("js/phase-one-computer.js");
+let drag = null;
+
+function desktopRoot() { return document.querySelector('[data-retro-desktop]'); }
+function windowElement(key) { return document.querySelector(`[data-os-window="${CSS.escape(key)}"]`); }
+
+function play(name = 'ui.contact', overrides = {}) {
+  audioManager.playEvent(name, overrides);
+}
+
+function setSelected(resourceId) {
+  updateState((state) => { state.desktopOs.selectedIcon = resourceId || null; });
+  document.querySelectorAll('[data-os-resource]').forEach((icon) => {
+    const selected = icon.dataset.osResource === resourceId;
+    icon.classList.toggle('is-selected', selected);
+    icon.setAttribute('aria-selected', String(selected));
+  });
+}
+
+function focusWindow(key) {
+  let z = 20;
+  updateState((state) => {
+    state.desktopOs.zCounter += 1;
+    z = state.desktopOs.zCounter;
+    const entry = state.desktopOs.windows.find((candidate) => candidate.key === key);
+    if (entry) { entry.z = z; entry.minimized = false; }
+  });
+  document.querySelectorAll('[data-os-window]').forEach((windowNode) => windowNode.classList.toggle('is-focused', windowNode.dataset.osWindow === key));
+  const target = windowElement(key);
+  if (target) {
+    target.style.setProperty('--win-z', z);
+    target.classList.remove('is-minimized');
+  }
+}
+
+function windowKey(resourceId, kind = 'resource') { return `${kind}:${resourceId}`; }
+
+function openResource(resourceId, kind = 'resource') {
+  const resource = desktopResource(resourceId);
+  const layer = document.querySelector('.os-window-layer');
+  if (!resource || !layer) return false;
+  const key = windowKey(resourceId, kind);
+  const existing = getState().desktopOs.windows.find((entry) => entry.key === key);
+  if (existing) {
+    focusWindow(key);
+    play('ui.contact', { volume: .07 });
+    return true;
+  }
+  let entry;
+  updateState((state) => {
+    state.desktopOs.zCounter += 1;
+    const count = state.desktopOs.windows.length;
+    entry = {
+      key, resourceId, kind,
+      x: 54 + (count % 5) * 34,
+      y: 42 + (count % 4) * 28,
+      z: state.desktopOs.zCounter,
+      minimized: false,
+      maximized: false
+    };
+    state.desktopOs.windows.push(entry);
+    state.desktopOs.startOpen = false;
+  });
+  layer.insertAdjacentHTML('beforeend', desktopWindowMarkup(entry, getState()));
+  const running = document.querySelector('.os-running-windows');
+  if (running) {
+    const task = document.createElement('button');
+    task.type = 'button';
+    task.dataset.action = 'os-task-window';
+    task.dataset.window = entry.key;
+    task.textContent = resource.name;
+    running.append(task);
+  }
+  document.querySelector('[data-os-start-menu]')?.setAttribute('hidden','');
+  document.querySelector('[data-os-context-menu]')?.setAttribute('hidden','');
+  focusWindow(key);
+  play(resource.type === 'folder' || resource.type === 'trash' ? 'computer.folder.open' : 'computer.window.open', { volume: resource.type === 'folder' ? .07 : .09 });
+  return true;
+}
+
+function openDesktopResource(resourceId, kind = 'resource') { return openResource(resourceId,kind); }
+
+function closeWindow(button) {
+  const target = button.closest('[data-os-window]');
+  if (!target) return false;
+  const key = target.dataset.osWindow;
+  updateState((state) => { state.desktopOs.windows = state.desktopOs.windows.filter((entry) => entry.key !== key); });
+  document.querySelector(`[data-action="os-task-window"][data-window="${CSS.escape(key)}"]`)?.remove();
+  target.remove();
+  play('computer.window.close', { volume: .055 });
+  return true;
+}
+
+function minimizeWindow(button) {
+  const target = button.closest('[data-os-window]');
+  if (!target) return false;
+  updateState((state) => {
+    const entry = state.desktopOs.windows.find((candidate) => candidate.key === target.dataset.osWindow);
+    if (entry) entry.minimized = true;
+  });
+  target.classList.add('is-minimized');
+  play('ui.contact', { volume: .05 });
+  return true;
+}
+
+function maximizeWindow(button) {
+  const target = button.closest('[data-os-window]');
+  if (!target) return false;
+  let maximized = false;
+  updateState((state) => {
+    const entry = state.desktopOs.windows.find((candidate) => candidate.key === target.dataset.osWindow);
+    if (entry) { entry.maximized = !entry.maximized; maximized = entry.maximized; }
+  });
+  target.classList.toggle('is-maximized', maximized);
+  focusWindow(target.dataset.osWindow);
+  play('ui.contact', { volume: .06 });
+  return true;
+}
+
+function openSelected(kind = 'resource') {
+  const selected = getState().desktopOs.selectedIcon;
+  return selected ? openResource(selected, kind) : false;
+}
+
+function handleDesktopBackgroundClick(event) {
+  const desktop = desktopRoot();
+  if (!desktop) return false;
+  const icon = event.target.closest('[data-os-resource]');
+  const context = event.target.closest('[data-os-context-menu]');
+  const windowNode = event.target.closest('[data-os-window]');
+  if (windowNode) focusWindow(windowNode.dataset.osWindow);
+  if (!icon && !context && !windowNode && !event.target.closest('[data-os-start-menu],.os-taskbar')) {
+    setSelected(null);
+    document.querySelector('[data-os-context-menu]')?.setAttribute('hidden','');
+  }
+  return false;
+}
+
+function handleDesktopClick(action, button) {
+  if (!desktopRoot() && !button.closest('.retro-boot')) return false;
+  if (action === 'os-select') {
+    const id = button.dataset.osResource;
+    setSelected(id);
+    document.querySelector('[data-os-context-menu]')?.setAttribute('hidden','');
+    play('ui.contact', { volume: .04 });
+    if (matchMedia('(max-width: 760px), (pointer: coarse)').matches) openResource(id);
+    return true;
+  }
+  if (action === 'os-open-resource') return openResource(button.dataset.resource);
+  if (action === 'os-open-context') return openSelected();
+  if (action === 'os-properties') return openSelected('properties');
+  if (action === 'os-window-close') return closeWindow(button);
+  if (action === 'os-window-minimize') return minimizeWindow(button);
+  if (action === 'os-window-maximize') return maximizeWindow(button);
+  if (action === 'os-task-window') { focusWindow(button.dataset.window); return true; }
+  if (action === 'os-start') {
+    let open = false;
+    updateState((state) => { state.desktopOs.startOpen = !state.desktopOs.startOpen; open = state.desktopOs.startOpen; });
+    const menu = document.querySelector('[data-os-start-menu]');
+    menu?.toggleAttribute('hidden', !open);
+    menu?.classList.toggle('is-open', open);
+    play('ui.contact', { volume: .055 });
+    return true;
+  }
+  if (action === 'os-clock-toggle') {
+    let open = false;
+    updateState((state) => { state.desktopOs.clockPanelOpen = !state.desktopOs.clockPanelOpen; open = state.desktopOs.clockPanelOpen; });
+    document.querySelector('.os-clock-panel')?.toggleAttribute('hidden', !open);
+    play('ui.contact', { volume: .055 });
+    return true;
+  }
+  if (action === 'os-clock-delta') {
+    const unit = button.dataset.unit;
+    const delta = Number(button.dataset.delta) || 0;
+    updateState((state) => {
+      if (unit === 'hour') state.desktopOs.clockHour = (state.desktopOs.clockHour + delta + 24) % 24;
+      if (unit === 'minute') state.desktopOs.clockMinute = (state.desktopOs.clockMinute + delta + 60) % 60;
+    });
+    const state = getState();
+    const hour = document.querySelector('[data-clock-hour]');
+    const minute = document.querySelector('[data-clock-minute]');
+    const taskClock = document.querySelector('[data-os-clock]');
+    if (hour) hour.textContent = String(state.desktopOs.clockHour).padStart(2,'0');
+    if (minute) minute.textContent = String(state.desktopOs.clockMinute).padStart(2,'0');
+    if (taskClock) taskClock.textContent = `${String(state.desktopOs.clockHour).padStart(2,'0')}:${String(state.desktopOs.clockMinute).padStart(2,'0')}`;
+    document.querySelectorAll('.phone-status time,.phone-lock > time').forEach((time)=>{time.textContent=`${String(state.desktopOs.clockHour).padStart(2,'0')}:${String(state.desktopOs.clockMinute).padStart(2,'0')}`;});
+    play('ui.contact', { volume: .035 });
+    return true;
+  }
+  if (action === 'os-shutdown') {
+    updateState((state) => { state.desktopOs.startOpen = false; });
+    document.querySelector('[data-os-start-menu]')?.setAttribute('hidden','');
+    play('ui.reject', { volume: .07 });
+    return true;
+  }
+  if (action === 'os-audio-preview') {
+    play('receiver.static', { duration: .16, volume: .055 });
+    button.textContent = 'LEITURA ENCERRADA';
+    return true;
+  }
+  if (action === 'os-image-zoom') {
+    const viewer=button.closest('.os-image-viewer');const image=viewer?.querySelector('img');
+    if(!viewer||!image)return true;
+    const zoom=Math.max(.5,Math.min(3,Number(viewer.dataset.zoom||1)+Number(button.dataset.delta||0)));
+    viewer.dataset.zoom=String(zoom);image.style.width=`${zoom*100}%`;image.style.maxWidth='none';
+    const output=viewer.querySelector('[data-image-zoom]');if(output)output.textContent=`${Math.round(zoom*100)}%`;
+    play('ui.contact',{volume:.035});return true;
+  }
+  if (action === 'os-image-enhance') {
+    const viewer=button.closest('.os-image-viewer');viewer?.classList.toggle('is-enhanced');
+    button.textContent=viewer?.classList.contains('is-enhanced')?'ORIGINAL':'REALÇAR';play('system.disk',{volume:.055});return true;
+  }
+  return false;
+}
+
+function handleDesktopDoubleClick(event) {
+  const icon = event.target.closest('[data-os-resource]');
+  if (!icon || !desktopRoot()) return false;
+  event.preventDefault();
+  setSelected(icon.dataset.osResource);
+  return openResource(icon.dataset.osResource);
+}
+
+function handleDesktopContextMenu(event) {
+  const icon = event.target.closest('[data-os-resource]');
+  const desktop = desktopRoot();
+  if (!icon || !desktop) return false;
+  event.preventDefault();
+  setSelected(icon.dataset.osResource);
+  const menu = document.querySelector('[data-os-context-menu]');
+  if (!menu) return true;
+  const bounds = desktop.getBoundingClientRect();
+  menu.style.left = `${Math.min(event.clientX - bounds.left, bounds.width - 170)}px`;
+  menu.style.top = `${Math.min(event.clientY - bounds.top, bounds.height - 110)}px`;
+  menu.removeAttribute('hidden');
+  play('ui.contact', { volume: .04 });
+  return true;
+}
+
+function handleDesktopPointerDown(event) {
+  const titlebar = event.target.closest('[data-os-titlebar]');
+  const windowNode = titlebar?.closest('[data-os-window]');
+  if (!titlebar || !windowNode || event.target.closest('button') || windowNode.classList.contains('is-maximized')) return false;
+  const desktop = desktopRoot();
+  if (!desktop) return false;
+  event.preventDefault();
+  focusWindow(windowNode.dataset.osWindow);
+  const windowRect = windowNode.getBoundingClientRect();
+  const desktopRect = desktop.getBoundingClientRect();
+  drag = {
+    pointerId: event.pointerId, key: windowNode.dataset.osWindow, node: windowNode,
+    desktopRect, offsetX: event.clientX - windowRect.left, offsetY: event.clientY - windowRect.top,
+    x: windowRect.left - desktopRect.left, y: windowRect.top - desktopRect.top
+  };
+  titlebar.setPointerCapture?.(event.pointerId);
+  windowNode.classList.add('is-dragging');
+  return true;
+}
+
+function handleDesktopPointerMove(event) {
+  if (!drag || drag.pointerId !== event.pointerId) return false;
+  event.preventDefault();
+  const maxX = Math.max(0, drag.desktopRect.width - drag.node.offsetWidth);
+  const maxY = Math.max(0, drag.desktopRect.height - drag.node.offsetHeight - 36);
+  drag.x = Math.max(0, Math.min(maxX, event.clientX - drag.desktopRect.left - drag.offsetX));
+  drag.y = Math.max(0, Math.min(maxY, event.clientY - drag.desktopRect.top - drag.offsetY));
+  drag.node.style.setProperty('--win-x', `${drag.x}px`);
+  drag.node.style.setProperty('--win-y', `${drag.y}px`);
+  return true;
+}
+
+function handleDesktopPointerUp(event, cancelled = false) {
+  if (!drag || drag.pointerId !== event.pointerId) return false;
+  const completed = drag;
+  drag = null;
+  completed.node.classList.remove('is-dragging');
+  if (!cancelled) updateState((state) => {
+    const entry = state.desktopOs.windows.find((candidate) => candidate.key === completed.key);
+    if (entry) { entry.x = Math.round(completed.x); entry.y = Math.round(completed.y); }
+  });
+  return true;
+}
+
+function handleDesktopKeydown(event) {
+  if (!desktopRoot()) return false;
+  if (event.key === 'Enter' && document.activeElement?.matches('[data-os-resource]')) {
+    event.preventDefault();
+    return openResource(document.activeElement.dataset.osResource);
+  }
+  if (event.key === 'Escape') {
+    const menu = document.querySelector('[data-os-context-menu]:not([hidden])');
+    if (menu) { menu.setAttribute('hidden',''); return true; }
+    const start = document.querySelector('[data-os-start-menu]:not([hidden])');
+    if (start) {
+      updateState((state) => { state.desktopOs.startOpen = false; });
+      start.setAttribute('hidden','');
+      return true;
+    }
+  }
+  return false;
+}
+
+exports.openDesktopResource = openDesktopResource;
+exports.handleDesktopBackgroundClick = handleDesktopBackgroundClick;
+exports.handleDesktopClick = handleDesktopClick;
+exports.handleDesktopDoubleClick = handleDesktopDoubleClick;
+exports.handleDesktopContextMenu = handleDesktopContextMenu;
+exports.handleDesktopPointerDown = handleDesktopPointerDown;
+exports.handleDesktopPointerMove = handleDesktopPointerMove;
+exports.handleDesktopPointerUp = handleDesktopPointerUp;
+exports.handleDesktopKeydown = handleDesktopKeydown;
+},
+"js/worlds/world-events.js": function(module, exports, __require) {
+const { audioManager } = __require("js/audio.js");
+const { Motion } = __require("js/motion-engine.js");
+const { getState, updateState } = __require("js/state.js");
+const PHONE_TRIGGERS = Object.freeze({
+  'computer.event.isolated': { delay:2200, id:'message:first-file', preview:'você abriu justamente esse.' },
+  'tv.channel.04.locked': { delay:1800, id:'call:three-tones', preview:'chamada perdida · 00:07' },
+  'computer.event.rewritten': { delay:2600, id:'message:not-first', preview:'esse não era o primeiro.' },
+  'computer.clock.0317': { delay:1400, id:'message:first-time', preview:'esse não era o primeiro horário.' }
+});
+
+function patchPhone(trigger) {
+  const dock = document.querySelector('[data-phone-dock]');
+  if (!dock) return;
+  dock.classList.add('has-notification');
+  const toggle = dock.querySelector('.phone-dock__toggle');
+  if (toggle && !toggle.querySelector('b')) toggle.insertAdjacentHTML('beforeend',`<b>${getState().phone.unread}</b>`);
+  dock.querySelector('.phone-dock__device')?.insertAdjacentHTML('beforebegin',`<div class="phone-notification"><strong>MENSAGENS</strong><span>${trigger.preview}</span></div>`);
+  Motion.schedule(`phone-notification-clear:${trigger.id}`,()=>dock.querySelector('.phone-notification')?.remove(),4200);
+}
+
+function emitWorldEvent(type) {
+  const trigger = PHONE_TRIGGERS[type];
+  if (!trigger || getState().phone.events.includes(trigger.id)) return;
+  updateState((state)=>{state.phone.events=[...state.phone.events,trigger.id];});
+  Motion.schedule(`world-event:${trigger.id}`,()=>{
+    updateState((state)=>{state.phone.unread+=1;});
+    audioManager.playEvent('phone.vibration',{volume:.07});
+    audioManager.playEvent('phone.message',{when:.12,volume:.08});
+    patchPhone(trigger);
+  },trigger.delay);
+}
+
+exports.PHONE_TRIGGERS = PHONE_TRIGGERS;
+exports.emitWorldEvent = emitWorldEvent;
 },
 "js/narrative-events.js": function(module, exports, __require) {
 const { Motion } = __require("js/motion-engine.js");
@@ -3805,7 +4580,7 @@ function orchestrateNarrative(puzzle, state) {
     }
     if (puzzle.id === '23') {
       runOnce(state, 'old-evidence-return', () => {
-        uiFeedback.toast('EVIDÊNCIAS ANTIGAS REINDEXADAS: VX-04 / VX-11 / VX-02', { kind: 'discovery' });
+        uiFeedback.toast('RELAÇÃO ANTIGA REINDEXADA: FIM / COMEÇO / ADJACÊNCIA', { kind: 'discovery' });
         Motion.play('record-corruption', { target: document.querySelector('.side-panel') });
       });
     }

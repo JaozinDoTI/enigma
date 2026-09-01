@@ -18,6 +18,33 @@ export function syncClarityStatus(id, state) {
   });
 }
 
+export function syncDocumentExtraction(state) {
+  const order = ['A DATA', 'ABRE', 'O ARQUIVO'];
+  const selected = order.filter((token) => (state.documentFragments || []).includes(token));
+  document.querySelectorAll('[data-action="document-row"]').forEach((row) => {
+    const active = Boolean(row.dataset.token && selected.includes(row.dataset.token));
+    row.classList.toggle('is-selected', active);
+    row.setAttribute('aria-pressed', String(active));
+  });
+  document.querySelectorAll('[data-document-slot]').forEach((slot, index) => {
+    const token = slot.dataset.documentSlot;
+    const filled = selected.includes(token);
+    slot.classList.toggle('is-filled', filled);
+    slot.innerHTML = `<small>0${index + 1}</small>${filled ? token : 'TRECHO AUSENTE'}`;
+  });
+  const count = document.querySelector('[data-document-count]');
+  if (count) count.textContent = `${selected.length} / ${order.length}`;
+  const commit = document.querySelector('[data-action="commit-document"]');
+  if (commit) commit.disabled = selected.length !== order.length;
+  const status = document.querySelector('[data-document-status]');
+  if (status) status.textContent = selected.length === order.length
+    ? 'INSTRUÇÃO RECONSTRUÍDA // PRONTA PARA EXTRAÇÃO'
+    : selected.length
+      ? `${selected.length} TRECHO${selected.length > 1 ? 'S' : ''} PRESERVADO${selected.length > 1 ? 'S' : ''} // CONTINUE COMPARANDO`
+      : 'COMPARE O MESMO ÍNDICE NAS DUAS VERSÕES';
+  syncClarityStatus('06', state);
+}
+
 export function syncTv(state) {
   const wrap = document.querySelector('[data-tv-mode]');
   if (!wrap) return;
@@ -44,8 +71,10 @@ export function syncTv(state) {
   wrap.querySelector('.tv-knob-control--volume .tv-knob')?.style.setProperty('--knob-angle', `${view.volumeAngle}deg`);
   const channelOutput = wrap.querySelector('[data-tv-channel-output]');
   const volumeOutput = wrap.querySelector('[data-tv-volume-output]');
+  const fineOutput = wrap.querySelector('[data-tv-fine-output]');
   if (channelOutput) channelOutput.textContent = String(state.tv.channel).padStart(2, '0');
   if (volumeOutput) volumeOutput.textContent = String(state.tv.volume).padStart(2, '0');
+  if (fineOutput) fineOutput.textContent = `${state.tv.fine > 0 ? '+' : ''}${state.tv.fine}`;
   syncClarityStatus(document.body.dataset.puzzle, state);
 }
 
@@ -58,17 +87,6 @@ export function syncForensicSelection(button, state) {
   const counter = document.querySelector('.forensic-status strong');
   if (counter) counter.textContent = `${selected.length} / 6`;
   syncClarityStatus('11', state);
-}
-
-export function syncFragmentPlacement(button, state, placed) {
-  const destination = document.querySelector(placed ? '.fragment-target' : '.fragment-tray');
-  if (!destination) return;
-  destination.append(button);
-  button.dataset.action = placed ? 'fragment-remove' : 'fragment';
-  button.classList.toggle('is-placed', placed);
-  button.classList.remove('is-selected');
-  button.setAttribute('aria-pressed', String(placed));
-  syncClarityStatus('15', state);
 }
 
 export function syncLocationSelection(button, state) {
@@ -133,34 +151,6 @@ export function syncRoomState(state) {
   return evaluation;
 }
 
-export function syncMetaSelection(state) {
-  const selected = state.metaSelections || [];
-  document.querySelectorAll('.meta-console [data-key]').forEach((item) => {
-    const active = selected.includes(item.dataset.key);
-    item.classList.toggle('is-active', active);
-    item.setAttribute('aria-pressed', String(active));
-  });
-  document.querySelectorAll('[data-classification-threshold]').forEach((line) => {
-    const processed = selected.length >= Number(line.dataset.classificationThreshold);
-    line.classList.toggle('is-processed', processed);
-    const value = line.querySelector('strong');
-    if (value) value.textContent = processed ? 'INVÁLIDO' : 'AGUARDANDO';
-  });
-  const coherent = selected.join(',') === 'lua,tv,mullet';
-  const result = document.querySelector('.relation-result strong');
-  if (result) result.textContent = coherent ? 'RESÍDUO COERENTE' : 'NÃO RESOLVIDA';
-  const residues = { lua: 'N', tv: 'O', mullet: 'S' };
-  const residue = document.querySelector('[data-meta-residue]');
-  if (residue) residue.textContent = `RESÍDUO: ${selected.map((key) => residues[key] || '·').join(' ') || '· · ·'}`;
-  const answer = document.querySelector('[data-meta-answer]');
-  answer?.classList.toggle('is-ready', coherent);
-  if (answer) {
-    answer.toggleAttribute('inert', !coherent);
-    answer.setAttribute('aria-hidden', String(!coherent));
-  }
-  syncClarityStatus('24', state);
-}
-
 export function syncHintPanel(id, state) {
   const used = state.hintsUsed[id] || 0;
   document.querySelectorAll(`[data-hint-panel="${id}"]`).forEach((panel) => {
@@ -171,12 +161,12 @@ export function syncHintPanel(id, state) {
       message.classList.toggle('muted', !used);
     }
     const action = panel.querySelector('[data-action="hint"]');
-    if (used >= 3 && action) {
+    if (used >= 4 && action) {
       const limit = document.createElement('span');
       limit.className = 'warn';
       limit.textContent = 'LIMITE DE AJUDA ATINGIDO';
       action.replaceWith(limit);
-    } else if (action) action.textContent = used ? 'aprofundar anomalia' : 'solicitar nível 1';
+    } else if (action) action.textContent = used ? `solicitar nível ${used + 1}` : 'solicitar nível 1';
   });
 }
 

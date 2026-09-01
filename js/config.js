@@ -9,11 +9,10 @@ export const GAME_CONFIG = Object.freeze({
   memoryAliases: ['mullet', 'corte mullet', 'o mullet'],
   finalAnswer: 'nós',
   finalAliases: ['nos', 'nós', 'a gente', 'nós dois'],
-  deskNodeCode: 'VX-MESA-1010',
-  yardNodeCode: 'VX-LIMIAR-1010',
+  greenNodeCode: 'VX-VERDE-0314',
+  yardNodeCode: 'VX-MARGEM-1703',
+  roomNodeCode: 'VX-QUARTO-0317',
   booksNodeCode: 'VX-LIVROS-0214',
-  bookPositions: [2, 5, 1],
-  bookFragmentToken: 'NIGHT-251',
   roomLayout: {
     bed: { x: 32, y: 63 },
     shelf: { x: 33, y: 14 },
@@ -30,12 +29,12 @@ export const GAME_CONFIG = Object.freeze({
   gallery: [],
   devMode: false,
   inactivityHintMinutes: 12,
-  storageKey: 'gameState',
   version: 3
 });
 
 export const ROUTES = Object.freeze({
-  deskQr: 'node.html?node=desk',
+  greenQr: 'node.html?node=green',
   yardQr: 'node.html?node=yard',
+  roomQr: 'node.html?node=room',
   booksQr: 'node.html?node=books'
 });

@@ -511,3 +511,38 @@ body[data-active-area="identity"] :where(button, input, summary, a) {
     animation-delay: 0ms !important;
   }
 }
+
+/* Ferramentas persistentes: arquivo pesquisável e reconstrução espacial. */
+.archive-search { display: grid; gap: 10px; margin-bottom: 18px; }
+.archive-search__form { display: grid; gap: 7px; }
+.archive-search__form label { color: var(--faint); font-size: .52rem; letter-spacing: .09em; line-height: 1.4; }
+.archive-search__form > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+.archive-search__form input { min-width: 0; height: 40px; border: 1px solid var(--line); border-right: 0; padding: 0 9px; background: #05090a; color: var(--text); font: .66rem var(--mono); }
+.archive-search__form button { border: 1px solid var(--line-hot); padding: 0 9px; background: #10191c; color: var(--signal); font: .54rem var(--mono); letter-spacing: .07em; }
+.archive-search__results { display: grid; border: 1px solid var(--line); background: #05090a; }
+.archive-search__results header { display: flex; justify-content: space-between; gap: 8px; padding: 8px; border-bottom: 1px solid var(--line); color: var(--faint); font-size: .48rem; }
+.archive-search__results :where(button, article) { display: grid; gap: 3px; padding: 9px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--muted); text-align: left; }
+.archive-search__results :where(button, article):last-child { border-bottom: 0; }
+.archive-search__results button:hover { background: rgba(168, 200, 193, .05); }
+.archive-search__results i { color: var(--faint); font-size: .45rem; font-style: normal; letter-spacing: .08em; }
+.archive-search__results strong { color: var(--text); font-size: .58rem; }.archive-search__results span { font-size: .54rem; line-height: 1.4; }
+.archive-search__results .is-contaminated strong { color: var(--error); animation: search-contamination 2.4s steps(1) infinite; }
+.archive-search__results > p { margin: 0; padding: 12px; color: var(--faint); font-size: .54rem; line-height: 1.5; }
+
+.house-tool { display: grid; gap: 12px; }
+.house-tool__header { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.house-tool__header div { display: grid; gap: 4px; }.house-tool__header span, .house-tool__header i { color: var(--faint); font-size: .48rem; font-style: normal; letter-spacing: .09em; }.house-tool__header strong { color: var(--text); font-size: .56rem; line-height: 1.4; }
+.house-blueprint { position: relative; border: 1px solid var(--line); background: linear-gradient(rgba(121,161,144,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(121,161,144,.035) 1px, transparent 1px), #05090a; background-size: 16px 16px; }
+.house-blueprint svg { display: block; width: 100%; height: auto; }
+.house-blueprint__walls path { fill: none; stroke: #43574e; stroke-width: 2; vector-effect: non-scaling-stroke; }.house-blueprint__walls .is-recovered { stroke: #789b8a; }.house-blueprint__walls .is-anomaly { stroke: #ad7769; stroke-dasharray: 6 5; }
+.house-blueprint text { fill: #657a70; font: 15px var(--mono); letter-spacing: 1px; }.house-blueprint text.is-anomaly { fill: #b58172; }.house-blueprint__nodes circle { fill: #93baa7; }.house-blueprint__nodes circle.is-anomaly { fill: #c48a79; }
+.house-blueprint__calculation { display: grid; grid-template-columns: 1fr auto; gap: 5px 10px; padding: 12px; border-top: 1px solid var(--line); }
+.house-blueprint__calculation span { color: var(--faint); font-size: .48rem; }.house-blueprint__calculation strong { color: var(--text); font-size: .54rem; }.house-blueprint__calculation p { grid-column: 1 / -1; margin: 7px 0 0; color: var(--muted); font-size: .55rem; line-height: 1.45; }
+.house-node-ledger { display: grid; gap: 4px; }.house-node-ledger div { display: flex; justify-content: space-between; gap: 8px; padding: 7px 8px; border-left: 2px solid var(--line); background: rgba(255,255,255,.015); }.house-node-ledger span { color: var(--muted); font-size: .5rem; }.house-node-ledger strong { color: var(--faint); font-size: .48rem; }.house-node-ledger .is-validated { border-color: var(--good); }.house-node-ledger .is-validated strong { color: var(--good); }
+
+.yard-symbols { display: flex; justify-content: center; gap: 12px; margin: 4px 0; }.yard-symbols span { display: grid; place-items: center; width: 64px; aspect-ratio: 1; border: 1px solid var(--line-hot); color: var(--signal); font-size: 1.5rem; }
+.room-anomaly { display: grid; gap: 14px; max-width: 760px; margin-inline: auto; }.room-anomaly__measure { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--line); }.room-anomaly__measure span { display: grid; gap: 8px; padding: 14px; border-right: 1px solid var(--line); color: var(--faint); font-size: .52rem; }.room-anomaly__measure span:last-child { border: 0; }.room-anomaly__measure strong { color: var(--text); font-size: clamp(.8rem, 2vw, 1.1rem); }.room-anomaly__measure span:last-child strong { color: var(--error); }.room-anomaly--resolved { min-height: 380px; align-content: center; }.room-anomaly--resolved .voice-message--interference { margin-block: 20px; }
+
+@keyframes search-contamination { 0%, 92%, 100% { opacity: 1; transform: none; } 94% { opacity: .35; transform: translateX(2px); } 96% { opacity: .8; transform: translateX(-1px); } }
+@media (max-width: 600px) { .room-anomaly__measure { grid-template-columns: 1fr; }.room-anomaly__measure span { grid-template-columns: 1fr auto; border-right: 0; border-bottom: 1px solid var(--line); }.house-blueprint text { font-size: 18px; }.yard-symbols span { width: 54px; } }
+@media (min-width: 1000px) { .system-scene[data-area="house"] .workspace { grid-template-columns: minmax(360px, .72fr) minmax(560px, 1.28fr); }.system-scene[data-area="house"] .side-panel { width: auto; }.system-scene[data-area="house"] .house-blueprint__calculation { grid-template-columns: repeat(3, 1fr); }.system-scene[data-area="house"] .house-blueprint__calculation p { grid-column: 1 / -1; } }

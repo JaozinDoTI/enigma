@@ -22,9 +22,11 @@ Depois de alterar qualquer arquivo JavaScript modular, atualize os bundles:
 node scripts/build-bundles.mjs
 ```
 
-O sistema de movimento está centralizado em `js/motion-engine.js`. As regras de resposta ficam em `js/progression.js`; os metadados narrativos e de acessibilidade dos 25 registros ficam em `js/puzzles/contracts.js`.
+O sistema de movimento está centralizado em `js/motion-engine.js`. `js/puzzles/catalog.js` é a fonte canônica dos registros: narrativa, objetivo, interação, pistas, renderer, controller, efeitos e solução derivam do mesmo contrato. `js/progression.js` apenas executa os efeitos declarados.
 
 Também é possível servir a pasta como site estático, mas isso não é obrigatório.
+
+O progresso existe apenas em memória enquanto `index.html` permanece aberto. Recarregar ou fechar a página reinicia a experiência; nenhum estado é gravado no navegador.
 
 ## Modo de desenvolvimento
 
@@ -34,10 +36,16 @@ Na versão entregue, use a URL sem `?dev=1` e mantenha `devMode: false`.
 
 ## QR nodes
 
-- Escrivaninha: `http://SEU-ENDERECO/node.html?node=desk`
+- Cadeira verde: `http://SEU-ENDERECO/node.html?node=green`
+- Margem do quintal: `http://SEU-ENDERECO/node.html?node=yard`
+- Quarto não indexado: `http://SEU-ENDERECO/node.html?node=room`
 - Estante: `http://SEU-ENDERECO/node.html?node=books`
 
-Substitua `SEU-ENDERECO` pelo endereço final publicado antes de gerar os QR Codes. A página móvel revela um token de retorno; o terminal principal só o valida quando o contexto correto foi recuperado. Isso funciona sem sincronizar `localStorage` entre celular e notebook.
+A primeira saída física obrigatória acontece no registro 09, com a marca `VX-04` na Lua. Os quatro QR nodes só entram depois que o computador, o Arquivo e o Receiver já estabeleceram suas regras.
+
+O kit também imprime dois insertos não-QR para **É Assim que Acaba** e **É Assim que Começa**. A fotografia e o Receiver identificam o par pela relação FIM · distância 01 · COMEÇO; os insertos formam `03:17` sem depender do conteúdo literário.
+
+Substitua `SEU-ENDERECO` pelo endereço final publicado antes de gerar os QR Codes. A página móvel revela um token de retorno; o terminal principal só o valida quando o contexto correto foi recuperado. Não há sincronização automática de estado entre celular e notebook.
 
 ## Limitação de segurança
 

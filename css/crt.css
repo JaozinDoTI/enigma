@@ -1,7 +1,7 @@
 /* Camada optica global. Nao recebe interacao e nao substitui o design das cenas. */
 .crt-overlay {
   position: fixed;
-  z-index: 70;
+  z-index: var(--layer-narrative);
   inset: 0;
   overflow: hidden;
   border: 1px solid rgba(168,200,193,.07);

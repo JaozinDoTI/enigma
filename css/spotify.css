@@ -1,6 +1,6 @@
 .spotify-dock {
   position: fixed;
-  z-index: 60;
+  z-index: var(--layer-drawer);
   bottom: max(14px, env(safe-area-inset-bottom));
   left: max(14px, env(safe-area-inset-left));
   width: min(380px, calc(100% - 28px));

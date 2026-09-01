@@ -3,13 +3,28 @@ import { renderReceiverScene } from './receiver-scene.js';
 import { renderEvidenceScene } from './evidence-scene.js';
 import { renderDocumentScene } from './document-scene.js';
 import { renderOverrideScene, renderReconstructionScene } from './immersive-scene.js';
-import { sceneBlueprintFor } from './scene-blueprints.js';
-
+import { renderPhoneScene } from './phone-scene.js';
 export function sceneFamilyFor(puzzle) {
-  return sceneBlueprintFor(puzzle).family;
+  if (puzzle.world === 'computer') return 'computer';
+  if (puzzle.world === 'tv') return 'device';
+  if (puzzle.world === 'phone') return 'phone';
+  return puzzle.environment || puzzle.family || puzzle.world || 'computer';
 }
+
+export function worldFor(puzzle) { return puzzle.world || sceneFamilyFor(puzzle); }
 
 export function renderExperienceScene(context) {
   const family = sceneFamilyFor(context.puzzle);
-  return ({ system: renderSystemScene, device: renderReceiverScene, forensic: renderEvidenceScene, archive: renderDocumentScene, reconstruction: renderReconstructionScene, override: renderOverrideScene })[family](context);
+  const renderer = ({
+    computer: renderSystemScene,
+    system: renderSystemScene,
+    device: renderReceiverScene,
+    phone: renderPhoneScene,
+    forensic: renderEvidenceScene,
+    archive: renderDocumentScene,
+    reconstruction: renderReconstructionScene,
+    override: renderOverrideScene,
+    final: renderOverrideScene
+  })[family] || renderSystemScene;
+  return renderer(context);
 }

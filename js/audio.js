@@ -6,6 +6,7 @@ const ENVIRONMENT_BY_FAMILY = Object.freeze({
   system: 'system',
   archive: 'archive',
   device: 'device',
+  phone: 'phone',
   forensic: 'forensic',
   reconstruction: 'reconstruction',
   override: 'override'
@@ -56,6 +57,22 @@ class AudioExperience {
   async noise(duration = .12, intensity = .035) {
     if (!await this.unlock()) return false;
     this.engine.play('receiver.static', { duration, volume: intensity });
+    return true;
+  }
+
+  async playUnknownSource({ duration = 1.4 } = {}) {
+    if (!await this.unlock()) return false;
+    this.engine.duck(['ambience','device'], { depth:.08, attack:.04, hold:Math.min(duration,.9), release:1.1 });
+    [0,.31,.67].forEach((when,index)=>this.engine.play('source.signature',{ when, volume:.07-index*.008, frequency:84-index*5 }));
+    this.engine.play('source.03',{ when:.88, duration:Math.max(.28,Math.min(1.2,duration-.88)), volume:.045 });
+    return true;
+  }
+
+  async clockRupture() {
+    if (!await this.unlock()) return false;
+    this.engine.dropout(['ambience','device'], { depth:.001, attack:.018, hold:.52, release:1.7 });
+    this.engine.play('system.disk',{ when:.04,duration:.46,volume:.13 });
+    this.engine.play('computer.file.changed',{ when:.34,volume:.08 });
     return true;
   }
 
@@ -195,7 +212,7 @@ class AudioExperience {
       else if (detail.to === 'archive') { this.engine.duck(['ambience'], { depth: .3, hold: .18 }); this.engine.play('archive.seek', { when: .12 }); }
       else if (detail.to === 'forensic') { this.engine.duck(['ambience'], { depth: .38, hold: .2 }); this.engine.play('forensic.contact', { when: .14 }); }
       else if (detail.to === 'reconstruction') { this.engine.duck(['ambience'], { depth: .25, hold: .25 }); this.engine.play('memory.resolve', { when: .1, volume: .07 }); }
-      else if (detail.to === 'system') this.engine.play('system.relay', { when: .28, volume: .12 });
+      else if (['system', 'computer'].includes(detail.to)) this.engine.play('system.relay', { when: .28, volume: .12 });
       return;
     }
     if (name === 'hard-reset') return this.engine.hardReset();
@@ -234,11 +251,12 @@ class AudioExperience {
     Motion.schedule('audio-rare-event', () => {
       if (sequence !== this.rareSequence || getState().settings.muted) return this.scheduleRareEvent();
       const eventByFamily = {
-        system: ['rare.relay', 'rare.crackle'],
-        archive: ['archive.seek', 'rare.relay'],
+        system: ['rare.relay', 'rare.crackle', 'system.disk'],
+        archive: ['archive.seek', 'rare.relay', 'rare.distant'],
         device: ['rare.fragment', 'rare.crackle'],
-        forensic: ['forensic.contact', 'rare.relay'],
-        reconstruction: ['rare.fragment', 'rare.crackle'],
+        phone: ['rare.distant'],
+        forensic: ['forensic.contact', 'rare.relay', 'rare.wood'],
+        reconstruction: ['rare.fragment', 'rare.crackle', 'rare.wood', 'rare.distant'],
         override: ['rare.crackle']
       };
       const options = eventByFamily[this.sceneFamily] || eventByFamily.system;
@@ -308,6 +326,7 @@ export function bindMotionAudio() {
   document.addEventListener('tv:power', (event) => audioManager.handleTvPower(event.detail));
   document.addEventListener('tv:channel', () => audioManager.handleTvChannel());
   document.addEventListener('tv:volume', () => audioManager.handleTvVolume());
+  document.addEventListener('tv:fine', () => { audioManager.playEvent('receiver.knob',{volume:.08}); audioManager.playEvent('receiver.static',{when:.03,duration:.08,volume:.035}); });
   document.addEventListener('tv:afterimage', () => { audioManager.duck(['ambience', 'device'], { depth: .08, hold: .5 }); audioManager.playEvent('rare.fragment', { volume: .08 }); });
   document.addEventListener('entity:detected', () => { audioManager.duck(['ambience'], { depth: .02, hold: .18 }); audioManager.playEvent('narrative.entity'); });
   document.addEventListener('memory:restored', () => audioManager.playEvent('memory.resolve'));
