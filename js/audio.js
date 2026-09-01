@@ -3,6 +3,7 @@ import { Motion } from './motion-engine.js';
 import { AudioEngine } from './audio/engine.js';
 
 const ENVIRONMENT_BY_FAMILY = Object.freeze({
+  computer: 'computer',
   system: 'system',
   archive: 'archive',
   device: 'device',
@@ -126,7 +127,7 @@ class AudioExperience {
     if (!this.engine.unlocked) return this.unlock().then((available) => { if (available) this.normalError(detail); });
     const critical = Boolean(detail.critical);
     const message = String(detail.message || '');
-    const sound = message.startsWith('ENTRADA INVÁLIDA') || message.startsWith('FORMATO NÃO RECONHECIDO')
+    const sound = message.startsWith('ENTRADA INVÃLIDA') || message.startsWith('FORMATO NÃƒO RECONHECIDO')
       ? 'input.invalid'
       : message.startsWith('RESPOSTA INCORRETA')
         ? 'input.wrong'

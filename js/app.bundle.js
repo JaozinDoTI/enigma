@@ -195,7 +195,6 @@ exports.puzzleFor = puzzleFor;
 },
 "js/puzzles/catalog.js": function(module, exports, __require) {
 const { GAME_CONFIG } = __require("js/config.js");
-const { COMPUTER_MUTATIONS } = __require("js/worlds/computer-world.js");
 const freeze = (value = []) => Object.freeze([...value]);
 
 const PHASE_INTENTS = Object.freeze({
@@ -208,12 +207,12 @@ const PHASE_INTENTS = Object.freeze({
   '07':'O nome mente; o momento em que foi tocado, não.',
   '08':'O arquivo perdeu o cabeçalho, mas não perdeu tudo.',
   '09':'A palavra recuperada aponta para algo fora da tela.',
-  '10':'Volte ao primeiro arquivo. Ele não ficou parado.',
+  '10':'Esse arquivo já mudou uma vez.',
   '11':'As duas fontes discordam, mas deixaram o mesmo rastro.',
-  '12':'Talvez o telefone conserve a versão menos técnica disso.',
+  '12':'O telefone guardou uma versão diferente.',
   '13':'O Receiver também mudou enquanto você estava fora.',
-  '14':'Há alguma coisa nas fotografias daquela estante.',
-  '15':'A hora recuperada serve para alterar o próprio sistema.',
+  '14':'Essa fotografia não foi feita para ser bonita.',
+  '15':'Tem alguma coisa errada com o horário.',
   '16':'A resposta está onde a noite deixa as coisas ao alcance.',
   '17':'Três pistas antigas descrevem a mesma fonte.',
   '18':'A margem não possui nome até as lembranças se encostarem.',
@@ -221,7 +220,7 @@ const PHASE_INTENTS = Object.freeze({
   '20':'Há um espaço inteiro ausente entre relações conhecidas.',
   '21':'Noventa e nove por cento não encerra uma investigação.',
   '22':'As histórias continuam guardando uma coisa abaixo delas.',
-  '23':'Restaure o momento em que tudo começou.',
+  '23':'Volte para a máquina. O primeiro horário ainda está lá.',
   '24':'As duas cadeias finalmente podem ocupar a mesma linha.',
   '25':'As classificações já cumpriram seu papel.'
 });
@@ -240,7 +239,7 @@ const PHASE_HINTS = Object.freeze({
   '11':['Relatos podem mentir; propriedades geométricas não.','Cruze as duas fontes e descarte opiniões repetidas.','Selecione quatro camadas que descrevam forma e comprimento.','Use VOLUME, LATERAIS, COMPRIMENTO e SILHUETA; depois CALCULAR GEOMETRIA.'],
   '12':['A reconstrução já terminou; agora procure uma lembrança.','Desbloqueie o celular e abra Mensagens.','Entre na conversa de J. e consulte o anexo antigo.','Em IMG_2019_MULLET.jpg, use ANEXAR METADATA AO ARQUIVO.'],
   '13':['A ausência de sinal pode deixar uma presença física.','No Receiver, procure o canal vazio que mudou desde a visita anterior.','Deixe o canal 11 ativo e então desligue o aparelho.','Sintonize 11 e use DESLIGAR para revelar FIM · 01 · COMEÇO.'],
-  '14':['A fotografia serve para reconhecer relações entre lombadas.','No PC, abra BOOKSCAN.exe e use FIM, COMEÇO e DISTÂNCIA 01.','Selecione o par de títulos adjacentes e depois consulte esses livros físicos.','É Assim que Acaba + É Assim que Começa fornecem 03:__ e __:17: retorne com 03:17.'],
+  '14':['A fotografia é o espaço de investigação, não apenas uma ilustração.','No BOOKSCAN, amplie a primeira estante e procure títulos que significam FIM e COMEÇO.','Marque diretamente as duas lombadas adjacentes e correlacione as marcas.','É Assim que Acaba + É Assim que Começa fornecem 03:__ e __:17: retorne com 03:17.'],
   '15':['O horário recuperado deve alterar o ambiente, não ser digitado em um formulário.','Use o relógio da barra inferior do PC.','Abra DATA / HORA, ajuste horas e minutos e aplique.','Defina 03:17; o sistema revelará 0317.REC.'],
   '16':['A instrução fala de alcance noturno, não da superfície onde se dorme.','Pense no móvel que continua próximo depois de deitar.','Examine a mesa de cabeceira e procure a marca preparada.','Registre VX-11 encontrado na mesa de cabeceira.'],
   '17':['As pistas antigas descrevem uma fonte antes de descrever números.','Autentique primeiro o NÓ das cadeiras verdes.','Depois use EVENTO_1010 nos controles grandes e procure o pico do ajuste fino.','CAN 10 · NÍVEL 10 · AJUSTE FINO +3.'],
@@ -265,12 +264,13 @@ const CALLBACKS_BY_PHASE = Object.freeze({
 function definePuzzle(definition) {
   const puzzle = {
     area: 'desktop', controller: 'system', prerequisites: [], discoveries: [], hints: [],
-    archiveEffects: [], worldMutations: [], callbacks: [], physicalEffect: null, audioCue: 'ui.contact', motionCue: 'low',
+    archiveEffects: [], mutations: [], callbacks: [], physicalEffect: null, audioCue: 'ui.contact', motionCue: 'low',
     next: [], solution: null, ui: {}, keyboardPath: true, ...definition
   };
   puzzle.world = definition.world || WORLD_BY_FAMILY[puzzle.family] || 'computer';
+  puzzle.environment = definition.environment || puzzle.family || puzzle.world;
   puzzle.intent = definition.intent || PHASE_INTENTS[puzzle.id] || puzzle.objective;
-  puzzle.worldMutations = freeze(puzzle.world === 'computer' ? COMPUTER_MUTATIONS.filter((mutation)=>mutation.at===puzzle.id).map((mutation)=>mutation.id) : puzzle.worldMutations);
+  puzzle.mutations = freeze(puzzle.mutations);
   puzzle.callbacks = freeze(CALLBACKS_BY_PHASE[puzzle.id] || puzzle.callbacks);
   puzzle.corruption = Number.isFinite(puzzle.corruption) ? puzzle.corruption : Math.max(0, Math.min(5, puzzle.act - 1));
   puzzle.kind = puzzle.renderer;
@@ -279,12 +279,12 @@ function definePuzzle(definition) {
   puzzle.hints = freeze(PHASE_HINTS[puzzle.id] || puzzle.hints);
   puzzle.next = freeze(puzzle.next);
   puzzle.contract = Object.freeze({
-    id: puzzle.id, act: puzzle.act, family: puzzle.family, world: puzzle.world, intent: puzzle.intent,
+    id: puzzle.id, act: puzzle.act, family: puzzle.family, world: puzzle.world, environment: puzzle.environment, intent: puzzle.intent,
     narrative: puzzle.narrative, objective: puzzle.objective,
     interaction: puzzle.interaction, successMeaning: puzzle.successMeaning,
     prerequisites: puzzle.requirements, discoveries: puzzle.evidence, hints: puzzle.hints,
     renderer: puzzle.renderer, controller: puzzle.controller,
-    archiveEffects: freeze(puzzle.archiveEffects), worldMutations: puzzle.worldMutations, callbacks: puzzle.callbacks, physicalEffect: puzzle.physicalEffect,
+    archiveEffects: freeze(puzzle.archiveEffects), mutations: puzzle.mutations, callbacks: puzzle.callbacks, physicalEffect: puzzle.physicalEffect,
     audioCue: puzzle.audioCue, motionCue: puzzle.motionCue,
     accessibility: Object.freeze({ reducedMotion: true, audioIndependent: true, keyboardPath: puzzle.keyboardPath })
   });
@@ -298,26 +298,33 @@ const PUZZLES = Object.freeze([
     narrative:'Um computador gráfico antigo foi deixado ligado para uma única leitora.', objective:'Iniciar a estação e observar o ambiente deixado para você.', interaction:'acionar a inicialização manual', successMeaning:'A estação gráfica fica disponível para investigação.', motionCue:'boot-sequence',
     ui:{ status:(s)=>s.flags.initialized?'DESKTOP DISPONÍVEL':'SISTEMA EM ESPERA' } }),
   P({ id:'02', act:1, family:'computer', area:'files', code:'INDICE_LOCAL', title:'índice de inicialização', renderer:'logs', integrity:4, next:['03'], controller:'archive', prerequisites:['01'], discoveries:['evento-1010'], archiveEffects:['evento-1010:v1'],
+    mutations:[{id:'event-index',when:{flag:'event1010Seen'},notice:'REGISTRO EXTERNO INDEXADO'}],
     narrative:'O computador parece usado: há manutenção, backups e um registro temporal fora da rotina.', objective:'Localizar o registro que não pertence à sequência operacional.', interaction:'inspecionar logs e metadados', successMeaning:'EVENTO_1010 passa a existir no histórico pesquisável.',
     ui:{status:(s)=>s.flags.event1010Seen?'EVENTO_1010 INDEXADO':'6 LOGS // 1 ANOMALIA'} }),
   P({ id:'03', act:1, family:'device', area:'receiver', code:'RECEPTOR_VX', title:'portadora não identificada', renderer:'tv-intro', integrity:7, next:['04'], controller:'receiver', prerequisites:['02'], discoveries:['receiver-04'], audioCue:'receiver.static', motionCue:'receiver-channel-lock',
+    mutations:[{id:'receiver',when:{unlocked:'03'},icons:['receiver-app']}],
     narrative:'Um periférico sem fabricante responde a uma faixa que o computador não cataloga.', objective:'Encontrar a portadora que não produz apenas estática.', interaction:'varrer os canais do Receiver', successMeaning:'Uma transmissão específica é isolada.',
     ui:{status:(s)=>`RECEPTOR ${s.tv.power?'ATIVO':'DESLIGADO'} // CAN ${String(s.tv.channel).padStart(2,'0')}`} }),
   P({ id:'04', act:1, family:'device', area:'receiver', code:'SINAL_04', title:'persistência luminosa', renderer:'morse', integrity:9, next:['05'], controller:'receiver', prerequisites:['03'], discoveries:['object-desk'],
     narrative:'A portadora não contém voz; a lâmpada repete pulsos curtos e longos.', objective:'Interpretar o objeto codificado pelo sinal.', interaction:'reproduzir, anotar e decodificar Morse', successMeaning:'MESA deixa de parecer um objeto imediato e passa a nomear uma tabela interna do computador.', solution:{accepted:['mesa','escrivaninha']}, completion:{message:'SINAL INTERPRETADO // MESA'},
     ui:{inputLabel:'Objeto escrito pelo sinal',placeholder:'nome do objeto',submitLabel:'REGISTRAR LEITURA',wrongFeedback:'O objeto não corresponde aos pulsos.'} }),
   P({ id:'05', act:1, family:'computer', area:'files', code:'MOUNT_TABLE', title:'propriedades de uma unidade antiga', renderer:'file-properties', integrity:12, next:['06'], controller:'archive', prerequisites:['04'], discoveries:['archive-170491'],
+    mutations:[{id:'mount-table',when:{unlocked:'05'},icons:['mount-app'],phaseApp:'mount-app'}],
     narrative:'MESA também aparece na tabela de montagem da unidade. Uma entrada antiga não possui dispositivo correspondente.', objective:'Inspecionar as propriedades da montagem órfã e recuperar seu índice.', interaction:'comparar unidade, data de criação e endereço', successMeaning:'ARCHIVE_170491 passa a ligar informação antiga a um contexto ainda desconhecido.', solution:{accepted:['170491','17 04 91','17/04/91']}, completion:{message:'MONTAGEM ÓRFÃ INDEXADA // 170491'},
     ui:{inputLabel:'Índice da montagem órfã',placeholder:'seis dígitos',submitLabel:'MONTAR UNIDADE',format:/^[\d\s/.-]{6,10}$/,formatHint:'Use dia, mês e ano na ordem exibida.',wrongFeedback:'Esse índice não corresponde à montagem órfã.'} }),
   P({ id:'06', act:2, family:'archive', area:'documents', code:'DOC_1708', title:'duas versões do mesmo relatório', renderer:'document', integrity:15, next:['07'], controller:'archive', prerequisites:['05'], discoveries:['document-invariant'], archiveEffects:['documento-06'], motionCue:'memory-reconstruction',
     narrative:'Duas cópias discordam em quase tudo. Três trechos sobreviveram idênticos.', objective:'Extrair as linhas invariantes das versões A e B.', interaction:'comparar o mesmo índice nas duas versões', successMeaning:'Uma instrução apagada volta a ser legível.', completion:{message:'INSTRUÇÃO RECUPERADA // A DATA ABRE O ARQUIVO',motion:'document'}, ui:{status:(s)=>`${s.documentFragments.length} / 3 INVARIANTES`,wrongFeedback:'Esse trecho foi alterado.'} }),
   P({ id:'07', act:2, family:'computer', area:'files', code:'DIRETORIO_J', title:'versões incompatíveis', renderer:'files', integrity:19, next:['08'], controller:'archive', prerequisites:['06'], discoveries:['file-1010'],
+    mutations:[{id:'directory-tools',when:{unlocked:'07'},icons:['directory-app'],phaseApp:'directory-app'}],
     narrative:'Uma pasta banal contém cinco arquivos chamados “final”. Os nomes mentem; o horário deixa rastro.', objective:'Encontrar a versão tocada no momento do evento.', interaction:'abrir arquivos e comparar propriedades', successMeaning:'A cópia legítima é separada das iscas.', ui:{status:()=> '5 VERSÕES // 4 ISCAS'} }),
   P({ id:'08', act:2, family:'computer', area:'files', code:'PACOTE_8BIT', title:'fragmentos sem cabeçalho', renderer:'binary', integrity:23, next:['09'], prerequisites:['07'], discoveries:['object-moon'],
+    mutations:[{id:'dump-reader',when:{unlocked:'08'},icons:['dump-app'],phaseApp:'dump-app'}],
     narrative:'A versão correta guarda 24 bits já separados em três blocos.', objective:'Converter os blocos em um objeto.', interaction:'ler três bytes como caracteres', successMeaning:'Um objeto conhecido ganha função investigativa.', solution:{accepted:['lua']}, completion:{message:'OBJETO RECUPERADO // LUA'}, ui:{inputLabel:'Palavra formada pelos três bytes',placeholder:'objeto recuperado',submitLabel:'INDEXAR OBJETO',wrongFeedback:'Os bytes não formam esse objeto.'} }),
   P({ id:'09', act:2, family:'reconstruction', world:'physical', area:'images', code:'OBJETO_L01', title:'referência material', renderer:'moon-one', integrity:26, next:['10'], controller:'nodes', prerequisites:['08'], discoveries:['vx-04-moon'], physicalEffect:'moon',
+    mutations:[{id:'analyzer',when:{unlocked:'09'},icons:['analyzer-app']}],
     narrative:'LUA não é outra senha: é uma referência a algo que já está no quarto.', objective:'Localizar a primeira marca do objeto.', interaction:'consultar o visualizador e examinar o objeto físico', successMeaning:'VX-04 ganha uma origem material.', solution:{accepted:['vx 04','vx04']}, completion:{message:'CAMADA VX-04 RECUPERADA',effects:['moonFirstFound']}, ui:{inputLabel:'Marca encontrada no objeto',placeholder:'identificador físico',submitLabel:'ANEXAR MARCA',wrongFeedback:'Essa não é a primeira camada do objeto.'} }),
   P({ id:'10', act:2, family:'computer', area:'archive', code:'SOMA_DIVERGENTE', title:'um arquivo conhecido mudou', renderer:'return-event', integrity:31, next:['11'], controller:'archive', prerequisites:['09','02'], discoveries:['shared-event'], archiveEffects:['evento-1010:v2'],
+    mutations:[{id:'event-rewrite',when:{unlocked:'10'},wallpaper:'alert',notice:'1 ARQUIVO CONHECIDO FOI ALTERADO'}],
     narrative:'EVENTO_1010 não corresponde mais à primeira leitura.', objective:'Voltar ao mesmo índice no PC e processar suas novas linhas.', interaction:'abrir Meu computador / SISTEMA / REGISTROS e reler REG_101000.idx', successMeaning:'O arquivo revela que havia duas fontes no evento.', ui:{status:(s)=>s.flags.eventChanged?'VERSÃO 02 PROCESSADA':'REGISTRO CONHECIDO ALTERADO'} }),
   P({ id:'11', act:3, family:'forensic', area:'evidence', code:'CONFLITO_MEMORIA', title:'divergência entre fontes', renderer:'conflict', integrity:35, next:['12'], controller:'forensic', prerequisites:['10'], discoveries:['hair-geometry'], motionCue:'memory-reconstruction',
     narrative:'Duas versões da mesma lembrança discordam. A geometria não depende do relato.', objective:'Cruzar camadas suficientes para reconstruir a forma.', interaction:'selecionar evidências e calcular o modelo', successMeaning:'Uma memória deixa de depender de uma única voz.', ui:{status:(s)=>`${s.forensicSelections.length} / 4 CAMADAS NECESSÁRIAS`} }),
@@ -325,9 +332,11 @@ const PUZZLES = Object.freeze([
     narrative:'A reconstrução técnica encontra uma fotografia e uma conversa antiga no celular preparado.', objective:'Abrir a conversa de J., localizar IMG_2019 e anexar sua metadata.', interaction:'desbloquear o celular, abrir Mensagens e consultar o anexo', successMeaning:'MULLET deixa de ser uma adivinhação e vira detalhe de uma memória compartilhada.', solution:{accepted:[GAME_CONFIG.memoryAnswer,...GAME_CONFIG.memoryAliases]}, completion:{message:'MEMÓRIA ANEXADA // IMG_2019_MULLET',effects:['mulletConfirmed']}, ui:{wrongFeedback:'Essa evidência não corresponde à reconstrução.'} }),
   P({ id:'13', act:3, family:'device', area:'receiver', code:'RECEPTOR_VX', title:'imagem residual', renderer:'tv-sequence', integrity:43, next:['14'], controller:'receiver', prerequisites:['12','03'], discoveries:['receiver-afterimage'], motionCue:'tv-afterimage',
     narrative:'O Receiver mudou enquanto estava fora de uso.', objective:'Descobrir o que permanece depois que a portadora some.', interaction:'operar canal e power', successMeaning:'FIM · 01 · COMEÇO fica gravado no fósforo como relação, não senha.', ui:{status:(s)=>s.flags.tvChannel11Primed?'CANAL 11 // PORTADORA AUSENTE':`CAN ${String(s.tv.channel).padStart(2,'0')}`} }),
-  P({ id:'14', act:3, family:'computer', area:'images', code:'BOOKSCAN_020501', title:'captura degradada da estante', renderer:'books', integrity:47, next:['15'], prerequisites:['13'], discoveries:['book-time'], physicalEffect:'books',
+  P({ id:'14', act:3, family:'computer', area:'images', code:'BOOKSCAN_END01START', title:'captura degradada da estante', renderer:'books', integrity:47, next:['15'], prerequisites:['13'], discoveries:['book-time'], physicalEffect:'books',
+    mutations:[{id:'bookscan',when:{unlocked:'14'},icons:['bookscan-app'],phaseApp:'bookscan-app',notice:'2 CAPTURAS DE ESTANTE RECUPERADAS'}],
     narrative:'Duas fotografias reais da estante e um log descrevem extremidades separadas por um único volume.', objective:'Identificar o par FIM/COMEÇO, consultar os livros físicos e retornar com o timestamp.', interaction:'abrir BOOKSCAN.exe, correlacionar títulos adjacentes e reunir os dois insertos', successMeaning:'03:17 nasce de uma cadeia entre captura, log, estante física e retorno ao PC.', solution:{accepted:['03:17','0317','03 17']}, completion:{message:'BOOKSCAN INDEXADO // 03:17',effects:['booksFound']}, ui:{inputLabel:'Timestamp encontrado nos dois insertos',placeholder:'00:00',submitLabel:'RETORNAR AO BOOKSCAN',format:/^\d{2}[:\s]?\d{2}$/,formatHint:'Use quatro dígitos, com ou sem dois-pontos.',wrongFeedback:'Os fragmentos físicos não formam esse horário.'} }),
   P({ id:'15', act:3, family:'computer', area:'desktop', code:'CLOCK_CAL', title:'relógio de sistema', renderer:'clock-calibration', integrity:51, next:['16'], prerequisites:['14'], discoveries:['night-instruction'],
+    mutations:[{id:'clock-calibration',when:{unlocked:'15'},clockMode:'calibrate'}],
     narrative:'O BOOKSCAN recuperou uma hora. A barra da estação agora aceita calibração manual.', objective:'Ajustar o relógio do PC para a hora extraída dos livros.', interaction:'abrir o relógio da barra, ajustar e aplicar', successMeaning:'O sistema revela uma instrução que só existe em 03:17.', ui:{status:(s)=>`RELÓGIO // ${String(s.desktopOs.clockHour).padStart(2,'0')}:${String(s.desktopOs.clockMinute).padStart(2,'0')}`} }),
   P({ id:'16', act:3, family:'reconstruction', world:'physical', area:'files', code:'NODE_NOTURNO', title:'proximidade sem coordenada', renderer:'bedside', integrity:55, next:['17'], controller:'nodes', prerequisites:['15'], discoveries:['vx-11-receiver'], physicalEffect:'bedside',
     narrative:'A instrução aponta para o móvel que permanece ao alcance depois de deitar.', objective:'Encontrar e registrar a marca noturna.', interaction:'interpretar a relação e consultar o ambiente', successMeaning:'VX-11 liga o quarto ao Receiver.', solution:{accepted:['vx 11','vx11','receptor','tv','televisao']}, completion:{message:'MARCA VX-11 CONFIRMADA',effects:['bedsideFound']}, ui:{inputLabel:'Marca encontrada perto da cama',placeholder:'identificador',submitLabel:'VINCULAR',wrongFeedback:'Essa marca não estava no lugar descrito.'} }),
@@ -338,14 +347,18 @@ const PUZZLES = Object.freeze([
   P({ id:'19', act:4, family:'forensic', area:'evidence', code:'TESTE_ENTIDADE', title:'vínculos de memória', renderer:'identity', integrity:69, next:['20'], controller:'forensic', prerequisites:['18','12','10'], discoveries:['shared-memory'],
     narrative:'Registros separados contam os dois lados das mesmas lembranças.', objective:'Ligar cada origem à consequência correspondente.', interaction:'selecionar dois registros por vez', successMeaning:'ENTIDADE B deixa de ser tratada como desconhecida.', ui:{status:(s)=>`${Math.floor(s.relationLinks.length/2)} / 3 VÍNCULOS`} }),
   P({ id:'20', act:4, family:'reconstruction', area:'reconstruction', code:'PLANTA_INCOMPLETA', title:'Cômodo Zero', renderer:'room', integrity:74, next:['21'], controller:'reconstruction', prerequisites:['19'], discoveries:['house-match','node-00','reading-0317'], physicalEffect:'room',
+    mutations:[{id:'reconstruction',when:{unlocked:'20'},icons:['recovery-app']}],
     narrative:'A casa fecha quase toda. Repouso, armazenamento e abertura descrevem um cômodo ausente do índice.', objective:'Reconstruir relações, localizar o volume ausente e anexar NODE_00.', interaction:'arrastar ou selecionar objeto + destino; depois visitar a origem', successMeaning:'Uma leitura impossível de 03:17 entra no sistema.', ui:{status:(s)=>s.flags.roomNodeValidated?'NODE_00 // LEITURA ANTERIOR 03:17':s.flags.houseAnomalyRevealed?'VOLUME AUSENTE // ACESSO FÍSICO':`${Object.values(s.room).filter((v)=>v?.moved).length} OBJETOS POSICIONADOS`} }),
   P({ id:'21', act:4, family:'computer', area:'desktop', code:'INTEGRIDADE_99', title:'encerramento incompleto', renderer:'impossible', integrity:99, next:['22'], prerequisites:['20'], discoveries:['system-object-tv'], motionCue:'system-signal-loss',
+    mutations:[{id:'false-close',when:{unlocked:'21'},icons:['truth-app'],phaseApp:'truth-app',wallpaper:'unstable'}],
     narrative:'O sistema declara conclusão sem explicar a terceira fonte nem o Cômodo Zero.', objective:'Testar e recusar o encerramento de 99%.', interaction:'executar o fechamento e observar a inconsistência', successMeaning:'O canal escondido atrás do falso final é liberado.', ui:{status:(s)=>s.flags.fakeFinalSeen?'FALSO FINAL ROMPIDO':'ENCERRAMENTO DISPONÍVEL'} }),
   P({ id:'22', act:4, family:'reconstruction', world:'physical', area:'files', code:'NODE_11', title:'histórias suspensas', renderer:'books-node', integrity:84, next:['23'], controller:'nodes', prerequisites:['21'], discoveries:['node-11','audio-header'], physicalEffect:'books',
     narrative:'O falso final revela um cabeçalho de áudio e aponta para onde histórias são armazenadas.', objective:'Autenticar o NODE sob a estante.', interaction:'consultar o cabeçalho e retornar com a assinatura', successMeaning:'Os livros digitais e físicos passam a compartilhar índice.', solution:{accepted:[GAME_CONFIG.booksNodeCode]}, completion:{message:'NODE_11 AUTENTICADO',effects:['booksNodeValidated']}, ui:{inputLabel:'Assinatura encontrada sob a estante',placeholder:'VX-LIVROS-0000',submitLabel:'AUTENTICAR',wrongFeedback:'A assinatura não pertence ao NODE_11.'} }),
   P({ id:'23', act:5, family:'computer', area:'desktop', code:'CLOCK_ORIGIN', title:'hora original do evento', renderer:'clock-origin', integrity:91, next:['24'], prerequisites:['22','20'], discoveries:['time-origin'],
+    mutations:[{id:'clock-origin',when:{unlocked:'23'},clockMode:'restore',wallpaper:'origin'}],
     narrative:'A calibração de 03:17 abriu o sistema, mas o evento central possui outra hora original registrada desde o início.', objective:'Restaurar no relógio a hora exata de EVENTO_1010.', interaction:'revisitar o registro conhecido e corrigir a hora da barra', successMeaning:'O sistema reconhece a origem temporal e libera as cadeias finais.', ui:{status:(s)=>`ORIGEM ESPERADA // EVENTO_1010 · ATUAL ${String(s.desktopOs.clockHour).padStart(2,'0')}:${String(s.desktopOs.clockMinute).padStart(2,'0')}`} }),
   P({ id:'24', act:5, family:'computer', area:'evidence', code:'CHAVE_COMPOSTA', title:'dois fragmentos de dados', renderer:'meta', integrity:99, next:['25'], controller:'forensic', prerequisites:['23'], discoveries:['fragment-520','fragment-1314','relation-us'],
+    mutations:[{id:'final-tool',when:{flag:'clockOriginRestored'},icons:['final-recovery-app'],phaseApp:'final-recovery-app',notice:'RECUPERAR.exe FOI REESCRITO'}],
     narrative:'Duas cadeias independentes terminam em 520 e 1314. Até aqui, ambos pareciam apenas dados.', objective:'Confirmar as cadeias e concatenar a chave final.', interaction:'revisitar evidências e inserir a chave', successMeaning:'O sistema recupera a interpretação sem exigir conhecimento externo.', solution:{accepted:['5201314']}, completion:{message:'CHAVE ACEITA // INTERPRETAÇÃO RECUPERADA',motion:'merge',effects:['finalRecovered']}, ui:{inputLabel:'Chave composta',placeholder:'sete dígitos',submitLabel:'EXECUTAR CHAVE',format:/^\d{7}$/,formatHint:'A chave possui sete dígitos sem separadores.',wrongFeedback:'A concatenação não preserva a ordem das cadeias.'} }),
   P({ id:'25', act:5, family:'final', area:'identity', code:'RECUPERACAO_COMPLETA', title:'arquivo íntegro', renderer:'final', integrity:100, prerequisites:['24'], discoveries:['event-meaning'],
     narrative:'As classificações técnicas perderam a função.', objective:'Permanecer e ler.', interaction:'conclusão narrativa', successMeaning:'EVENTO_1010 finalmente recebe significado humano.', ui:{status:()=> '10/10 // O DIA EM QUE A GENTE SE CONHECEU'} })
@@ -357,53 +370,6 @@ const puzzleFor = (id) => PUZZLE_BY_ID[id] || PUZZLE_BY_ID['01'];
 exports.PUZZLES = PUZZLES;
 exports.PUZZLE_BY_ID = PUZZLE_BY_ID;
 exports.puzzleFor = puzzleFor;
-},
-"js/worlds/computer-world.js": function(module, exports, __require) {
-const APP_BY_PHASE = Object.freeze({
-  '05':'mount-app',
-  '07':'directory-app',
-  '08':'dump-app',
-  '14':'bookscan-app',
-  '21':'truth-app',
-  '24':'final-recovery-app'
-});
-
-const COMPUTER_MUTATIONS = Object.freeze([
-  { at:'02', id:'event-index', notice:'REGISTROS DO SISTEMA DISPONÍVEIS' },
-  { at:'03', id:'receiver', icons:['receiver-app'] },
-  { at:'05', id:'mount-table', icons:['mount-app'] },
-  { at:'07', id:'directory-tools', icons:['directory-app'] },
-  { at:'08', id:'dump-reader', icons:['dump-app'] },
-  { at:'09', id:'analyzer', icons:['analyzer-app'] },
-  { at:'10', id:'event-rewrite', wallpaper:'alert', notice:'1 ARQUIVO CONHECIDO FOI ALTERADO' },
-  { at:'14', id:'bookscan', icons:['bookscan-app'], notice:'2 CAPTURAS DE ESTANTE RECUPERADAS' },
-  { at:'15', id:'clock-calibration', clockMode:'calibrate' },
-  { at:'20', id:'reconstruction', icons:['recovery-app'] },
-  { at:'21', id:'false-close', icons:['truth-app'], wallpaper:'unstable' },
-  { at:'23', id:'clock-origin', clockMode:'restore', wallpaper:'origin' },
-  { at:'24', id:'final-tool', icons:['final-recovery-app'], notice:'RECUPERAR.exe FOI REESCRITO' }
-]);
-
-const COMPUTER_PHASES = Object.freeze(['01','02','05','07','08','10','14','15','21','23','24']);
-
-function computerWorldAt(state, phaseId = state.currentPuzzle) {
-  const reached = Math.max(...state.unlocked.map(Number), Number(phaseId) || 1);
-  const mutations = COMPUTER_MUTATIONS.filter((mutation) => Number(mutation.at) <= reached);
-  const latestMutationWith = (property) => [...mutations].reverse().find((mutation) => mutation[property]);
-  const reactiveIcons = [state.flags.clock0317Triggered ? 'clock-note' : null].filter(Boolean);
-  return Object.freeze({
-    mutations,
-    icons: [...new Set([...mutations.flatMap((mutation) => mutation.icons || []),...reactiveIcons])],
-    wallpaper: state.flags.clockOriginRestored ? 'synchronized' : latestMutationWith('wallpaper')?.wallpaper || 'base',
-    notice: latestMutationWith('notice')?.notice || '',
-    clockMode: latestMutationWith('clockMode')?.clockMode || null,
-    phaseApp: APP_BY_PHASE[phaseId] || null
-  });
-}
-
-exports.COMPUTER_MUTATIONS = COMPUTER_MUTATIONS;
-exports.COMPUTER_PHASES = COMPUTER_PHASES;
-exports.computerWorldAt = computerWorldAt;
 },
 "js/scene-renderer.js": function(module, exports, __require) {
 const { GAME_CONFIG } = __require("js/config.js");
@@ -519,19 +485,29 @@ function conflict(state) {
 
 function books(state) {
   const selected = state.bookSelections || [];
-  const candidates = [
-    ['teto','Teto para Dois'],['acaba','É Assim que Acaba'],['comeca','É Assim que Começa'],['maldicao','A Maldição do Ex'],['lua','Cidade da Lua Crescente']
-  ];
   return `<section class="bookscan-evidence">
     <header><span>BOOKSCAN // DUAS FONTES DOMÉSTICAS</span><strong>EXTREMIDADES · DISTÂNCIA 01</strong></header>
-    <div class="bookscan-sources">
-      <figure class="bookscan-capture" data-evidence-frame><img data-evidence-source src="./assets/evidence/books/shelf-cam-01.jpg" alt="Captura degradada da primeira estante"><div class="bookscan-noise" aria-hidden="true"></div><time>CAM_01 · 17/09/2025 03:__</time><div class="bookscan-missing"><strong>CAPTURA 01 AUSENTE</strong><span>assets/evidence/books/shelf-cam-01.jpg</span></div><figcaption>JPEG recomposto · distância entre títulos preservada</figcaption></figure>
-      <figure class="bookscan-capture" data-evidence-frame><img data-evidence-source src="./assets/evidence/books/shelf-cam-02.jpg" alt="Captura degradada da segunda estante"><div class="bookscan-noise" aria-hidden="true"></div><time>CAM_02 · 17/09/2025 __:17</time><div class="bookscan-missing"><strong>CAPTURA 02 AUSENTE</strong><span>assets/evidence/books/shelf-cam-02.jpg</span></div><figcaption>JPEG recomposto · referência de coleção e ordenação</figcaption></figure>
+    <div class="bookscan-workbench" data-bookscan>
+      <nav class="bookscan-toolbar" aria-label="Ferramentas da fotografia"><button type="button" data-action="bookscan-zoom" data-delta="-.25">−</button><output data-bookscan-zoom>100%</output><button type="button" data-action="bookscan-zoom" data-delta=".25">+</button><button type="button" data-action="bookscan-reset">REENQUADRAR</button><span>ARRASTE OU ROLE PARA EXAMINAR</span></nav>
+      <div class="bookscan-viewport" data-bookscan-viewport tabindex="0" aria-label="Fotografia navegável da estante">
+        <figure class="bookscan-capture" data-evidence-frame data-bookscan-canvas>
+          <img data-evidence-source src="./assets/evidence/books/shelf-cam-01.jpg" alt="Captura degradada da estante real">
+          <div class="bookscan-noise" aria-hidden="true"></div><time>CAM_01 · 17/09/2025 03:__</time>
+          <div class="bookscan-hotspots" aria-label="Lombadas examináveis">
+            <button type="button" data-action="bookscan-spine" data-book="teto" style="--x:24.4%;--y:34%;--w:3.4%;--h:45%" aria-label="Examinar lombada Teto para Dois"><span>Teto para Dois</span></button>
+            <button type="button" data-action="bookscan-spine" data-book="acaba" class="${selected.includes('acaba')?'is-selected':''}" style="--x:27.8%;--y:34%;--w:3.4%;--h:45%" aria-label="Examinar lombada É Assim que Acaba"><span>É Assim que Acaba</span></button>
+            <button type="button" data-action="bookscan-spine" data-book="comeca" class="${selected.includes('comeca')?'is-selected':''}" style="--x:31.2%;--y:34%;--w:3.4%;--h:45%" aria-label="Examinar lombada É Assim que Começa"><span>É Assim que Começa</span></button>
+            <button type="button" data-action="bookscan-spine" data-book="maldicao" style="--x:34.6%;--y:34%;--w:3.2%;--h:45%" aria-label="Examinar lombada A Maldição do Ex"><span>A Maldição do Ex</span></button>
+            <button type="button" data-action="bookscan-spine" data-book="lua" style="--x:49.2%;--y:34%;--w:3.8%;--h:45%" aria-label="Examinar lombada Cidade da Lua Crescente"><span>Cidade da Lua Crescente</span></button>
+          </div>
+          <div class="bookscan-missing"><strong>CAPTURA 01 AUSENTE</strong><span>assets/evidence/books/shelf-cam-01.jpg</span></div>
+          <figcaption>JPEG recomposto · selecione duas lombadas diretamente na imagem</figcaption>
+        </figure>
+      </div>
+      <figure class="bookscan-reference" data-evidence-frame><img data-evidence-source src="./assets/evidence/books/shelf-cam-02.jpg" alt="Segunda captura degradada da estante real"><div class="bookscan-missing"><strong>CAPTURA 02 AUSENTE</strong><span>assets/evidence/books/shelf-cam-02.jpg</span></div><figcaption>CAM_02 · referência de coleção e ordenação</figcaption></figure>
     </div>
     <div class="bookscan-log"><code>CRITÉRIO // EXTREMIDADES</code><code>DISTÂNCIA ENTRE VOLUMES // 01</code><code>MENSAGEM RECUPERADA // “o fim ficou perto demais do começo”</code></div>
-    <p>Marque os dois títulos da captura que satisfazem simultaneamente a mensagem e a distância.</p>
-    <div class="bookscan-candidates">${candidates.map(([id,title])=>`<button type="button" data-action="bookscan-book" data-book="${id}" class="${selected.includes(id)?'is-selected':''}" aria-pressed="${selected.includes(id)}">${escapeHtml(title)}</button>`).join('')}</div>
-    <button type="button" class="primary-button" data-action="bookscan-confirm-pair">CORRELACIONAR LOMBADAS</button>
+    <div class="bookscan-selection"><span>LOMBADAS MARCADAS</span><output data-bookscan-selection>${selected.length ? selected.map((id)=>({acaba:'É Assim que Acaba',comeca:'É Assim que Começa',teto:'Teto para Dois',maldicao:'A Maldição do Ex',lua:'Cidade da Lua Crescente'})[id]).join(' + ') : 'nenhuma'}</output><button type="button" class="primary-button" data-action="bookscan-confirm-pair" ${selected.length===2?'':'disabled'}>CORRELACIONAR MARCAS</button></div>
     <section class="bookscan-return" ${state.flags.bookPairIdentified?'':'hidden'}><strong>PAR ADJACENTE CONFIRMADO</strong><p>Consulte os dois volumes físicos na mesma ordem: FIM → COMEÇO. Cada inserto completa metade do timestamp.</p>${answerForm('14','horário formado pelos insertos')}</section>
     <div class="feedback" data-feedback></div>
   </section>`;
@@ -1021,7 +997,10 @@ const { renderDocumentScene } = __require("js/scenes/document-scene.js");
 const { renderOverrideScene, renderReconstructionScene } = __require("js/scenes/immersive-scene.js");
 const { renderPhoneScene } = __require("js/scenes/phone-scene.js");
 function sceneFamilyFor(puzzle) {
-  return puzzle.family || 'computer';
+  if (puzzle.world === 'computer') return 'computer';
+  if (puzzle.world === 'tv') return 'device';
+  if (puzzle.world === 'phone') return 'phone';
+  return puzzle.environment || puzzle.family || puzzle.world || 'computer';
 }
 
 function worldFor(puzzle) { return puzzle.world || sceneFamilyFor(puzzle); }
@@ -1100,10 +1079,10 @@ function archiveStage(state) {
 }
 
 function renderSystemScene(context) {
-  const { puzzle, puzzles, state, content, experience } = context;
+  const { puzzle, puzzles, state, experience } = context;
   const requested = state.ui.activePanel || 'task';
   const active = requested === 'archive' && state.unlocked.some((id) => Number(id) >= 2) ? 'archive' : 'task';
-  const stage = renderPhaseOneComputer(puzzle,state,content);
+  const stage = renderPhaseOneComputer(puzzle,state);
   return `<div class="phase-shell" data-act="${experience.act}" data-area="${active}" data-scene-family="computer" data-motion-scope="scene">
     ${phaseRail(puzzle,puzzles,state,active)}
     <main class="phase-stage">
@@ -1166,6 +1145,7 @@ const createInitialState = () => ({
   pagesVisited: {},
   events: [],
   motionEvents: {},
+  worldEvents: { scheduled:[], delivered:[] },
   ui: { activePanel: null, archiveView: null, archiveQuery: '', focusReturn: null },
   desktopOs: {
     selectedIcon: null,
@@ -1176,7 +1156,11 @@ const createInitialState = () => ({
     clockMinute: 10,
     clockPanelOpen: false
   },
-  phone: { open:false, locked:true, app:'home', thread:null, unread:0, battery:73, events:[] },
+  phone: {
+    open:false, locked:true, app:'home', thread:null, unread:0, battery:73,
+    clock:{ hour:10, minute:12, synchronized:false },
+    delivered:[], events:[], calls:[], notifications:[], galleryItem:null
+  },
   archive: { reads: {}, searches: [] },
   flags: {
     initialized: false,
@@ -1234,13 +1218,19 @@ function normalizeState(state) {
   if (!state.roomPlacement || typeof state.roomPlacement !== 'object') state.roomPlacement = { selectedObject: null, selectedAnchor: null };
   if (!state.flags || typeof state.flags !== 'object') state.flags = createInitialState().flags;
   if (!state.archive || typeof state.archive !== 'object') state.archive = { reads: {}, searches: [] };
+  if (!state.phone || typeof state.phone !== 'object') state.phone = createInitialState().phone;
+  if (!state.phone.clock || typeof state.phone.clock !== 'object') state.phone.clock = { hour:10, minute:12, synchronized:false };
+  ['delivered','events','calls','notifications'].forEach((key) => { if (!Array.isArray(state.phone[key])) state.phone[key] = []; });
+  if (!state.worldEvents || typeof state.worldEvents !== 'object') state.worldEvents = { scheduled:[], delivered:[] };
+  ['scheduled','delivered'].forEach((key)=>{if(!Array.isArray(state.worldEvents[key])) state.worldEvents[key]=[];});
   state.currentPuzzle = /^\d{2}$/.test(String(state.currentPuzzle)) ? String(state.currentPuzzle) : '01';
   state.tv.channel = Math.max(1, Math.min(12, Number(state.tv.channel) || 1));
   state.tv.volume = Math.max(0, Math.min(10, Number(state.tv.volume) || 0));
 }
 
 function sealSchema(state) {
-  ['ui','desktopOs','phone','flags','tv','physicalNodes','stats','settings','archive','roomPlacement'].forEach((key) => Object.seal(state[key]));
+  ['ui','desktopOs','phone','flags','tv','physicalNodes','stats','settings','archive','roomPlacement','worldEvents'].forEach((key) => Object.seal(state[key]));
+  Object.seal(state.phone.clock);
   return Object.seal(state);
 }
 
@@ -1550,12 +1540,12 @@ exports.renderArchiveDocument = renderArchiveDocument;
 "js/phase-one-computer.js": function(module, exports, __require) {
 const { escapeHtml } = __require("js/utils.js");
 const { computerWorldAt } = __require("js/worlds/computer-world.js");
-let activePhaseContent = '';
-
+const { puzzleFor } = __require("js/puzzles/catalog.js");
+const { renderScene } = __require("js/scene-renderer.js");
 const RESOURCE_LIST = [
   { id:'computer', name:'Meu computador', type:'folder', parent:'desktop', path:'C:\\', children:['system','documents','temp','backup','images','personal'] },
   { id:'documents', name:'Documentos', type:'folder', parent:'computer', path:'C:\\DOCUMENTOS', children:['work','shopping','untitled'] },
-  { id:'notes', name:'NOTAS.txt', type:'text', parent:'desktop', created:'09/10/2025 21:02', modified:'09/10/2025 21:06', size:'1 KB', origin:'C:\\DOCUMENTOS', body:['devolver o adaptador','comprar pilhas','não mexer no relógio do sistema'] },
+  { id:'notes', name:'NOTAS.txt', type:'text', parent:'desktop', created:'09/10/2025 21:02', modified:'09/10/2025 21:06', size:'1 KB', origin:'C:\\DOCUMENTOS', body:['devolver o adaptador','comprar pilhas','nÃ£o mexer no relÃ³gio do sistema'] },
   { id:'trash', name:'Lixeira', type:'trash', parent:'desktop', path:'LIXEIRA', children:['old-image','draft'] },
   { id:'receiver-app', name:'RECEPTOR.exe', type:'program', parent:'desktop', created:'10/10/2025 10:10', modified:'10/10/2025 10:10', size:'31 KB', origin:'REGISTRO ISOLADO', target:'03' },
   { id:'analyzer-app', name:'ANALISADOR.exe', type:'program', parent:'desktop', created:'10/10/2025 10:11', modified:'10/10/2025 10:11', size:'82 KB', origin:'PACOTE RECUPERADO', target:'09' },
@@ -1566,37 +1556,42 @@ const RESOURCE_LIST = [
   { id:'directory-app', name:'DIRETORIO_J', type:'program', parent:'desktop', created:'10/10/2025 10:08', modified:'10/10/2025 10:10', size:'51 KB', origin:'DOCUMENTOS', target:'07', phaseApp:true },
   { id:'dump-app', name:'DUMP_24.exe', type:'program', parent:'desktop', created:'10/10/2025 10:10', modified:'10/10/2025 10:11', size:'24 KB', origin:'DIRETORIO_J', target:'08', phaseApp:true },
   { id:'final-recovery-app', name:'RECUPERAR_FINAL.exe', type:'program', parent:'desktop', created:'10/10/2025 10:10', modified:'10/10/2025 10:10', size:'520 KB', origin:'DUAS CADEIAS', target:'24', phaseApp:true },
-  { id:'clock-note', name:'0317.REC', type:'text', parent:'desktop', created:'17/04/1991 03:17', modified:'10/10/2025 03:17', size:'3 KB', origin:'RELÓGIO DO SISTEMA', body:['CALIBRAÇÃO ACEITA','ONDE A NOITE DEIXA O QUE VOCÊ PRECISA','o sistema não criou este arquivo; apenas deixou de escondê-lo'] },
+  { id:'clock-note', name:'0317.REC', type:'text', parent:'desktop', created:'17/04/1991 03:17', modified:'10/10/2025 03:17', size:'3 KB', origin:'RELÃ“GIO DO SISTEMA', body:['CALIBRAÃ‡ÃƒO ACEITA','ONDE A NOITE DEIXA O QUE VOCÃŠ PRECISA','o sistema nÃ£o criou este arquivo; apenas deixou de escondÃª-lo'] },
   { id:'system', name:'SISTEMA', type:'folder', parent:'computer', path:'C:\\SISTEMA', children:['drivers','registers','config'] },
   { id:'temp', name:'TEMP', type:'folder', parent:'computer', path:'C:\\TEMP', children:['tmp1','cache','old-image'] },
+  { id:'cam-cache', name:'CAM_CACHE', type:'folder', parent:'temp', path:'C:\\TEMP\\CAM_CACHE', children:[] },
   { id:'backup', name:'BACKUP', type:'folder', parent:'computer', path:'C:\\BACKUP', children:['backup1','backup2','event-old'] },
   { id:'images', name:'IMAGENS', type:'folder', parent:'computer', path:'C:\\IMAGENS', children:['camera-old','moon-thumb'] },
   { id:'personal', name:'PESSOAL', type:'folder', parent:'computer', path:'C:\\PESSOAL', children:['empty-folder','audio-note'] },
   { id:'drivers', name:'DRIVERS', type:'folder', parent:'system', path:'C:\\SISTEMA\\DRIVERS', children:['display-driver','audio-driver'] },
   { id:'registers', name:'REGISTROS', type:'folder', parent:'system', path:'C:\\SISTEMA\\REGISTROS', children:['log-0704','log-0709','event-1010','log-1011','log-1102','source-b'] },
-  { id:'config', name:'CONFIG.SYS', type:'text', parent:'system', created:'17/04/1991 08:00', modified:'07/10/2025 18:42', size:'3 KB', origin:'INSTALAÇÃO LOCAL', body:['DISPLAY=VGA_640','AUDIO=VX_COMPAT','CLOCK=LOCAL','MOUNT=AUTO'] },
-  { id:'work', name:'trabalho.txt', type:'text', parent:'documents', created:'02/10/2025 14:20', modified:'02/10/2025 17:41', size:'5 KB', origin:'USUÁRIO J.', body:['pendências da semana','confirmar manutenção do drive','reorganizar arquivos depois'] },
-  { id:'shopping', name:'compras.txt', type:'text', parent:'documents', created:'09/10/2025 20:58', modified:'09/10/2025 21:06', size:'1 KB', origin:'USUÁRIO J.', body:['pilhas AA','fita removível','café','envelope plástico'] },
-  { id:'untitled', name:'sem_nome.txt', type:'text', parent:'documents', created:'08/10/2025 00:31', modified:'08/10/2025 00:33', size:'0 KB', origin:'USUÁRIO J.', body:[''] },
-  { id:'tmp1', name:'~$0001.tmp', type:'data', parent:'temp', created:'10/10/2025 09:44', modified:'10/10/2025 09:44', size:'16 KB', origin:'SISTEMA', body:['DADOS TEMPORÁRIOS','SEM CONTEÚDO LEGÍVEL'] },
-  { id:'cache', name:'cache.dat', type:'data', parent:'temp', created:'10/10/2025 09:45', modified:'10/10/2025 09:58', size:'128 KB', origin:'SISTEMA', body:['CACHE DE VISUALIZAÇÃO','BLOCO 04 / 18'] },
+  { id:'config', name:'CONFIG.SYS', type:'text', parent:'system', created:'17/04/1991 08:00', modified:'07/10/2025 18:42', size:'3 KB', origin:'INSTALAÃ‡ÃƒO LOCAL', body:['DISPLAY=VGA_640','AUDIO=VX_COMPAT','CLOCK=LOCAL','MOUNT=AUTO'] },
+  { id:'work', name:'trabalho.txt', type:'text', parent:'documents', created:'02/10/2025 14:20', modified:'02/10/2025 17:41', size:'5 KB', origin:'USUÃRIO J.', body:['pendÃªncias da semana','confirmar manutenÃ§Ã£o do drive','reorganizar arquivos depois'] },
+  { id:'shopping', name:'compras.txt', type:'text', parent:'documents', created:'09/10/2025 20:58', modified:'09/10/2025 21:06', size:'1 KB', origin:'USUÃRIO J.', body:['pilhas AA','fita removÃ­vel','cafÃ©','envelope plÃ¡stico'] },
+  { id:'untitled', name:'sem_nome.txt', type:'text', parent:'documents', created:'08/10/2025 00:31', modified:'08/10/2025 00:33', size:'0 KB', origin:'USUÃRIO J.', body:[''] },
+  { id:'tmp1', name:'~$0001.tmp', type:'data', parent:'temp', created:'10/10/2025 09:44', modified:'10/10/2025 09:44', size:'16 KB', origin:'SISTEMA', body:['DADOS TEMPORÃRIOS','SEM CONTEÃšDO LEGÃVEL'] },
+  { id:'cache', name:'cache.dat', type:'data', parent:'temp', created:'10/10/2025 09:45', modified:'10/10/2025 09:58', size:'128 KB', origin:'SISTEMA', body:['CACHE DE VISUALIZAÃ‡ÃƒO','BLOCO 04 / 18'] },
   { id:'backup1', name:'backup_01', type:'folder', parent:'backup', path:'C:\\BACKUP\\backup_01', children:[] },
   { id:'backup2', name:'backup_02', type:'folder', parent:'backup', path:'C:\\BACKUP\\backup_02', children:[] },
-  { id:'event-old', name:'evento.old', type:'data', parent:'backup', created:'09/10/2025 23:48', modified:'09/10/2025 23:48', size:'2 KB', origin:'BACKUP LOCAL', body:['VERSÃO ENCERRADA','NENHUM EVENTO ASSOCIADO'] },
-  { id:'camera-old', name:'camera_01.bmp', type:'image', parent:'images', created:'08/10/2025 22:14', modified:'08/10/2025 22:14', size:'301 KB', origin:'CÂMERA DOMÉSTICA', source:'./assets/images/camera-01.svg' },
+  { id:'event-old', name:'evento.old', type:'data', parent:'backup', created:'09/10/2025 23:48', modified:'09/10/2025 23:48', size:'2 KB', origin:'BACKUP LOCAL', body:['VERSÃƒO ENCERRADA','NENHUM EVENTO ASSOCIADO'] },
+  { id:'camera-old', name:'camera_01.bmp', type:'image', parent:'images', created:'08/10/2025 22:14', modified:'08/10/2025 22:14', size:'301 KB', origin:'CÃ‚MERA DOMÃ‰STICA', source:'./assets/images/camera-01.svg' },
   { id:'moon-thumb', name:'tecido_scan.bmp', type:'image', parent:'images', created:'10/10/2025 10:08', modified:'10/10/2025 10:08', size:'184 KB', origin:'SCANNER LOCAL', source:'./assets/images/moon-scan.svg' },
   { id:'old-image', name:'img_old.bmp', type:'image', parent:'trash', created:'17/09/2025 03:17', modified:'17/09/2025 03:17', size:'42 KB', origin:'TEMP', source:'./assets/images/camera-02.svg' },
+  { id:'frame-0017', name:'FRAME_0017.JPG', type:'image', parent:'cam-cache', created:'10/10/2025 03:12', modified:'10/10/2025 03:12', size:'38 KB', origin:'WEBCAM CACHE / SIMULADO', source:'./assets/images/webcam-frame-0017.jpg' },
+  { id:'frame-0018', name:'FRAME_0018.JPG', type:'image', parent:'cam-cache', created:'10/10/2025 03:14', modified:'10/10/2025 03:14', size:'31 KB', origin:'WEBCAM CACHE / SIMULADO', source:'./assets/images/webcam-frame-0018.jpg' },
+  { id:'frame-0317', name:'FRAME_0317.BMP', type:'image', parent:'cam-cache', created:'10/10/2025 03:17', modified:'10/10/2025 10:10', size:'51 KB', origin:'WEBCAM CACHE / TIMESTAMP INCOMPATÃVEL', source:'./assets/images/webcam-frame-0317.jpg' },
+  { id:'webcam-cache', name:'WEBCAM_CACHE.DAT', type:'data', parent:'cam-cache', created:'10/10/2025 03:17', modified:'10/10/2025 03:17', size:'4 KB', origin:'CAPTURA SIMULADA', body:['DISPOSITIVO REAL: NÃƒO ACESSADO','FRAMES LOCAIS RECUPERADOS','OFFSET DE RELÃ“GIO: INDETERMINADO'] },
   { id:'draft', name:'rascunho.txt', type:'text', parent:'trash', created:'01/10/2025 11:22', modified:'01/10/2025 11:23', size:'1 KB', origin:'DOCUMENTOS', body:['isso parece menos suspeito no papel'] },
   { id:'empty-folder', name:'SEM_NOME', type:'folder', parent:'personal', path:'C:\\PESSOAL\\SEM_NOME', children:[] },
-  { id:'audio-note', name:'calibracao.wav', type:'audio', parent:'personal', created:'07/10/2025 19:10', modified:'07/10/2025 19:10', size:'64 KB', origin:'GERADOR LOCAL', body:['00:04','RUÍDO DE ALINHAMENTO','SEM FALA'] },
-  { id:'display-driver', name:'VGA_640.drv', type:'data', parent:'drivers', created:'17/04/1991 08:00', modified:'17/04/1991 08:00', size:'42 KB', origin:'INSTALAÇÃO LOCAL', body:['CONTROLADOR DE VÍDEO','ESTADO NOMINAL'] },
-  { id:'audio-driver', name:'VX_AUDIO.drv', type:'data', parent:'drivers', created:'17/04/1991 08:00', modified:'07/04/1993 11:40', size:'31 KB', origin:'INSTALAÇÃO LOCAL', body:['CONTROLADOR DE ÁUDIO','PORTADORA NÃO CATALOGADA'] },
-  { id:'log-0704', name:'REG_070411.idx', type:'log', parent:'registers', created:'10/10/2025 07:04', modified:'10/10/2025 07:04', size:'4 KB', origin:'ESTAÇÃO R-1010', body:['07:04:11  NÓ_01  nominal','ORIGEM  estação local','ASSINATURA  válida'] },
-  { id:'log-0709', name:'REG_070932.idx', type:'log', parent:'registers', created:'10/10/2025 07:09', modified:'10/10/2025 07:09', size:'4 KB', origin:'ESTAÇÃO R-1010', body:['07:09:32  REGISTRO_674','verificação divergente','ORIGEM  estação local'] },
-  { id:'event-1010', name:'REG_101000.idx', type:'log', parent:'registers', created:'17/04/1991 03:17', modified:'10/10/2025 10:10', size:'10 KB', origin:'VOLUME EXTERNO / NÃO MONTADO', attributes:'SISTEMA · OCULTO · SOMENTE LEITURA', body:['10:10:00  EVENTO_1010','origem desconhecida','volume correspondente ausente','índice anterior à pasta atual'], anomaly:true },
-  { id:'log-1011', name:'REG_101108.idx', type:'log', parent:'registers', created:'10/10/2025 10:11', modified:'10/10/2025 10:11', size:'4 KB', origin:'ESTAÇÃO R-1010', body:['10:11:08  VX-04','sem portadora','ORIGEM  estação local'] },
-  { id:'log-1102', name:'REG_110214.idx', type:'log', parent:'registers', created:'10/10/2025 11:02', modified:'10/10/2025 11:02', size:'4 KB', origin:'ESTAÇÃO R-1010', body:['11:02:14  VX-11','adiado','ORIGEM  estação local'] },
-  { id:'source-b', name:'REG_142510.idx', type:'log', parent:'registers', created:'10/10/2025 14:25', modified:'10/10/2025 14:25', size:'4 KB', origin:'ESTAÇÃO R-1010', body:['14:25:10  SRC-B','correlação adiada','ORIGEM  estação local'] }
+  { id:'audio-note', name:'calibracao.wav', type:'audio', parent:'personal', created:'07/10/2025 19:10', modified:'07/10/2025 19:10', size:'64 KB', origin:'GERADOR LOCAL', body:['00:04','RUÃDO DE ALINHAMENTO','SEM FALA'] },
+  { id:'display-driver', name:'VGA_640.drv', type:'data', parent:'drivers', created:'17/04/1991 08:00', modified:'17/04/1991 08:00', size:'42 KB', origin:'INSTALAÃ‡ÃƒO LOCAL', body:['CONTROLADOR DE VÃDEO','ESTADO NOMINAL'] },
+  { id:'audio-driver', name:'VX_AUDIO.drv', type:'data', parent:'drivers', created:'17/04/1991 08:00', modified:'07/04/1993 11:40', size:'31 KB', origin:'INSTALAÃ‡ÃƒO LOCAL', body:['CONTROLADOR DE ÃUDIO','PORTADORA NÃƒO CATALOGADA'] },
+  { id:'log-0704', name:'REG_070411.idx', type:'log', parent:'registers', created:'10/10/2025 07:04', modified:'10/10/2025 07:04', size:'4 KB', origin:'ESTAÃ‡ÃƒO R-1010', body:['07:04:11  NÃ“_01  nominal','ORIGEM  estaÃ§Ã£o local','ASSINATURA  vÃ¡lida'] },
+  { id:'log-0709', name:'REG_070932.idx', type:'log', parent:'registers', created:'10/10/2025 07:09', modified:'10/10/2025 07:09', size:'4 KB', origin:'ESTAÃ‡ÃƒO R-1010', body:['07:09:32  REGISTRO_674','verificaÃ§Ã£o divergente','ORIGEM  estaÃ§Ã£o local'] },
+  { id:'event-1010', name:'REG_101000.idx', type:'log', parent:'registers', created:'17/04/1991 03:17', modified:'10/10/2025 10:10', size:'10 KB', origin:'VOLUME EXTERNO / NÃƒO MONTADO', attributes:'SISTEMA Â· OCULTO Â· SOMENTE LEITURA', body:['10:10:00  EVENTO_1010','origem desconhecida','volume correspondente ausente','Ã­ndice anterior Ã  pasta atual'], anomaly:true },
+  { id:'log-1011', name:'REG_101108.idx', type:'log', parent:'registers', created:'10/10/2025 10:11', modified:'10/10/2025 10:11', size:'4 KB', origin:'ESTAÃ‡ÃƒO R-1010', body:['10:11:08  VX-04','sem portadora','ORIGEM  estaÃ§Ã£o local'] },
+  { id:'log-1102', name:'REG_110214.idx', type:'log', parent:'registers', created:'10/10/2025 11:02', modified:'10/10/2025 11:02', size:'4 KB', origin:'ESTAÃ‡ÃƒO R-1010', body:['11:02:14  VX-11','adiado','ORIGEM  estaÃ§Ã£o local'] },
+  { id:'source-b', name:'REG_142510.idx', type:'log', parent:'registers', created:'10/10/2025 14:25', modified:'10/10/2025 14:25', size:'4 KB', origin:'ESTAÃ‡ÃƒO R-1010', body:['14:25:10  SRC-B','correlaÃ§Ã£o adiada','ORIGEM  estaÃ§Ã£o local'] }
 ];
 
 const RESOURCES = Object.freeze(Object.fromEntries(RESOURCE_LIST.map((resource) => [resource.id, Object.freeze(resource)])));
@@ -1619,9 +1614,13 @@ function iconMarkup(resource, location = 'window', position = null) {
   return `<button type="button" class="os-icon os-icon--${location}" data-action="os-select" data-os-resource="${resource.id}" aria-label="${escapeHtml(resource.name)}" aria-selected="false"${style}>${glyph(resource.type)}<span>${escapeHtml(resource.name)}</span></button>`;
 }
 
-function folderBody(resource) {
-  const children = (resource.children || []).map((id) => RESOURCES[id]).filter(Boolean);
-  return `<div class="os-address"><span>ENDEREÇO</span><strong>${escapeHtml(resource.path || resource.name)}</strong></div><div class="os-folder-grid">${children.length ? children.map((child) => iconMarkup(child)).join('') : '<p class="os-empty-folder">Esta pasta está vazia.</p>'}</div><footer class="os-statusbar">${children.length} objeto${children.length === 1 ? '' : 's'}<span>${escapeHtml(resource.path || '')}</span></footer>`;
+function folderBody(resource, state) {
+  let childIds = [...(resource.children || [])];
+  if (resource.id === 'temp' && state.flags.event1010Seen) childIds.push('cam-cache');
+  if (resource.id === 'cam-cache' && state.flags.eventChanged) childIds = ['frame-0017','frame-0018','webcam-cache'];
+  if (resource.id === 'cam-cache' && state.flags.clock0317Triggered) childIds = ['frame-0017','frame-0018','frame-0317','webcam-cache'];
+  const children = childIds.map((id) => RESOURCES[id]).filter(Boolean);
+  return `<div class="os-address"><span>ENDEREÃ‡O</span><strong>${escapeHtml(resource.path || resource.name)}</strong></div><div class="os-folder-grid">${children.length ? children.map((child) => iconMarkup(child)).join('') : '<p class="os-empty-folder">Esta pasta estÃ¡ vazia.</p>'}</div><footer class="os-statusbar">${children.length} objeto${children.length === 1 ? '' : 's'}<span>${escapeHtml(resource.path || '')}</span></footer>`;
 }
 
 function textBody(resource) {
@@ -1631,44 +1630,44 @@ function textBody(resource) {
 function logBody(resource, state) {
   const isolated = state.completed.includes('02');
   const altered = resource.anomaly && computerWorldAt(state,state.currentPuzzle).mutations.some((mutation)=>mutation.id==='event-rewrite');
-  const lines = [...(resource.body || []), ...(altered ? ['10:10:00  ASSINATURA REESCRITA','DUAS FONTES PRESENTES NO MESMO EVENTO','CHECKSUM ANTERIOR ≠ CHECKSUM ATUAL'] : [])];
+  const lines = [...(resource.body || []), ...(altered ? ['10:10:00  ASSINATURA REESCRITA','DUAS FONTES PRESENTES NO MESMO EVENTO','CHECKSUM ANTERIOR â‰  CHECKSUM ATUAL'] : [])];
   const anomalyAction = !isolated
     ? '<button type="button" class="os-dialog-button" data-action="os-isolate-event">ISOLAR REGISTRO</button>'
     : altered && !state.flags.eventChanged
-      ? '<button type="button" class="os-dialog-button os-dialog-button--alert" data-action="os-ack-change">PROCESSAR ALTERAÇÃO</button>'
-      : `<p class="os-isolated">${altered?'VERSÃO 02 PROCESSADA // DUAS FONTES':'REGISTRO ISOLADO // CONSULTA'}</p>`;
-  return `<div class="os-log-viewer"><header><span>LEITOR DE ÍNDICE</span><strong>${escapeHtml(resource.name)}</strong></header>${lines.map((line) => `<code>${escapeHtml(line)}</code>`).join('')}${resource.anomaly ? `<div class="os-log-origin"><span>ORIGEM DECLARADA</span><strong>${escapeHtml(resource.origin)}</strong></div>${anomalyAction}` : ''}</div>`;
+      ? '<button type="button" class="os-dialog-button os-dialog-button--alert" data-action="os-ack-change">PROCESSAR ALTERAÃ‡ÃƒO</button>'
+      : `<p class="os-isolated">${altered?'VERSÃƒO 02 PROCESSADA // DUAS FONTES':'REGISTRO ISOLADO // CONSULTA'}</p>`;
+  return `<div class="os-log-viewer"><header><span>LEITOR DE ÃNDICE</span><strong>${escapeHtml(resource.name)}</strong></header>${lines.map((line) => `<code>${escapeHtml(line)}</code>`).join('')}${resource.anomaly ? `<div class="os-log-origin"><span>ORIGEM DECLARADA</span><strong>${escapeHtml(resource.origin)}</strong></div>${anomalyAction}` : ''}</div>`;
 }
 
 function imageBody(resource) {
-  return `<figure class="os-image-viewer"><header><button type="button" data-action="os-image-zoom" data-delta="-.25">−</button><span>ZOOM <output data-image-zoom>100%</output></span><button type="button" data-action="os-image-zoom" data-delta=".25">+</button><button type="button" data-action="os-image-enhance">REALÇAR</button></header><div data-image-canvas><img src="${resource.source}" alt="Imagem antiga: ${escapeHtml(resource.name)}"></div><figcaption>${escapeHtml(resource.name)} · ${escapeHtml(resource.size)} · ${escapeHtml(resource.origin || 'ORIGEM DESCONHECIDA')}</figcaption></figure>`;
+  return `<figure class="os-image-viewer"><header><button type="button" data-action="os-image-zoom" data-delta="-.25">âˆ’</button><span>ZOOM <output data-image-zoom>100%</output></span><button type="button" data-action="os-image-zoom" data-delta=".25">+</button><button type="button" data-action="os-image-enhance">REALÃ‡AR</button></header><div data-image-canvas><img src="${resource.source}" alt="Imagem antiga: ${escapeHtml(resource.name)}"></div><figcaption>${escapeHtml(resource.name)} Â· ${escapeHtml(resource.size)} Â· ${escapeHtml(resource.origin || 'ORIGEM DESCONHECIDA')}</figcaption></figure>`;
 }
 
 function audioBody(resource) {
-  return `<div class="os-audio-player"><div class="os-audio-reels" aria-hidden="true"><i></i><span></span><i></i></div><strong>${escapeHtml(resource.name)}</strong><p>${escapeHtml((resource.body || []).join(' · '))}</p><button type="button" data-action="os-audio-preview">REPRODUZIR</button></div>`;
+  return `<div class="os-audio-player"><div class="os-audio-reels" aria-hidden="true"><i></i><span></span><i></i></div><strong>${escapeHtml(resource.name)}</strong><p>${escapeHtml((resource.body || []).join(' Â· '))}</p><button type="button" data-action="os-audio-preview">REPRODUZIR</button></div>`;
 }
 
 function programBody(resource, state) {
-  if (resource.phaseApp && resource.target === state.currentPuzzle) return `<div class="os-native-app">${activePhaseContent}</div>`;
-  if (resource.id === 'bookscan-app' && resource.target === state.currentPuzzle) return `<div class="os-native-app">${activePhaseContent}</div>`;
-  if (resource.id === 'truth-app' && resource.target === state.currentPuzzle) return `<div class="os-native-app">${activePhaseContent}</div>`;
-  return `<div class="os-program"><div class="os-program__mark">R</div><span>PROGRAMA INSTALADO PELO SISTEMA</span><strong>${escapeHtml(resource.name)}</strong><p>Este dispositivo opera fora da estação gráfica.</p><button type="button" class="os-dialog-button" data-action="navigate" data-target="${resource.target}">EXECUTAR</button></div>`;
+  const targetPuzzle = resource.target ? puzzleFor(resource.target) : null;
+  const isNative = resource.phaseApp || resource.id === 'bookscan-app' || resource.id === 'truth-app';
+  if (isNative && targetPuzzle && resource.target === state.currentPuzzle) return `<div class="os-native-app">${renderScene(targetPuzzle,state)}</div>`;
+  return `<div class="os-program"><div class="os-program__mark">R</div><span>PROGRAMA INSTALADO PELO SISTEMA</span><strong>${escapeHtml(resource.name)}</strong><p>Este dispositivo opera fora da estaÃ§Ã£o grÃ¡fica.</p><button type="button" class="os-dialog-button" data-action="navigate" data-target="${resource.target}">EXECUTAR</button></div>`;
 }
 
 function propertiesBody(resource) {
   const rows = [
     ['TIPO',resource.type.toUpperCase()],['LOCAL',resource.path || `C:\\${String(resource.parent || '').toUpperCase()}`],
-    ['CRIADO',resource.created || '—'],['MODIFICADO',resource.modified || '—'],['TAMANHO',resource.size || '—'],
-    ['ORIGEM',resource.origin || 'ESTAÇÃO R-1010'],['ATRIBUTOS',resource.attributes || 'ARQUIVO']
+    ['CRIADO',resource.created || 'â€”'],['MODIFICADO',resource.modified || 'â€”'],['TAMANHO',resource.size || 'â€”'],
+    ['ORIGEM',resource.origin || 'ESTAÃ‡ÃƒO R-1010'],['ATRIBUTOS',resource.attributes || 'ARQUIVO']
   ];
   return `<div class="os-properties"><div class="os-properties__identity">${glyph(resource.type)}<strong>${escapeHtml(resource.name)}</strong></div><dl>${rows.map(([label,value]) => `<div><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl><footer><button type="button" class="os-dialog-button" data-action="os-window-close">FECHAR</button></footer></div>`;
 }
 
 function resourceBody(entry, state) {
   const resource = RESOURCES[entry.resourceId];
-  if (!resource) return '<p>OBJETO INDISPONÍVEL</p>';
+  if (!resource) return '<p>OBJETO INDISPONÃVEL</p>';
   if (entry.kind === 'properties') return propertiesBody(resource);
-  if (resource.type === 'folder' || resource.type === 'trash') return folderBody(resource);
+  if (resource.type === 'folder' || resource.type === 'trash') return folderBody(resource,state);
   if (resource.type === 'image') return imageBody(resource);
   if (resource.type === 'audio') return audioBody(resource);
   if (resource.type === 'program') return programBody(resource, state);
@@ -1682,47 +1681,78 @@ function desktopWindowMarkup(entry, state) {
   const title = entry.kind === 'properties' ? `Propriedades de ${resource.name}` : resource.name;
   const classes = ['os-window', `os-window--${entry.kind === 'properties' ? 'properties' : resource.type}`, entry.maximized ? 'is-maximized' : '', entry.minimized ? 'is-minimized' : ''].filter(Boolean).join(' ');
   return `<section class="${classes}" data-os-window="${entry.key}" data-resource="${resource.id}" style="--win-x:${entry.x}px;--win-y:${entry.y}px;--win-z:${entry.z}" aria-label="Janela ${escapeHtml(title)}">
-    <header class="os-titlebar" data-os-titlebar><span>${glyph(resource.type)}<strong>${escapeHtml(title)}</strong></span><div><button type="button" data-action="os-window-minimize" aria-label="Minimizar">_</button><button type="button" data-action="os-window-maximize" aria-label="Maximizar">□</button><button type="button" data-action="os-window-close" aria-label="Fechar">×</button></div></header>
+    <header class="os-titlebar" data-os-titlebar><span>${glyph(resource.type)}<strong>${escapeHtml(title)}</strong></span><div><button type="button" data-action="os-window-minimize" aria-label="Minimizar">_</button><button type="button" data-action="os-window-maximize" aria-label="Maximizar">â–¡</button><button type="button" data-action="os-window-close" aria-label="Fechar">Ã—</button></div></header>
     <div class="os-window__body">${resourceBody(entry,state)}</div>
   </section>`;
 }
 
 function bootScreen() {
-  return `<section class="retro-boot"><div class="retro-boot__mark"><i></i><span>R</span></div><div><span>ESTAÇÃO GRÁFICA R-1010</span><strong>SISTEMA LOCAL // 1998.10</strong><p>Uma sessão interrompida pode ser retomada manualmente.</p></div><button type="button" data-action="boot-fragment">INICIAR SISTEMA</button><small>NENHUMA CONEXÃO EXTERNA · VOLUME A: PRESENTE</small></section>`;
+  return `<section class="retro-boot"><div class="retro-boot__mark"><i></i><span>R</span></div><div><span>ESTAÃ‡ÃƒO GRÃFICA R-1010</span><strong>SISTEMA LOCAL // 1998.10</strong><p>Uma sessÃ£o interrompida pode ser retomada manualmente.</p></div><button type="button" data-action="boot-fragment">INICIAR SISTEMA</button><small>NENHUMA CONEXÃƒO EXTERNA Â· VOLUME A: PRESENTE</small></section>`;
 }
 
 function clockPanel(state) {
   const hh = String(state.desktopOs.clockHour).padStart(2,'0');
   const mm = String(state.desktopOs.clockMinute).padStart(2,'0');
-  return `<section class="os-clock-panel" aria-label="Ajustar relógio do sistema" ${state.desktopOs.clockPanelOpen ? '' : 'hidden'}><header>DATA / HORA DO SISTEMA</header><div class="os-clock-adjust"><div><button type="button" data-action="os-clock-delta" data-unit="hour" data-delta="1">▲</button><output data-clock-hour>${hh}</output><button type="button" data-action="os-clock-delta" data-unit="hour" data-delta="-1">▼</button><small>HORA</small></div><b>:</b><div><button type="button" data-action="os-clock-delta" data-unit="minute" data-delta="1">▲</button><output data-clock-minute>${mm}</output><button type="button" data-action="os-clock-delta" data-unit="minute" data-delta="-1">▼</button><small>MINUTO</small></div></div><p>10/10/2025 · fuso local</p><footer><button type="button" data-action="os-clock-apply">APLICAR AO SISTEMA</button><button type="button" data-action="os-clock-toggle">CANCELAR</button></footer></section>`;
+  return `<section class="os-clock-panel" aria-label="Ajustar relÃ³gio do sistema" ${state.desktopOs.clockPanelOpen ? '' : 'hidden'}><header>DATA / HORA DO SISTEMA</header><div class="os-clock-adjust"><div><button type="button" data-action="os-clock-delta" data-unit="hour" data-delta="1">â–²</button><output data-clock-hour>${hh}</output><button type="button" data-action="os-clock-delta" data-unit="hour" data-delta="-1">â–¼</button><small>HORA</small></div><b>:</b><div><button type="button" data-action="os-clock-delta" data-unit="minute" data-delta="1">â–²</button><output data-clock-minute>${mm}</output><button type="button" data-action="os-clock-delta" data-unit="minute" data-delta="-1">â–¼</button><small>MINUTO</small></div></div><p>10/10/2025 Â· fuso local</p><footer><button type="button" data-action="os-clock-apply">APLICAR AO SISTEMA</button><button type="button" data-action="os-clock-toggle">CANCELAR</button></footer></section>`;
 }
 
-function desktop(puzzle, state, content) {
+function desktop(puzzle, state) {
   const windows = state.desktopOs.windows || [];
-  activePhaseContent = content;
   const world = computerWorldAt(state,puzzle?.id);
   const iconPositions = [[18,7],[18,29],[18,51],[18,73],[31,7],[31,29],[31,51],[31,73]];
   const icons = [...BASE_DESKTOP_ICONS, ...world.icons.map((id,index) => [id,...iconPositions[index % iconPositions.length]])];
   const clock = `${String(state.desktopOs.clockHour).padStart(2,'0')}:${String(state.desktopOs.clockMinute).padStart(2,'0')}`;
   return `<section class="retro-desktop retro-desktop--phase-${puzzle?.id || '01'} retro-desktop--${world.wallpaper}" data-retro-desktop data-world="computer">
-    <div class="retro-wallpaper" aria-hidden="true"><i></i><span>RECUPERAÇÃO</span></div>
+    <div class="retro-wallpaper" aria-hidden="true"><i></i><span>RECUPERAÃ‡ÃƒO</span></div>
     <div class="os-desktop-icons">${icons.map(([id,x,y]) => iconMarkup(RESOURCES[id],'desktop',[x,y])).join('')}</div>
     <div class="os-world-notice" ${world.notice ? '' : 'hidden'}><i></i><span>${escapeHtml(world.notice)}</span></div>
     <div class="os-window-layer">${windows.map((entry) => desktopWindowMarkup(entry,state)).join('')}</div>
     <div class="os-context-menu" data-os-context-menu hidden><button type="button" data-action="os-open-context">Abrir</button><button type="button" data-action="os-properties">Propriedades</button></div>
-    <div class="os-start-menu ${state.desktopOs.startOpen ? 'is-open' : ''}" data-os-start-menu ${state.desktopOs.startOpen ? '' : 'hidden'}><header><strong>R</strong><span>ESTAÇÃO 1010</span></header><button type="button" data-action="os-open-resource" data-resource="computer">Meu computador</button><button type="button" data-action="os-open-resource" data-resource="documents">Documentos</button><hr><button type="button" data-action="os-shutdown">Suspender</button></div>
+    <div class="os-start-menu ${state.desktopOs.startOpen ? 'is-open' : ''}" data-os-start-menu ${state.desktopOs.startOpen ? '' : 'hidden'}><header><strong>R</strong><span>ESTAÃ‡ÃƒO 1010</span></header><button type="button" data-action="os-open-resource" data-resource="computer">Meu computador</button><button type="button" data-action="os-open-resource" data-resource="documents">Documentos</button><hr><button type="button" data-action="os-shutdown">Suspender</button></div>
     ${clockPanel(state)}
     <footer class="os-taskbar"><button type="button" class="os-start" data-action="os-start"><i>R</i><span>SISTEMA</span></button><div class="os-running-windows">${windows.map((entry) => `<button type="button" data-action="os-task-window" data-window="${entry.key}">${escapeHtml(RESOURCES[entry.resourceId]?.name || 'Janela')}</button>`).join('')}</div><button type="button" class="os-clock-button ${world.clockMode ? 'is-relevant' : ''}" data-action="os-clock-toggle" data-os-clock>${clock}</button></footer>
   </section>`;
 }
 
-function renderPhaseOneComputer(puzzle, state, content = '') {
-  return `<div class="retro-computer" data-phase-object="computer"><div class="retro-monitor"><div class="retro-monitor__screen">${state.flags.initialized ? desktop(puzzle,state,content) : bootScreen()}</div><div class="retro-monitor__brand"><i></i><span>R-1010</span><small>COLOR DISPLAY</small></div></div></div>`;
+function renderPhaseOneComputer(puzzle, state) {
+  return `<div class="retro-computer" data-phase-object="computer"><div class="retro-monitor"><div class="retro-monitor__screen">${state.flags.initialized ? desktop(puzzle,state) : bootScreen()}</div><div class="retro-monitor__brand"><i></i><span>R-1010</span><small>COLOR DISPLAY</small></div></div></div>`;
 }
 
 exports.desktopResource = desktopResource;
 exports.desktopWindowMarkup = desktopWindowMarkup;
 exports.renderPhaseOneComputer = renderPhaseOneComputer;
+},
+"js/worlds/computer-world.js": function(module, exports, __require) {
+const { PUZZLES, puzzleFor } = __require("js/puzzles/catalog.js");
+function conditionMet(state, condition = {}) {
+  if (condition.flag && !state.flags[condition.flag]) return false;
+  if (condition.discovery && !state.discoveries.includes(condition.discovery)) return false;
+  if (condition.unlocked && !state.unlocked.includes(condition.unlocked)) return false;
+  if (condition.completed && !state.completed.includes(condition.completed)) return false;
+  if (condition.event && !state.events.some((event)=>event.type===condition.event)) return false;
+  return true;
+}
+
+function activeMutations(state) {
+  return PUZZLES.flatMap((puzzle)=>puzzle.mutations || []).filter((mutation)=>conditionMet(state,mutation.when));
+}
+
+function computerWorldAt(state, phaseId = state.currentPuzzle) {
+  const mutations = activeMutations(state);
+  const latestMutationWith = (property) => [...mutations].reverse().find((mutation) => mutation[property]);
+  const reactiveIcons = [state.flags.clock0317Triggered ? 'clock-note' : null].filter(Boolean);
+  const phaseMutation = (puzzleFor(phaseId).mutations || []).find((mutation)=>mutation.phaseApp && conditionMet(state,mutation.when));
+  return Object.freeze({
+    mutations,
+    icons: [...new Set([...mutations.flatMap((mutation) => mutation.icons || []),...reactiveIcons])],
+    wallpaper: state.flags.clockOriginRestored ? 'synchronized' : latestMutationWith('wallpaper')?.wallpaper || 'base',
+    notice: latestMutationWith('notice')?.notice || '',
+    clockMode: latestMutationWith('clockMode')?.clockMode || null,
+    phaseApp: phaseMutation?.phaseApp || null
+  });
+}
+
+exports.computerWorldAt = computerWorldAt;
 },
 "js/scenes/shared.js": function(module, exports, __require) {
 const { GAME_CONFIG } = __require("js/config.js");
@@ -1872,85 +1902,184 @@ exports.renderPhoneScene = renderPhoneScene;
 },
 "js/phone.js": function(module, exports, __require) {
 const { escapeHtml } = __require("js/utils.js");
-const THREADS = Object.freeze({
-  j: {
-    name:'J.', preview:'eu sabia que você ia achar essa foto',
-    messages:[
-      ['in','você ainda chama aquilo de “só um corte”?'],
-      ['out','não começa'],
-      ['in','eu achei a foto antiga. a metadata sobreviveu.'],
-    ]
-  },
-  unknown: {
-    name:'NÚMERO NÃO SALVO', preview:'esse não era o primeiro',
-    messages:[['in','você abriu justamente esse.'],['in','esse não era o primeiro horário.']]
-  }
-});
+const UNKNOWN_MESSAGES = Object.freeze([
+  ['message:first-file','vocÃª abriu justamente esse.'],
+  ['message:not-first','vocÃª demorou pra perceber que mudou.'],
+  ['message:first-time','vocÃª jÃ¡ viu esse horÃ¡rio.'],
+  ['message:local-not-yours','local nÃ£o significa seu.']
+]);
 
-function statusBar(state) {
-  const time = `${String(state.desktopOs.clockHour).padStart(2,'0')}:${String(state.desktopOs.clockMinute).padStart(2,'0')}`;
-  return `<header class="phone-status"><time>${time}</time><span>▮▮▮</span><span>${state.phone.battery}%</span></header>`;
+const GALLERY = Object.freeze([
+  { id:'cam-room', src:'./assets/images/webcam-frame-0017.jpg', label:'CAM_0001', meta:'08/10/2025 Â· cÃ¢mera domÃ©stica Â· quarto vazio' },
+  { id:'mullet', src:'./assets/images/camera-02.svg', label:'IMG_2019', meta:'17/04/2019 Â· cÃ¢mera frontal Â· metadata recuperada' },
+  { id:'moon', src:'./assets/images/moon-scan.svg', label:'SCAN_LUA', meta:'10/10/2025 Â· scanner local Â· exposiÃ§Ã£o plana' },
+  { id:'shelf', src:'./assets/evidence/books/shelf-cam-01.jpg', label:'ESTANTE_01', meta:'17/09/2025 Â· cÃ¢mera domÃ©stica Â· cÃ³pia comprimida', optional:true }
+]);
+
+const hasPhase = (state,id) => state.unlocked.includes(id) || state.completed.includes(id);
+const wasDelivered = (state,id) => state.phone.delivered.includes(id);
+const phoneTime = (state) => `${String(state.phone.clock.hour).padStart(2,'0')}:${String(state.phone.clock.minute).padStart(2,'0')}`;
+
+function renderPhoneStatus(state) {
+  return `<time>${phoneTime(state)}</time><span aria-label="sinal local">â–®â–®â–®</span><span>${state.phone.battery}%</span>`;
 }
 
 function lockScreen(state) {
-  const time = `${String(state.desktopOs.clockHour).padStart(2,'0')}:${String(state.desktopOs.clockMinute).padStart(2,'0')}`;
-  return `<section class="phone-lock"><time>${time}</time><span>10 de outubro</span>${state.phone.unread ? `<button type="button" data-action="phone-unlock"><i>MENSAGENS</i><strong>${state.phone.unread} notificação${state.phone.unread === 1 ? '' : 'ões'}</strong><small>deslize para consultar</small></button>` : ''}<button type="button" class="phone-unlock" data-action="phone-unlock">DESBLOQUEAR</button></section>`;
+  const latest = state.phone.notifications.at(-1);
+  return `<section class="phone-lock"><time>${phoneTime(state)}</time><span>10 de outubro</span>${latest ? `<button type="button" class="phone-lock__notification" data-action="phone-unlock"><i>${escapeHtml(latest.label)}</i><strong>${escapeHtml(latest.preview)}</strong><small>toque para consultar</small></button>` : ''}<button type="button" class="phone-unlock" data-action="phone-unlock">DESBLOQUEAR</button></section>`;
 }
 
 function home(state) {
-  const reached = Math.max(...state.unlocked.map(Number),1);
   const apps = [
-    ['messages','▣','Mensagens',true],['gallery','▧','Galeria',reached>=12],['recorder','≋','Gravador',reached>=17],['notes','▤','Notas',reached>=20]
+    ['messages','â–£','Mensagens',true],
+    ['calls','â—–','Chamadas',state.phone.calls.length > 0 || hasPhase(state,'03')],
+    ['gallery','â–§','Galeria',hasPhase(state,'12')],
+    ['recorder','â‰‹','Gravador',hasPhase(state,'17')],
+    ['notes','â–¤','Notas',hasPhase(state,'20')],
+    ['calendar','â–¡','CalendÃ¡rio',hasPhase(state,'23')],
+    ['files','âŒ‘','Arquivos',hasPhase(state,'14')],
+    ['camera','â—‰','CAM Archive',state.flags.clock0317Triggered]
   ];
-  return `<section class="phone-home"><div class="phone-app-grid">${apps.filter(([, , ,available])=>available).map(([app,icon,label])=>`<button type="button" data-action="phone-app" data-phone-app="${app}"><i>${icon}</i><span>${label}</span>${app==='messages'&&state.phone.unread?`<b>${state.phone.unread}</b>`:''}</button>`).join('')}</div><p>dispositivo local · sem rede</p></section>`;
+  return `<section class="phone-home"><div class="phone-app-grid">${apps.filter(([, , ,available])=>available).map(([app,icon,label])=>`<button type="button" data-action="phone-app" data-phone-app="${app}"><i>${icon}</i><span>${label}</span>${app==='messages'&&state.phone.unread?`<b>${state.phone.unread}</b>`:''}</button>`).join('')}</div><p>dispositivo local Â· sem rede</p></section>`;
 }
 
 function messages(state) {
   if (state.phone.thread) {
-    const thread = THREADS[state.phone.thread] || THREADS.j;
-    const reactiveMessages = state.phone.thread === 'unknown' ? [
-      state.phone.events.includes('message:first-file') && ['in','você abriu justamente esse.'],
-      state.phone.events.includes('message:not-first') && ['in','esse não era o primeiro.'],
-      state.phone.events.includes('message:first-time') && ['in','esse não era o primeiro horário.']
-    ].filter(Boolean) : thread.messages;
-    return `<section class="phone-app phone-thread"><header><button type="button" data-action="phone-app" data-phone-app="messages">‹</button><strong>${thread.name}</strong></header><div class="phone-chat">${reactiveMessages.map(([side,text])=>`<p class="is-${side}">${escapeHtml(text)}</p>`).join('')}${state.phone.thread==='j'?`<article class="phone-attachment"><div class="phone-photo-placeholder"><i></i><span>IMG_2019</span></div><strong>IMG_2019_MULLET.jpg</strong><small>17/04/2019 · câmera frontal · comentário: “ele vai negar até o fim”</small><button type="button" data-action="phone-confirm-memory">ANEXAR METADATA AO ARQUIVO</button></article>`:''}</div></section>`;
+    const unknown = UNKNOWN_MESSAGES.filter(([id]) => wasDelivered(state,id)).map(([,text]) => ['in',text]);
+    const isJ = state.phone.thread === 'j';
+    const chat = isJ ? [
+      ['in','vocÃª ainda chama aquilo de â€œsÃ³ um corteâ€?'],
+      ['out','nÃ£o comeÃ§a'],
+      ['in','eu achei a foto antiga. a metadata sobreviveu.']
+    ] : unknown;
+    return `<section class="phone-app phone-thread"><header><button type="button" data-action="phone-app" data-phone-app="messages" aria-label="Voltar">â€¹</button><strong>${isJ?'J.':'NÃšMERO NÃƒO SALVO'}</strong></header><div class="phone-chat" data-phone-chat>${chat.map(([side,text])=>`<p class="is-${side}">${escapeHtml(text)}</p>`).join('')}${isJ?`<article class="phone-attachment"><img src="./assets/images/camera-02.svg" alt="Fotografia antiga recuperada"><strong>IMG_2019_MULLET.jpg</strong><small>17/04/2019 Â· cÃ¢mera frontal Â· comentÃ¡rio: â€œele vai negar atÃ© o fimâ€</small><button type="button" data-action="phone-confirm-memory">ANEXAR METADATA AO ARQUIVO</button></article>`:''}</div></section>`;
   }
-  const reached=Math.max(...state.unlocked.map(Number),1);
-  return `<section class="phone-app phone-messages"><header><button type="button" data-action="phone-home">‹</button><strong>MENSAGENS</strong></header>${Object.entries(THREADS).filter(([id])=>id!=='j'||reached>=12).map(([id,thread])=>`<button type="button" data-action="phone-thread" data-thread="${id}"><i>${thread.name.slice(0,1)}</i><span><strong>${thread.name}</strong><small>${thread.preview}</small></span>${id==='unknown'&&state.phone.unread?'<b></b>':''}</button>`).join('')}</section>`;
+  const unknownPreview = UNKNOWN_MESSAGES.filter(([id])=>wasDelivered(state,id)).at(-1)?.[1] || 'nenhuma mensagem entregue';
+  return `<section class="phone-app phone-messages"><header><button type="button" data-action="phone-home" aria-label="InÃ­cio">â€¹</button><strong>MENSAGENS</strong></header><button type="button" data-action="phone-thread" data-thread="unknown"><i>N</i><span><strong>NÃšMERO NÃƒO SALVO</strong><small>${escapeHtml(unknownPreview)}</small></span>${state.phone.unread?'<b></b>':''}</button>${hasPhase(state,'12')?`<button type="button" data-action="phone-thread" data-thread="j"><i>J</i><span><strong>J.</strong><small>eu sabia que vocÃª ia achar essa foto</small></span></button>`:''}</section>`;
 }
 
-function gallery() {
-  return `<section class="phone-app phone-gallery"><header><button type="button" data-action="phone-home">‹</button><strong>GALERIA</strong></header><div><article><i>REC</i><span>estante_01</span></article><article><i>IMG</i><span>IMG_2019</span></article><article class="is-corrupt"><i>?</i><span>sem_data</span></article></div><p>A captura da estante também existe no computador, mas com compressão diferente.</p></section>`;
+function calls(state) {
+  return `<section class="phone-app phone-calls"><header><button type="button" data-action="phone-home" aria-label="InÃ­cio">â€¹</button><strong>CHAMADAS</strong></header><div class="phone-call-list">${state.phone.calls.length ? state.phone.calls.map((call)=>`<article><i>â†™</i><span><strong>${escapeHtml(call.from)}</strong><small>${escapeHtml(call.duration)} Â· ${escapeHtml(call.status)}</small></span><button type="button" data-action="phone-call-audio" data-signal="${escapeHtml(call.signal)}">OUVIR</button></article>`).join('') : '<p>Nenhuma chamada registrada.</p>'}</div><div class="phone-call-caption" data-phone-call-caption>O histÃ³rico permanece neste dispositivo.</div></section>`;
+}
+
+function gallery(state) {
+  const selected = GALLERY.find((item)=>item.id===state.phone.galleryItem);
+  if (selected) return `<section class="phone-app phone-gallery-detail"><header><button type="button" data-action="phone-gallery-close" aria-label="Voltar">â€¹</button><strong>${escapeHtml(selected.label)}</strong></header><div class="phone-gallery-image"><img src="${selected.src}" alt="${escapeHtml(selected.label)}"></div><dl><dt>METADATA</dt><dd>${escapeHtml(selected.meta)}</dd></dl><button type="button" data-action="phone-share-evidence" data-gallery="${selected.id}">ANEXAR Ã€ INVESTIGAÃ‡ÃƒO LOCAL</button></section>`;
+  return `<section class="phone-app phone-gallery"><header><button type="button" data-action="phone-home" aria-label="InÃ­cio">â€¹</button><strong>GALERIA</strong></header><div>${GALLERY.map((item)=>`<button type="button" data-action="phone-gallery-open" data-gallery="${item.id}" ${item.optional?'data-evidence-frame':''}><img src="${item.src}" alt="" ${item.optional?'data-evidence-source':''}><span>${escapeHtml(item.label)}</span>${item.optional?'<i class="phone-gallery-missing">CAPTURA AUSENTE</i>':''}</button>`).join('')}</div><p>As cÃ³pias possuem origens e compressÃµes diferentes.</p></section>`;
 }
 
 function recorder() {
-  return `<section class="phone-app phone-recorder"><header><button type="button" data-action="phone-home">‹</button><strong>GRAVADOR</strong></header><div class="phone-wave">${Array.from({length:31},(_,i)=>`<i style="--h:${18+((i*17)%68)}%"></i>`).join('')}</div><strong>fonte_03.m4a</strong><span>00:07 · três impactos · ruído de sala</span><button type="button" data-action="phone-audio">REPRODUZIR</button></section>`;
+  return `<section class="phone-app phone-recorder"><header><button type="button" data-action="phone-home">â€¹</button><strong>GRAVADOR</strong></header><div class="phone-wave" aria-label="Forma de onda de sete segundos">${Array.from({length:31},(_,i)=>`<i style="--h:${18+((i*17)%68)}%"></i>`).join('')}</div><strong>fonte_03.m4a</strong><span>00:07 Â· trÃªs impactos Â· ruÃ­do de sala</span><button type="button" data-action="phone-audio">REPRODUZIR</button></section>`;
 }
 
 function notes() {
-  return `<section class="phone-app phone-notes"><header><button type="button" data-action="phone-home">‹</button><strong>NOTAS</strong></header><p>não é a primeira leitura.</p><p>devolver o relógio para onde tudo começou.</p></section>`;
+  return `<section class="phone-app phone-notes"><header><button type="button" data-action="phone-home">â€¹</button><strong>NOTAS</strong></header><p>nÃ£o Ã© a primeira leitura.</p><p>devolver o relÃ³gio para onde tudo comeÃ§ou.</p></section>`;
 }
 
-function phoneContent(state) {
+function calendar() {
+  return `<section class="phone-app phone-calendar"><header><button type="button" data-action="phone-home">â€¹</button><strong>CALENDÃRIO</strong></header><time>10</time><span>OUTUBRO Â· 2025</span><article><strong>10:10</strong><p>nenhum tÃ­tulo</p><small>criado antes da instalaÃ§Ã£o deste dispositivo</small></article></section>`;
+}
+
+function files(state) {
+  return `<section class="phone-app phone-files"><header><button type="button" data-action="phone-home">â€¹</button><strong>ARQUIVOS</strong></header><article><i>IMG</i><span><strong>IMG_2019_MULLET.jpg</strong><small>1,8 MB Â· local</small></span></article><article><i>REC</i><span><strong>fonte_03.m4a</strong><small>00:07 Â· local</small></span></article>${state.flags.clock0317Triggered?'<article class="is-new"><i>DAT</i><span><strong>FRAME_0317.BMP</strong><small>metadata alterada</small></span></article>':''}</section>`;
+}
+
+function cameraArchive(state) {
+  const frames = [
+    ['./assets/images/webcam-frame-0017.jpg','FRAME_0017.JPG','03:12:44 Â· TV desligada'],
+    ['./assets/images/webcam-frame-0018.jpg','FRAME_0018.JPG','03:14:09 Â· compressÃ£o incompleta'],
+    ['./assets/images/webcam-frame-0317.jpg','FRAME_0317.BMP',state.phone.clock.synchronized?'03:17:00 Â· relÃ³gio incompatÃ­vel':'timestamp ilegÃ­vel']
+  ];
+  return `<section class="phone-app phone-camera-archive"><header><button type="button" data-action="phone-home">â€¹</button><strong>CAM ARCHIVE</strong></header>${frames.map(([src,label,meta])=>`<article><img src="${src}" alt="Captura simulada recuperada"><span><strong>${label}</strong><small>${meta}</small></span></article>`).join('')}<p>CAPTURAS RECUPERADAS Â· cÃ¢mera real nÃ£o utilizada.</p></section>`;
+}
+
+function renderPhoneScreen(state) {
   if (state.phone.locked) return lockScreen(state);
   if (state.phone.app === 'messages') return messages(state);
-  if (state.phone.app === 'gallery') return gallery();
+  if (state.phone.app === 'calls') return calls(state);
+  if (state.phone.app === 'gallery') return gallery(state);
   if (state.phone.app === 'recorder') return recorder();
   if (state.phone.app === 'notes') return notes();
+  if (state.phone.app === 'calendar') return calendar();
+  if (state.phone.app === 'files') return files(state);
+  if (state.phone.app === 'camera') return cameraArchive(state);
   return home(state);
 }
 
 function renderPhoneDevice(state, { embedded = false } = {}) {
-  return `<div class="phone-device ${embedded ? 'is-embedded' : ''}" data-phone-device data-motion-scope="device">${statusBar(state)}<main>${phoneContent(state)}</main><footer><button type="button" data-action="phone-home" aria-label="Tela inicial"></button></footer></div>`;
+  return `<div class="phone-device ${embedded ? 'is-embedded' : ''}" data-phone-device data-motion-scope="device"><header class="phone-status" data-phone-status>${renderPhoneStatus(state)}</header><main data-phone-screen>${renderPhoneScreen(state)}</main><footer><button type="button" data-action="phone-home" aria-label="Tela inicial"></button></footer></div>`;
+}
+
+function patchPhoneDevices(state, { screen = false, status = false, badges = false } = {}) {
+  document.querySelectorAll('[data-phone-device]').forEach((device) => {
+    if (status) {
+      const bar = device.querySelector('[data-phone-status]');
+      if (bar) bar.innerHTML = renderPhoneStatus(state);
+    }
+    if (screen) {
+      const target = device.querySelector('[data-phone-screen]');
+      if (target) {
+        const scrollTop = target.scrollTop;
+        target.innerHTML = renderPhoneScreen(state);
+        target.scrollTop = scrollTop;
+        target.querySelectorAll('[data-evidence-source]').forEach((image)=>{
+          const frame=image.closest('[data-evidence-frame]');
+          const update=()=>frame?.classList.toggle('has-source',image.complete&&image.naturalWidth>0);
+          image.addEventListener('load',update,{once:true});image.addEventListener('error',update,{once:true});update();
+        });
+      }
+    }
+  });
+  if (badges) {
+    document.querySelectorAll('.phone-dock__toggle').forEach((toggle) => {
+      toggle.querySelector('b')?.remove();
+      if (state.phone.unread) toggle.insertAdjacentHTML('beforeend',`<b>${state.phone.unread}</b>`);
+    });
+  }
+}
+
+function patchPhoneDelivery(state, { type, payload }) {
+  document.querySelectorAll('[data-phone-device]').forEach((device)=>{
+    const screen=device.querySelector('[data-phone-screen]');
+    if (!screen) return;
+    const chat=screen.querySelector('[data-phone-chat]');
+    if (type==='message' && state.phone.app==='messages' && state.phone.thread==='unknown' && chat) {
+      const message=document.createElement('p');
+      message.className='is-in';
+      message.textContent=payload.text;
+      chat.append(message);
+      chat.scrollTop=chat.scrollHeight;
+      return;
+    }
+    if ((type==='message' && screen.querySelector('.phone-messages')) || (type==='call' && screen.querySelector('.phone-calls'))) {
+      const scrollTop=screen.scrollTop;
+      screen.innerHTML=renderPhoneScreen(state);
+      screen.scrollTop=scrollTop;
+    }
+  });
+}
+
+function showPhoneNotification(notification) {
+  if (!notification) return;
+  document.querySelectorAll('[data-phone-dock]').forEach((dock) => {
+    dock.classList.add('has-notification');
+    dock.querySelector('.phone-notification')?.remove();
+    dock.insertAdjacentHTML('beforeend',`<button type="button" class="phone-notification" data-action="phone-open-notification" data-kind="${notification.kind}"><strong>${escapeHtml(notification.label)}</strong><span>${escapeHtml(notification.preview)}</span></button>`);
+  });
 }
 
 function renderPhoneDock(state, puzzle) {
-  const available = Number(puzzle.id) >= 10 || state.unlocked.includes('12');
+  const available = state.unlocked.includes('10') || state.unlocked.includes('12');
   if (!available || puzzle.id === '25' || puzzle.world === 'phone') return '';
-  return `<aside class="phone-dock ${state.phone.open ? 'is-open' : ''}" data-phone-dock aria-label="Celular da investigação"><button type="button" class="phone-dock__toggle" data-action="phone-toggle" aria-expanded="${state.phone.open}"><i></i><span>CELULAR</span>${state.phone.unread?`<b>${state.phone.unread}</b>`:''}</button><div class="phone-dock__device" ${state.phone.open?'':'hidden'}>${renderPhoneDevice(state)}</div></aside>`;
+  return `<aside class="phone-dock ${state.phone.open ? 'is-open' : ''}" data-phone-dock aria-label="Celular da investigaÃ§Ã£o"><button type="button" class="phone-dock__toggle" data-action="phone-toggle" aria-expanded="${state.phone.open}"><i></i><span>CELULAR</span>${state.phone.unread?`<b>${state.phone.unread}</b>`:''}</button><div class="phone-dock__device" ${state.phone.open?'':'hidden'}>${renderPhoneDevice(state)}</div></aside>`;
 }
 
+exports.renderPhoneStatus = renderPhoneStatus;
+exports.renderPhoneScreen = renderPhoneScreen;
 exports.renderPhoneDevice = renderPhoneDevice;
+exports.patchPhoneDevices = patchPhoneDevices;
+exports.patchPhoneDelivery = patchPhoneDelivery;
+exports.showPhoneNotification = showPhoneNotification;
 exports.renderPhoneDock = renderPhoneDock;
 },
 "js/router.js": function(module, exports, __require) {
@@ -2398,8 +2527,7 @@ exports.Motion = Motion;
 const { GAME_CONFIG } = __require("js/config.js");
 const { audioManager } = __require("js/audio.js");
 const { trackClick } = __require("js/analytics.js");
-const { useHint } = __require("js/hints.js");
-const { addEvent, completePuzzle, getState, recordAttempt, resetState, unlockThrough, updateState } = __require("js/state.js");
+const { addEvent, completePuzzle, getState, recordAttempt, updateState } = __require("js/state.js");
 const { clamp, normalizeAnswer } = __require("js/utils.js");
 const { uiFeedback } = __require("js/ui-feedback.js");
 const { Motion } = __require("js/motion-engine.js");
@@ -2407,11 +2535,16 @@ const { evaluateRoom } = __require("js/room-model.js");
 const { completionFor, isAcceptedAnswer } = __require("js/progression.js");
 const { clarityFor, validateInputFormat } = __require("js/puzzles/clarity.js");
 const { archiveRecordFor } = __require("js/archive.js");
-const { syncClarityStatus, syncDocumentExtraction, syncForensicSelection, syncHintPanel, syncIdentityRelations, syncLocationSelection, syncMuteControls, syncRoomState, syncTv } = __require("js/dom-sync.js");
+const { syncIdentityRelations, syncRoomState } = __require("js/dom-sync.js");
 const { handleComputerClick, handleComputerKeydown, returnComputerToTask } = __require("js/events/computer.js");
 const { handleReconstructionClick } = __require("js/events/reconstruction.js");
-const { handleDesktopBackgroundClick, handleDesktopClick, handleDesktopDoubleClick, handleDesktopKeydown, handleDesktopPointerDown, handleDesktopPointerMove, handleDesktopPointerUp, handleDesktopContextMenu, openDesktopResource } = __require("js/events/desktop-os.js");
-const { renderPhoneDevice } = __require("js/phone.js");
+const { handleDesktopBackgroundClick, handleDesktopClick, handleDesktopDoubleClick, handleDesktopKeydown, handleDesktopPointerDown, handleDesktopPointerMove, handleDesktopPointerUp, handleDesktopContextMenu } = __require("js/events/desktop-os.js");
+const { handlePhoneClick } = __require("js/events/phone.js");
+const { handleReceiverClick } = __require("js/events/receiver.js");
+const { handleClockClick } = __require("js/events/clock.js");
+const { handleBookscanClick } = __require("js/events/bookscan.js");
+const { handleNavigationClick } = __require("js/events/navigation.js");
+const { handlePuzzleClick } = __require("js/events/puzzle-actions.js");
 const { emitWorldEvent } = __require("js/worlds/world-events.js");
 let refresh = () => {};
 let go = () => {};
@@ -2472,62 +2605,6 @@ function handleAnswer(id, answer) {
   else wrong(id, answer);
 }
 
-function setTv(property, value) {
-  updateState((state) => {
-    state.tv[property] = value;
-  });
-  const eventName = property === 'power' ? 'tv:power' : property === 'channel' ? 'tv:channel' : property === 'fine' ? 'tv:fine' : 'tv:volume';
-  Motion.emit(eventName, { property, value });
-}
-
-function handleTv(action, button) {
-  const state = getState();
-  if (current() === '17' && !state.flags.greenNodeValidated) return;
-  if (action === 'tv-power') setTv('power', !state.tv.power);
-  if (action === 'tv-channel') setTv('channel', clamp(state.tv.channel + Number(button.dataset.delta), 1, 12));
-  if (action === 'tv-volume') setTv('volume', clamp(state.tv.volume + Number(button.dataset.delta), 0, 10));
-  if (action === 'tv-fine') setTv('fine', clamp(state.tv.fine + Number(button.dataset.delta), -5, 5));
-  const updated = getState();
-  syncTv(updated);
-  const id = current();
-  if (id === '03' && updated.tv.power && !state.unlocked.includes('13') && updated.tv.channel === 4) {
-    updateState((draft) => { draft.tv.unlocked = true; });
-    Motion.play('receiver-channel-lock', { target: document.querySelector('.tv-cabinet') });
-    emitWorldEvent('tv.channel.04.locked');
-    progress('03',['04'],'CANAL ANÔMALO ENCONTRADO');
-    return;
-  }
-  if (['03', '13'].includes(id) && updated.tv.power && updated.unlocked.includes('13') && !updated.completed.includes('13') && updated.tv.channel === 11) {
-    updateState((draft) => { draft.flags.tvChannel11Primed = true; });
-    syncClarityStatus(id, getState());
-    Motion.play('receiver-channel-loss', { target: document.querySelector('.tv-cabinet') });
-    uiFeedback.toast('CANAL 11 // NENHUMA PORTADORA ESTÁVEL', { kind: 'discovery' });
-    return;
-  }
-  if (['03', '13'].includes(id) && action === 'tv-power' && !updated.tv.power && updated.tv.channel === 11 && updated.flags.tvChannel11Primed && !updated.completed.includes('13')) {
-    updateState((draft) => { draft.flags.tvSequenceSeen = true; });
-    syncTv(getState());
-    Motion.play('tv-afterimage', { target: document.querySelector('.tv-screen') });
-    progress('13',['14'],'IMAGEM RESIDUAL RECUPERADA: FIM / 01 / COMEÇO', { delay: 1000 });
-    return;
-  }
-  if (id === '17' && updated.tv.power && updated.tv.channel === 10 && updated.tv.volume === 10 && updated.tv.fine === 3) {
-    updateState((draft) => { draft.flags.tvTuned = true; });
-    Motion.play('receiver-channel-lock', { target: document.querySelector('.tv-cabinet') });
-    progress('17',['18'],'PORTADORA DO EVENTO_1010 FIXADA');
-    return;
-  }
-  const signalEvent = action === 'tv-channel'
-    ? 'receiver-channel-loss'
-    : action === 'tv-power'
-      ? (updated.tv.power ? 'receiver-power-on' : 'receiver-power-off')
-      : 'frame-ghost';
-  const motionTarget = action === 'tv-volume'
-    ? document.querySelector('.tv-knob-control--volume')
-    : document.querySelector('.tv-cabinet');
-  Motion.play(signalEvent, { target: motionTarget });
-}
-
 async function initializeSystem(button) {
   if (button.disabled) return;
   button.disabled = true;
@@ -2544,21 +2621,6 @@ async function initializeSystem(button) {
     audioManager.playBoot()
   ]);
   progress('01',['02'],'SISTEMA GRÁFICO DISPONÍVEL // INVESTIGUE A MÁQUINA');
-}
-
-async function playMorse() {
-  if (!getState().tv.power) {
-    uiFeedback.toast('SEM SINAL // RECEPTOR DESLIGADO', { kind: 'error' });
-    return;
-  }
-  const lamp = document.querySelector('.morse-lamp');
-  const trace = document.querySelector('.signal-trace');
-  if (!lamp || lamp.dataset.playing) return;
-  lamp.dataset.playing = '1';
-  const pattern = ['--','.', '...', '.-'];
-  await audioManager.playMorse(pattern, lamp, trace);
-  updateState((state) => { state.tv.morsePlays += 1; });
-  delete lamp.dataset.playing;
 }
 
 function handleRelation(button) {
@@ -2585,6 +2647,7 @@ function handleRelation(button) {
       syncIdentityRelations(getState());
       Motion.emit('evidence:linked', { source: 'identity-complete' });
       Motion.emit('evidence:resolve', { source: 'identity-complete' });
+      emitWorldEvent('reconstruction.identity.linked');
       progress('19',['20'],'RECONHECIMENTO DE ENTIDADE: POSITIVO');
       return;
     }
@@ -2630,39 +2693,12 @@ function handleClick(event) {
   if (handleDesktopClick(action, button, event)) return;
   if (handleComputerClick(action, button)) return;
   if (handleReconstructionClick(action, button)) return;
-  if (action === 'navigate') return go(button.dataset.target);
-  if (action === 'phone-toggle') {
-    let open = false;
-    updateState((state)=>{state.phone.open=!state.phone.open;open=state.phone.open;});
-    const dock = button.closest('[data-phone-dock]');
-    dock?.classList.toggle('is-open',open);
-    dock?.querySelector('.phone-dock__device')?.toggleAttribute('hidden',!open);
-    button.setAttribute('aria-expanded',String(open));
-    audioManager.playEvent('phone.lock',{volume:.09});
-    return;
-  }
-  if (['phone-unlock','phone-home','phone-app','phone-thread'].includes(action)) {
-    updateState((state)=>{
-      if (action==='phone-unlock') { state.phone.locked=false; state.phone.app='home'; }
-      if (action==='phone-home') { state.phone.locked=false; state.phone.app='home'; state.phone.thread=null; }
-      if (action==='phone-app') { state.phone.app=button.dataset.phoneApp || 'home'; state.phone.thread=null; if(state.phone.app==='messages') state.phone.unread=0; }
-      if (action==='phone-thread') { state.phone.app='messages'; state.phone.thread=button.dataset.thread || 'j'; state.phone.unread=0; }
-    });
-    document.querySelectorAll('[data-phone-device]').forEach((device)=>device.outerHTML=renderPhoneDevice(getState(),{embedded:device.classList.contains('is-embedded')}));
-    document.querySelectorAll('.phone-dock__toggle b').forEach((badge)=>badge.remove());
-    audioManager.playEvent(action==='phone-unlock'?'phone.unlock':'ui.contact',{volume:.07});
-    return;
-  }
-  if (action === 'phone-confirm-memory') {
-    if (current() !== '12') return feedback('EVIDÊNCIA DETECTADA // CONTEXTO FORENSE AINDA INCOMPLETO','warn');
-    updateState((state)=>{state.phone.events=[...new Set([...state.phone.events,'memory:2019'])];});
-    return correctAnswer('12','mullet');
-  }
-  if (action === 'phone-audio') {
-    audioManager.playEvent('source.03',{volume:.12});
-    button.textContent='00:07 // TRÊS IMPACTOS';
-    return;
-  }
+  if (handlePhoneClick(action,button,{ current, feedback, correctAnswer })) return;
+  if (handleReceiverClick(action,button,{ current, feedback, progress, toast:(message)=>uiFeedback.toast(message,{kind:'discovery'}) })) return;
+  if (handleClockClick(action,{ current, feedback, wrong, progress })) return;
+  if (handleBookscanClick(action,button,{ feedback, wrong })) return;
+  if (handlePuzzleClick(action,button,{ feedback, wrong, progress, correctAnswer })) return;
+  if (handleNavigationClick(action,button,{ go, current, last })) return;
   if (action === 'boot-fragment') return initializeSystem(button);
   if (action === 'os-isolate-event') {
     Motion.emit('archive:record-open', { record: 'evento-1010', altered: false });
@@ -2682,28 +2718,6 @@ function handleClick(event) {
     });
     emitWorldEvent('computer.event.rewritten');
     return progress('10',['11'],'EVENTO_1010: DUAS FONTES CONFIRMADAS');
-  }
-  if (action === 'os-clock-apply') {
-    const state = getState();
-    const time = `${String(state.desktopOs.clockHour).padStart(2,'0')}:${String(state.desktopOs.clockMinute).padStart(2,'0')}`;
-    audioManager.playEvent('computer.clock.apply',{volume:.12});
-    if (current() === '15') {
-      if (time !== '03:17') return wrong('15',time,'O BOOKSCAN não aponta para essa hora.');
-      updateState((draft) => { draft.desktopOs.clockPanelOpen = false; draft.flags.clock0317Triggered = true; });
-      emitWorldEvent('computer.clock.0317');
-      document.querySelector('.retro-desktop')?.classList.add('is-clock-reacting');
-      audioManager.playEvent('system.disk',{volume:.16,duration:.55});
-      Motion.schedule('clock-0317-resource',()=>openDesktopResource('clock-note'),420);
-      return progress('15',['16'],'03:17 // ARQUIVO OCULTO RECUPERADO',{delay:1800});
-    }
-    if (current() === '23') {
-      if (time !== '10:10') return wrong('23',time,'A hora não corresponde ao EVENTO_1010.');
-      updateState((draft) => { draft.desktopOs.clockPanelOpen = false; draft.flags.bookPairResolved = true; draft.flags.clockOriginRestored = true; });
-      document.querySelector('.retro-desktop')?.classList.add('is-clock-synchronized');
-      audioManager.playEvent('system.relay',{volume:.18});
-      return progress('23',['24'],'ORIGEM TEMPORAL SINCRONIZADA // RECUPERAR.exe REESCRITO',{delay:1400});
-    }
-    return feedback(`RELÓGIO AJUSTADO // ${time}`, 'good');
   }
   if (action === 'open-event') {
     updateState((state) => {
@@ -2743,101 +2757,7 @@ function handleClick(event) {
     return progress('10',['11'],'EVENTO_1010: SIGNIFICADO ALTERADO');
   }
   if (action === 'inspect-log') return feedback('NENHUM CONTEÚDO RECUPERÁVEL', 'muted');
-  if (['tv-power','tv-channel','tv-volume','tv-fine'].includes(action)) return handleTv(action, button);
-  if (action === 'play-morse') return playMorse();
-  if (action === 'document-row') {
-    const token = button.dataset.token;
-    Motion.emit('evidence:contact', { source: 'document-comparison', row: button.dataset.row });
-    if (!token) {
-      recordAttempt('06', button.dataset.row, false);
-      uiFeedback.error('TRECHO ALTERADO // As duas versões divergem neste índice.');
-      return Motion.pulse(button, 'is-invalid', 'fast');
-    }
-    updateState((state) => {
-      const selected = state.documentFragments || [];
-      state.documentFragments = selected.includes(token)
-        ? selected.filter((fragment) => fragment !== token)
-        : [...selected, token];
-    });
-    syncDocumentExtraction(getState());
-    Motion.emit('evidence:linked', { source: 'document-invariant', token });
-    return Motion.pulse(button, 'is-revealed', 'fast');
-  }
-  if (action === 'commit-document') {
-    const order = ['A DATA', 'ABRE', 'O ARQUIVO'];
-    const selected = order.filter((token) => (getState().documentFragments || []).includes(token));
-    if (selected.length !== order.length) return feedback('EXTRAÇÃO INCOMPLETA // Encontre os três trechos preservados.', 'warn');
-    button.disabled = true;
-    Motion.emit('evidence:resolve', { source: 'document-invariant' });
-    return correctAnswer('06', order.join(' '));
-  }
-  if (action === 'open-file') {
-    Motion.emit('archive:open', { file: button.dataset.file });
-    const preview = document.querySelector('[data-file-preview]');
-    const file = button.dataset.file;
-    document.querySelectorAll('.file-row').forEach((row)=>row.classList.remove('is-open'));
-    button.classList.add('is-open');
-    preview?.classList.remove('hidden');
-    if (preview) preview.textContent = file === 'final_agora_vai.txt' ? '10:10 // CHAVE DO CONTEÚDO CORRESPONDENTE' : 'VERSÃO PLAUSÍVEL. HORÁRIO INCONSISTENTE.';
-    uiFeedback.reveal(preview);
-    if (file === 'final_agora_vai.txt') {
-      Motion.cancel('file-consistency');
-      return progress('07',['08'],'METADADOS CONFIÁVEIS ENCONTRADOS');
-    }
-    button.classList.add('is-processing');
-    feedback('CONSISTÊNCIA ........ APROVADA', 'good');
-    return Motion.schedule('file-consistency', () => {
-      button.classList.remove('is-processing');
-      wrong('07',file,'CONSISTÊNCIA ........ FALSA // O NOME NÃO É EVIDÊNCIA');
-    }, Motion.reduced ? 0 : 900);
-  }
-  if (action === 'forensic-feature') {
-    Motion.emit('evidence:contact', { source: 'forensic-layer' });
-    updateState((state) => {
-      const key = button.dataset.feature;
-      state.forensicSelections = state.forensicSelections.includes(key) ? state.forensicSelections.filter((item) => item !== key) : [...state.forensicSelections, key];
-    });
-    syncForensicSelection(button, getState());
-    return Motion.pulse(button, 'is-revealed', 'fast');
-  }
-  if (action === 'ack-conflict') {
-    const required=['volume','sides','length','silhouette'];
-    if (!required.every((item)=>(getState().forensicSelections||[]).includes(item))) return feedback('MODELO INCONCLUSIVO: USE AS QUATRO CAMADAS QUE DESCREVEM GEOMETRIA', 'warn');
-    Motion.emit('evidence:resolve', { source: 'forensic-model' });
-    Motion.play('memory-reconstruction', { target: document.querySelector('[data-forensic]') });
-    return progress('11',['12'],'GEOMETRIA DO CONFLITO EXTRAÍDA', { delay: 900 });
-  }
-  if (action === 'bookscan-book') {
-    const id = button.dataset.book;
-    updateState((state)=>{
-      const current = state.bookSelections || [];
-      state.bookSelections = current.includes(id) ? current.filter((item)=>item!==id) : [...current.slice(-1),id];
-    });
-    document.querySelectorAll('[data-action="bookscan-book"]').forEach((item)=>{
-      const selected=getState().bookSelections.includes(item.dataset.book);
-      item.classList.toggle('is-selected',selected);item.setAttribute('aria-pressed',String(selected));
-    });
-    audioManager.playEvent('ui.contact',{volume:.05});
-    return;
-  }
-  if (action === 'bookscan-confirm-pair') {
-    const pair=[...(getState().bookSelections||[])].sort().join('|');
-    if (pair!=='acaba|comeca') return wrong('14',pair,'Os títulos selecionados não formam FIM e COMEÇO a distância 01.');
-    updateState((state)=>{state.flags.bookPairIdentified=true;},{progress:true});
-    document.querySelector('.bookscan-return')?.removeAttribute('hidden');
-    Motion.emit('evidence:linked',{source:'bookscan-adjacency'});
-    return feedback('PAR IDENTIFICADO // AGORA CONSULTE OS VOLUMES FÍSICOS','good');
-  }
   if (action === 'relation') return handleRelation(button);
-  if (action === 'location-fragment') {
-    Motion.emit('evidence:contact', { source: 'location-fragment' });
-    updateState((state) => {
-      const fragment = button.dataset.fragment;
-      state.locationFragments = state.locationFragments.includes(fragment) ? state.locationFragments.filter((item) => item !== fragment) : [...state.locationFragments, fragment];
-    });
-    syncLocationSelection(button, getState());
-    return Motion.pulse(button, 'is-revealed', 'fast');
-  }
   if (action === 'validate-room') return validateRoom();
   if (action === 'confirm-room-return') {
     if (!getState().flags.roomNodeValidated) return feedback('LEITURA FÍSICA AUSENTE', 'warn');
@@ -2850,25 +2770,6 @@ function handleClick(event) {
     return uiFeedback.screenImpact('error', 'INTEGRIDADE 99% // 1 RELAÇÃO NÃO RESOLVIDA', { level: 'dramatic' });
   }
   if (action === 'continue-after-fake') return progress('21',['22'],'CANAL EXTERNO ENCONTRADO');
-  if (action === 'hint') {
-    useHint(button.dataset.puzzle);
-    syncHintPanel(button.dataset.puzzle, getState());
-    return uiFeedback.reveal(button.closest('.hint-panel'), { kind: 'hint' });
-  }
-  if (action === 'toggle-mute') {
-    const muted = !getState().settings.muted;
-    audioManager.setMuted(muted);
-    if (!muted) audioManager.confirmEnabled();
-    syncMuteControls(muted);
-    return uiFeedback.toast(muted ? 'EFEITOS SONOROS DESLIGADOS' : 'EFEITOS SONOROS LIGADOS');
-  }
-  if (action === 'play-final-music') {
-    return audioManager.playMusic(GAME_CONFIG.musicUrl).then((played) => {
-      uiFeedback.toast(played ? 'SINAL DE ÁUDIO INICIADO' : 'NÃO FOI POSSÍVEL INICIAR O ÁUDIO', { kind: played ? 'success' : 'error' });
-    });
-  }
-  if (action === 'dev-next') { const next=String(Math.min(Number(last()),Number(current())+1)).padStart(2,'0'); unlockThrough(next); return go(next); }
-  if (action === 'dev-reset' && confirm('Reiniciar esta sessão em memória?')) { resetState(); return go('01'); }
 }
 
 function handleSubmit(event) {
@@ -2908,6 +2809,7 @@ function handleSubmit(event) {
       state.discoveries = [...new Set([...state.discoveries, `node:${node}`, fragment])];
     }, { progress: true });
     addEvent('external-node-authenticated', node);
+    if (node === 'room') emitWorldEvent('room.node.validated');
     Motion.emit('evidence:resolve', { source: `${node}-node` });
     const labels = { green: 'NÓ_14 // FONTE VERDE VINCULADA', yard: 'NÓ_17 // MARGEM AUTENTICADA', room: 'NÓ_00 // LEITURA 03:17 ANEXADA' };
     uiFeedback.toast(labels[node] || 'NÓ AUTENTICADO', { kind: 'discovery' });
@@ -3056,6 +2958,7 @@ const { getState, updateState } = __require("js/state.js");
 const { Motion } = __require("js/motion-engine.js");
 const { AudioEngine } = __require("js/audio/engine.js");
 const ENVIRONMENT_BY_FAMILY = Object.freeze({
+  computer: 'computer',
   system: 'system',
   archive: 'archive',
   device: 'device',
@@ -3113,6 +3016,22 @@ class AudioExperience {
     return true;
   }
 
+  async playUnknownSource({ duration = 1.4 } = {}) {
+    if (!await this.unlock()) return false;
+    this.engine.duck(['ambience','device'], { depth:.08, attack:.04, hold:Math.min(duration,.9), release:1.1 });
+    [0,.31,.67].forEach((when,index)=>this.engine.play('source.signature',{ when, volume:.07-index*.008, frequency:84-index*5 }));
+    this.engine.play('source.03',{ when:.88, duration:Math.max(.28,Math.min(1.2,duration-.88)), volume:.045 });
+    return true;
+  }
+
+  async clockRupture() {
+    if (!await this.unlock()) return false;
+    this.engine.dropout(['ambience','device'], { depth:.001, attack:.018, hold:.52, release:1.7 });
+    this.engine.play('system.disk',{ when:.04,duration:.46,volume:.13 });
+    this.engine.play('computer.file.changed',{ when:.34,volume:.08 });
+    return true;
+  }
+
   setMuted(muted) {
     updateState((state) => { state.settings.muted = muted; });
     this.engine.setMuted(muted);
@@ -3163,7 +3082,7 @@ class AudioExperience {
     if (!this.engine.unlocked) return this.unlock().then((available) => { if (available) this.normalError(detail); });
     const critical = Boolean(detail.critical);
     const message = String(detail.message || '');
-    const sound = message.startsWith('ENTRADA INVÁLIDA') || message.startsWith('FORMATO NÃO RECONHECIDO')
+    const sound = message.startsWith('ENTRADA INVÃLIDA') || message.startsWith('FORMATO NÃƒO RECONHECIDO')
       ? 'input.invalid'
       : message.startsWith('RESPOSTA INCORRETA')
         ? 'input.wrong'
@@ -3288,11 +3207,12 @@ class AudioExperience {
     Motion.schedule('audio-rare-event', () => {
       if (sequence !== this.rareSequence || getState().settings.muted) return this.scheduleRareEvent();
       const eventByFamily = {
-        system: ['rare.relay', 'rare.crackle'],
-        archive: ['archive.seek', 'rare.relay'],
+        system: ['rare.relay', 'rare.crackle', 'system.disk'],
+        archive: ['archive.seek', 'rare.relay', 'rare.distant'],
         device: ['rare.fragment', 'rare.crackle'],
-        forensic: ['forensic.contact', 'rare.relay'],
-        reconstruction: ['rare.fragment', 'rare.crackle'],
+        phone: ['rare.distant'],
+        forensic: ['forensic.contact', 'rare.relay', 'rare.wood'],
+        reconstruction: ['rare.fragment', 'rare.crackle', 'rare.wood', 'rare.distant'],
         override: ['rare.crackle']
       };
       const options = eventByFamily[this.sceneFamily] || eventByFamily.system;
@@ -3791,13 +3711,19 @@ const AUDIO_MANIFEST = Object.freeze({
   'system.disk': { generator: 'disk', bus: 'device', volume: .12, duration: .24, variants: [{ frequency: 930 }, { frequency: 1080 }] },
   'computer.window.open': { generator: 'relay', bus: 'ui', volume: .08, duration: .075, frequency: 260 },
   'computer.window.close': { generator: 'click', bus: 'ui', volume: .07, duration: .045, frequency: 190 },
+  'computer.window.minimize': { generator: 'tone', bus: 'ui', volume: .045, duration: .065, frequency: 310, endFrequency: 190, type: 'triangle' },
+  'computer.window.maximize': { generator: 'tone', bus: 'ui', volume: .05, duration: .075, frequency: 190, endFrequency: 320, type: 'triangle' },
   'computer.folder.open': { generator: 'disk', bus: 'device', volume: .07, duration: .16, frequency: 860 },
   'computer.clock.apply': { generator: 'relay', bus: 'device', volume: .14, duration: .18, frequency: 205 },
+  'computer.file.changed': { generator: 'disk', bus: 'narrative', volume: .09, duration: .42, frequency: 720, endFrequency: 940 },
   'phone.lock': { generator: 'click', bus: 'device', volume: .11, duration: .045, frequency: 520 },
   'phone.unlock': { generator: 'tone', bus: 'device', volume: .09, duration: .1, frequency: 620, endFrequency: 820, type: 'sine' },
+  'phone.tap': { generator: 'click', bus: 'ui', volume: .055, duration: .025, frequency: 690 },
   'phone.message': { generator: 'tone', bus: 'device', volume: .12, duration: .18, frequency: 880, endFrequency: 660, type: 'triangle' },
+  'phone.incoming': { generator: 'tone', bus: 'device', volume: .09, duration: .42, frequency: 520, endFrequency: 610, type: 'triangle' },
   'phone.vibration': { generator: 'noise', bus: 'device', volume: .08, duration: .24, filterType: 'lowpass', filter: 180, q: 1.2 },
   'source.03': { generator: 'impact', bus: 'signal', volume: .11, duration: .7, frequency: 72, endFrequency: 48 },
+  'source.signature': { generator: 'impact', bus: 'narrative', volume: .085, duration: .12, frequency: 84, endFrequency: 62 },
   'system.flyback': { generator: 'tone', bus: 'device', volume: .035, duration: .62, frequency: 10800, endFrequency: 12600, type: 'sine' },
   'receiver.knob': { generator: 'click', bus: 'device', volume: .24, duration: .045, variants: [{ frequency: 372 }, { frequency: 410 }, { frequency: 438 }, { frequency: 465 }, { frequency: 492 }], rateVariation: .025 },
   'receiver.volume': { generator: 'click', bus: 'device', volume: .12, duration: .03, variants: [{ frequency: 590 }, { frequency: 625 }, { frequency: 660 }, { frequency: 695 }] },
@@ -3833,6 +3759,8 @@ const AUDIO_MANIFEST = Object.freeze({
   'rare.crackle': { generator: 'noise', bus: 'ambience', volume: .055, duration: .055, filterType: 'highpass', filter: 2100, q: .8, panVariation: .42 },
   'rare.relay': { generator: 'relay', bus: 'ambience', volume: .07, duration: .11, variants: [{ frequency: 125 }, { frequency: 148 }], panVariation: .3 },
   'rare.fragment': { generator: 'tone', bus: 'signal', volume: .025, duration: .12, frequency: 610, endFrequency: 570, type: 'square', filter: 1050, panVariation: .35 },
+  'rare.wood': { generator: 'impact', bus: 'ambience', volume: .026, duration: .09, frequency: 98, endFrequency: 72, panVariation: .65 },
+  'rare.distant': { generator: 'noise', bus: 'ambience', volume: .018, duration: .3, filterType: 'bandpass', filter: 310, q: 1.3, panVariation: .7 },
   'morse.radio': { generator: 'morse', bus: 'signal', volume: .15, frequency: 510, type: 'square', filter: 920, q: 3.4, rateVariation: .008 }
 });
 
@@ -4270,6 +4198,13 @@ function openResource(resourceId, kind = 'resource') {
     state.desktopOs.startOpen = false;
   });
   layer.insertAdjacentHTML('beforeend', desktopWindowMarkup(entry, getState()));
+  windowElement(key)?.querySelectorAll('[data-evidence-source]').forEach((image)=>{
+    const frame=image.closest('[data-evidence-frame]');
+    const update=()=>frame?.classList.toggle('has-source',image.complete&&image.naturalWidth>0);
+    image.addEventListener('load',update,{once:true});
+    image.addEventListener('error',update,{once:true});
+    update();
+  });
   const running = document.querySelector('.os-running-windows');
   if (running) {
     const task = document.createElement('button');
@@ -4307,7 +4242,7 @@ function minimizeWindow(button) {
     if (entry) entry.minimized = true;
   });
   target.classList.add('is-minimized');
-  play('ui.contact', { volume: .05 });
+  play('computer.window.minimize', { volume: .05 });
   return true;
 }
 
@@ -4321,7 +4256,7 @@ function maximizeWindow(button) {
   });
   target.classList.toggle('is-maximized', maximized);
   focusWindow(target.dataset.osWindow);
-  play('ui.contact', { volume: .06 });
+  play('computer.window.maximize', { volume: .055 });
   return true;
 }
 
@@ -4391,7 +4326,6 @@ function handleDesktopClick(action, button) {
     if (hour) hour.textContent = String(state.desktopOs.clockHour).padStart(2,'0');
     if (minute) minute.textContent = String(state.desktopOs.clockMinute).padStart(2,'0');
     if (taskClock) taskClock.textContent = `${String(state.desktopOs.clockHour).padStart(2,'0')}:${String(state.desktopOs.clockMinute).padStart(2,'0')}`;
-    document.querySelectorAll('.phone-status time,.phone-lock > time').forEach((time)=>{time.textContent=`${String(state.desktopOs.clockHour).padStart(2,'0')}:${String(state.desktopOs.clockMinute).padStart(2,'0')}`;});
     play('ui.contact', { volume: .035 });
     return true;
   }
@@ -4518,41 +4452,499 @@ exports.handleDesktopPointerMove = handleDesktopPointerMove;
 exports.handleDesktopPointerUp = handleDesktopPointerUp;
 exports.handleDesktopKeydown = handleDesktopKeydown;
 },
+"js/events/phone.js": function(module, exports, __require) {
+const { audioManager } = __require("js/audio.js");
+const { patchPhoneDevices } = __require("js/phone.js");
+const { getState, updateState } = __require("js/state.js");
+const PHONE_ACTIONS = new Set([
+  'phone-toggle','phone-unlock','phone-home','phone-app','phone-thread','phone-confirm-memory',
+  'phone-audio','phone-call-audio','phone-gallery-open','phone-gallery-close','phone-share-evidence','phone-open-notification'
+]);
+
+function patch(options = { screen:true, status:true, badges:true }) {
+  patchPhoneDevices(getState(),options);
+}
+
+function handlePhoneClick(action, button, context) {
+  if (!PHONE_ACTIONS.has(action)) return false;
+  if (action === 'phone-toggle') {
+    let open = false;
+    updateState((state)=>{ state.phone.open=!state.phone.open; open=state.phone.open; });
+    const dock = button.closest('[data-phone-dock]');
+    dock?.classList.toggle('is-open',open);
+    dock?.querySelector('.phone-dock__device')?.toggleAttribute('hidden',!open);
+    button.setAttribute('aria-expanded',String(open));
+    audioManager.playEvent(open?'phone.unlock':'phone.lock',{volume:.07});
+    return true;
+  }
+  if (action === 'phone-open-notification') {
+    updateState((state)=>{
+      state.phone.open=true;
+      state.phone.locked=false;
+      state.phone.app=button.dataset.kind==='call'?'calls':'messages';
+      state.phone.thread=button.dataset.kind==='call'?null:'unknown';
+      state.phone.notifications=[];
+      state.phone.unread=0;
+    });
+    button.remove();
+    patch();
+    document.querySelectorAll('[data-phone-dock]').forEach((dock)=>{
+      dock.classList.add('is-open');
+      dock.querySelector('.phone-dock__device')?.removeAttribute('hidden');
+    });
+    audioManager.playEvent('phone.unlock',{volume:.07});
+    return true;
+  }
+  if (['phone-unlock','phone-home','phone-app','phone-thread'].includes(action)) {
+    updateState((state)=>{
+      if (action==='phone-unlock') { state.phone.locked=false; state.phone.app='home'; }
+      if (action==='phone-home') { state.phone.locked=false; state.phone.app='home'; state.phone.thread=null; state.phone.galleryItem=null; }
+      if (action==='phone-app') { state.phone.app=button.dataset.phoneApp || 'home'; state.phone.thread=null; state.phone.galleryItem=null; }
+      if (action==='phone-thread') { state.phone.app='messages'; state.phone.thread=button.dataset.thread || 'j'; }
+      if ((action==='phone-app' && ['messages','calls'].includes(state.phone.app)) || action==='phone-thread') {
+        state.phone.unread=0;
+        state.phone.notifications=[];
+      }
+    });
+    patch();
+    document.querySelectorAll('.phone-notification').forEach((item)=>item.remove());
+    audioManager.playEvent(action==='phone-unlock'?'phone.unlock':'phone.tap',{volume:.055});
+    return true;
+  }
+  if (action === 'phone-gallery-open') {
+    updateState((state)=>{state.phone.galleryItem=button.dataset.gallery;});
+    patch({screen:true,status:false,badges:false});
+    audioManager.playEvent('phone.tap',{volume:.045});
+    return true;
+  }
+  if (action === 'phone-gallery-close') {
+    updateState((state)=>{state.phone.galleryItem=null;});
+    patch({screen:true,status:false,badges:false});
+    return true;
+  }
+  if (action === 'phone-share-evidence') {
+    updateState((state)=>{state.discoveries=[...new Set([...state.discoveries,`phone-gallery:${button.dataset.gallery}`])];},{progress:true});
+    context.feedback('METADATA ANEXADA À INVESTIGAÇÃO LOCAL','good');
+    audioManager.playEvent('ui.accept',{volume:.07});
+    return true;
+  }
+  if (action === 'phone-confirm-memory') {
+    if (context.current() !== '12') {
+      context.feedback('EVIDÊNCIA DETECTADA // CONTEXTO FORENSE AINDA INCOMPLETO','warn');
+      return true;
+    }
+    updateState((state)=>{state.phone.events=[...new Set([...state.phone.events,'memory:2019'])];});
+    context.correctAnswer('12','mullet');
+    return true;
+  }
+  if (action === 'phone-audio' || action === 'phone-call-audio') {
+    audioManager.playUnknownSource({ duration:7 });
+    button.textContent='00:07 // TRÊS IMPACTOS';
+    button.closest('.phone-app')?.querySelector('[data-phone-call-caption]')?.replaceChildren(document.createTextNode('estática · três impactos · silêncio'));
+    return true;
+  }
+  return true;
+}
+
+exports.handlePhoneClick = handlePhoneClick;
+},
+"js/events/receiver.js": function(module, exports, __require) {
+const { audioManager } = __require("js/audio.js");
+const { syncClarityStatus, syncTv } = __require("js/dom-sync.js");
+const { Motion } = __require("js/motion-engine.js");
+const { getState, updateState } = __require("js/state.js");
+const { clamp } = __require("js/utils.js");
+const { emitWorldEvent } = __require("js/worlds/world-events.js");
+const RECEIVER_ACTIONS = new Set(['tv-power','tv-channel','tv-volume','tv-fine','play-morse']);
+
+function setTv(property, value) {
+  updateState((state) => { state.tv[property] = value; });
+  const eventName = property === 'power' ? 'tv:power' : property === 'channel' ? 'tv:channel' : property === 'fine' ? 'tv:fine' : 'tv:volume';
+  Motion.emit(eventName, { property, value });
+}
+
+async function playMorse() {
+  if (!getState().tv.power) return;
+  const lamp = document.querySelector('.morse-lamp');
+  const trace = document.querySelector('.signal-trace');
+  if (!lamp || lamp.dataset.playing) return;
+  lamp.dataset.playing = '1';
+  await audioManager.playMorse(['--','.', '...', '.-'], lamp, trace);
+  updateState((state) => { state.tv.morsePlays += 1; });
+  delete lamp.dataset.playing;
+}
+
+function handleReceiverClick(action,button,context) {
+  if (!RECEIVER_ACTIONS.has(action)) return false;
+  if (action === 'play-morse') {
+    if (!getState().tv.power) context.feedback('SEM SINAL // RECEPTOR DESLIGADO','warn');
+    else playMorse();
+    return true;
+  }
+  const previous = getState();
+  if (context.current() === '17' && !previous.flags.greenNodeValidated) return true;
+  if (action === 'tv-power') setTv('power', !previous.tv.power);
+  if (action === 'tv-channel') setTv('channel', clamp(previous.tv.channel + Number(button.dataset.delta), 1, 12));
+  if (action === 'tv-volume') setTv('volume', clamp(previous.tv.volume + Number(button.dataset.delta), 0, 10));
+  if (action === 'tv-fine') setTv('fine', clamp(previous.tv.fine + Number(button.dataset.delta), -5, 5));
+  const state = getState();
+  syncTv(state);
+  const id = context.current();
+  if (id === '03' && state.tv.power && !previous.unlocked.includes('13') && state.tv.channel === 4) {
+    updateState((draft) => { draft.tv.unlocked = true; });
+    Motion.play('receiver-channel-lock', { target: document.querySelector('.tv-cabinet') });
+    emitWorldEvent('tv.channel.04.locked');
+    context.progress('03',['04'],'CANAL ANÔMALO ENCONTRADO');
+    return true;
+  }
+  if (['03','13'].includes(id) && state.tv.power && state.unlocked.includes('13') && !state.completed.includes('13') && state.tv.channel === 11) {
+    updateState((draft) => { draft.flags.tvChannel11Primed = true; });
+    syncClarityStatus(id,getState());
+    Motion.play('receiver-channel-loss',{target:document.querySelector('.tv-cabinet')});
+    audioManager.playUnknownSource({duration:1.1});
+    context.toast('CANAL 11 // NENHUMA PORTADORA ESTÁVEL');
+    return true;
+  }
+  if (['03','13'].includes(id) && action==='tv-power' && !state.tv.power && state.tv.channel===11 && state.flags.tvChannel11Primed && !state.completed.includes('13')) {
+    updateState((draft)=>{draft.flags.tvSequenceSeen=true;});
+    syncTv(getState());
+    Motion.play('tv-afterimage',{target:document.querySelector('.tv-screen')});
+    context.progress('13',['14'],'IMAGEM RESIDUAL RECUPERADA: FIM / 01 / COMEÇO',{delay:1000});
+    return true;
+  }
+  if (id==='17' && state.tv.power && state.tv.channel===10 && state.tv.volume===10 && state.tv.fine===3) {
+    updateState((draft)=>{draft.flags.tvTuned=true;});
+    Motion.play('receiver-channel-lock',{target:document.querySelector('.tv-cabinet')});
+    context.progress('17',['18'],'PORTADORA DO EVENTO_1010 FIXADA');
+    return true;
+  }
+  const signalEvent = action === 'tv-channel' ? 'receiver-channel-loss' : action === 'tv-power' ? (state.tv.power?'receiver-power-on':'receiver-power-off') : 'frame-ghost';
+  Motion.play(signalEvent,{target:action==='tv-volume'?document.querySelector('.tv-knob-control--volume'):document.querySelector('.tv-cabinet')});
+  return true;
+}
+
+exports.handleReceiverClick = handleReceiverClick;
+},
 "js/worlds/world-events.js": function(module, exports, __require) {
 const { audioManager } = __require("js/audio.js");
 const { Motion } = __require("js/motion-engine.js");
 const { getState, updateState } = __require("js/state.js");
-const PHONE_TRIGGERS = Object.freeze({
-  'computer.event.isolated': { delay:2200, id:'message:first-file', preview:'você abriu justamente esse.' },
-  'tv.channel.04.locked': { delay:1800, id:'call:three-tones', preview:'chamada perdida · 00:07' },
-  'computer.event.rewritten': { delay:2600, id:'message:not-first', preview:'esse não era o primeiro.' },
-  'computer.clock.0317': { delay:1400, id:'message:first-time', preview:'esse não era o primeiro horário.' }
+const { patchPhoneDelivery, patchPhoneDevices, showPhoneNotification } = __require("js/phone.js");
+const effect = (domain, type, delay, payload = {}) => Object.freeze({ domain, type, delay, payload });
+
+const WORLD_EVENTS = Object.freeze({
+  'computer.event.isolated': [
+    effect('phone','message',2200,{ id:'message:first-file', text:'você abriu justamente esse.', notification:'1 nova mensagem' })
+  ],
+  'tv.channel.04.locked': [
+    effect('phone','call',1800,{ id:'call:three-tones', from:'NÚMERO NÃO SALVO', duration:'00:07', status:'PERDIDA', signal:'source.03' }),
+    effect('computer','trace',0,{ id:'trace:receiver-04' })
+  ],
+  'computer.event.rewritten': [
+    effect('phone','message',2600,{ id:'message:not-first', text:'você demorou pra perceber que mudou.', notification:'1 nova mensagem' })
+  ],
+  'computer.clock.0317': [
+    effect('phone','message',1400,{ id:'message:first-time', text:'você já viu esse horário.', notification:'1 nova mensagem' }),
+    effect('phone','clock',3400,{ id:'clock:0317', hour:3, minute:17 })
+  ],
+  'room.node.validated': [
+    effect('computer','trace',500,{ id:'trace:room-node' }),
+    effect('phone','message',1900,{ id:'message:local-not-yours', text:'local não significa seu.', notification:'NÚMERO NÃO SALVO' })
+  ],
+  'reconstruction.identity.linked': [
+    effect('tv','carrier',700,{ id:'carrier:memory-return', channel:11 })
+  ]
 });
 
-function patchPhone(trigger) {
-  const dock = document.querySelector('[data-phone-dock]');
-  if (!dock) return;
-  dock.classList.add('has-notification');
-  const toggle = dock.querySelector('.phone-dock__toggle');
-  if (toggle && !toggle.querySelector('b')) toggle.insertAdjacentHTML('beforeend',`<b>${getState().phone.unread}</b>`);
-  dock.querySelector('.phone-dock__device')?.insertAdjacentHTML('beforebegin',`<div class="phone-notification"><strong>MENSAGENS</strong><span>${trigger.preview}</span></div>`);
-  Motion.schedule(`phone-notification-clear:${trigger.id}`,()=>dock.querySelector('.phone-notification')?.remove(),4200);
-}
+const actionKey = (eventName, action) => `${eventName}:${action.domain}:${action.payload.id || action.type}`;
 
-function emitWorldEvent(type) {
-  const trigger = PHONE_TRIGGERS[type];
-  if (!trigger || getState().phone.events.includes(trigger.id)) return;
-  updateState((state)=>{state.phone.events=[...state.phone.events,trigger.id];});
-  Motion.schedule(`world-event:${trigger.id}`,()=>{
-    updateState((state)=>{state.phone.unread+=1;});
+function deliverPhone(action) {
+  const payload = action.payload;
+  const notification = action.type === 'message'
+    ? { id:payload.id, kind:'message', label:'NÚMERO NÃO SALVO', preview:payload.notification || '1 nova mensagem' }
+    : action.type === 'call'
+      ? { id:payload.id, kind:'call', label:payload.from, preview:`chamada ${payload.status.toLowerCase()} · ${payload.duration}` }
+      : null;
+  if (action.type === 'call') {
+    audioManager.playEvent('phone.incoming',{volume:.1});
+    audioManager.playEvent('phone.vibration',{when:.06,volume:.08,duration:.48});
+  } else if (action.type === 'message') {
     audioManager.playEvent('phone.vibration',{volume:.07});
     audioManager.playEvent('phone.message',{when:.12,volume:.08});
-    patchPhone(trigger);
-  },trigger.delay);
+  } else if (action.type === 'clock') {
+    audioManager.playEvent('source.03',{volume:.045,duration:.22});
+  }
+  if (notification) showPhoneNotification(notification);
+  updateState((state) => {
+    if (action.type === 'message') {
+      state.phone.unread += 1;
+      state.phone.delivered = [...new Set([...state.phone.delivered,payload.id])];
+      state.phone.notifications = [...state.phone.notifications,notification].slice(-8);
+    }
+    if (action.type === 'call') {
+      state.phone.unread += 1;
+      state.phone.delivered = [...new Set([...state.phone.delivered,payload.id])];
+      state.phone.calls = [{ ...payload, at:Date.now() }, ...state.phone.calls.filter((call) => call.id !== payload.id)].slice(0,12);
+      state.phone.notifications = [...state.phone.notifications,notification].slice(-8);
+    }
+    if (action.type === 'clock') {
+      state.phone.clock.hour = payload.hour;
+      state.phone.clock.minute = payload.minute;
+      state.phone.clock.synchronized = true;
+    }
+  });
+  patchPhoneDevices(getState(), { screen:action.type==='clock', status:true, badges:true });
+  if (action.type === 'message' || action.type === 'call') patchPhoneDelivery(getState(),action);
 }
 
-exports.PHONE_TRIGGERS = PHONE_TRIGGERS;
+function deliverComputer(action) {
+  updateState((state) => { state.discoveries = [...new Set([...state.discoveries, action.payload.id])]; });
+  document.querySelector('[data-retro-desktop]')?.classList.add('has-remote-trace');
+  audioManager.playEvent('system.disk',{volume:.055});
+}
+
+function deliverTv(action) {
+  updateState((state) => { state.discoveries = [...new Set([...state.discoveries, action.payload.id])]; });
+  audioManager.playEvent('receiver.interference',{volume:.04,duration:.14});
+}
+
+function deliver(eventName, action, key) {
+  if (action.domain === 'phone') deliverPhone(action);
+  if (action.domain === 'computer') deliverComputer(action);
+  if (action.domain === 'tv') deliverTv(action);
+  updateState((state) => {
+    state.worldEvents.scheduled = state.worldEvents.scheduled.filter((id) => id !== key);
+    state.worldEvents.delivered = [...new Set([...state.worldEvents.delivered,key])];
+  });
+  document.dispatchEvent(new CustomEvent('world:delivered',{ detail:{ event:eventName, action } }));
+}
+
+function emitWorldEvent(eventName) {
+  (WORLD_EVENTS[eventName] || []).forEach((action) => {
+    const key = actionKey(eventName,action);
+    const state = getState();
+    if (state.worldEvents.scheduled.includes(key) || state.worldEvents.delivered.includes(key)) return;
+    updateState((draft) => { draft.worldEvents.scheduled = [...draft.worldEvents.scheduled,key]; });
+    document.dispatchEvent(new CustomEvent('world:scheduled',{ detail:{ event:eventName, action } }));
+    Motion.schedule(`world-event:${key}`,() => deliver(eventName,action,key),action.delay);
+  });
+}
+
+exports.WORLD_EVENTS = WORLD_EVENTS;
 exports.emitWorldEvent = emitWorldEvent;
+},
+"js/events/clock.js": function(module, exports, __require) {
+const { audioManager } = __require("js/audio.js");
+const { openDesktopResource } = __require("js/events/desktop-os.js");
+const { Motion } = __require("js/motion-engine.js");
+const { getState, updateState } = __require("js/state.js");
+const { emitWorldEvent } = __require("js/worlds/world-events.js");
+function handleClockClick(action, context) {
+  if (action !== 'os-clock-apply') return false;
+  const state = getState();
+  const time = `${String(state.desktopOs.clockHour).padStart(2,'0')}:${String(state.desktopOs.clockMinute).padStart(2,'0')}`;
+  audioManager.playEvent('computer.clock.apply',{volume:.12});
+  if (context.current() === '15') {
+    if (time !== '03:17') { context.wrong('15',time,'O BOOKSCAN não aponta para essa hora.'); return true; }
+    updateState((draft) => { draft.desktopOs.clockPanelOpen=false; draft.flags.clock0317Triggered=true; });
+    emitWorldEvent('computer.clock.0317');
+    document.querySelector('.retro-desktop')?.classList.add('is-clock-reacting');
+    audioManager.clockRupture();
+    Motion.schedule('clock-0317-resource',()=>openDesktopResource('clock-note'),620);
+    context.progress('15',['16'],'03:17 // ARQUIVO OCULTO RECUPERADO',{delay:2100});
+    return true;
+  }
+  if (context.current() === '23') {
+    if (time !== '10:10') { context.wrong('23',time,'A hora não corresponde ao EVENTO_1010.'); return true; }
+    updateState((draft)=>{draft.desktopOs.clockPanelOpen=false;draft.flags.bookPairResolved=true;draft.flags.clockOriginRestored=true;});
+    document.querySelector('.retro-desktop')?.classList.add('is-clock-synchronized');
+    audioManager.playEvent('system.relay',{volume:.18});
+    context.progress('23',['24'],'ORIGEM TEMPORAL SINCRONIZADA // RECUPERAR.exe REESCRITO',{delay:1400});
+    return true;
+  }
+  context.feedback(`RELÓGIO AJUSTADO // ${time}`,'good');
+  return true;
+}
+
+exports.handleClockClick = handleClockClick;
+},
+"js/events/bookscan.js": function(module, exports, __require) {
+const { audioManager } = __require("js/audio.js");
+const { Motion } = __require("js/motion-engine.js");
+const { getState, updateState } = __require("js/state.js");
+const LABELS = Object.freeze({ acaba:'É Assim que Acaba', comeca:'É Assim que Começa', teto:'Teto para Dois', maldicao:'A Maldição do Ex', lua:'Cidade da Lua Crescente' });
+const ACTIONS = new Set(['bookscan-spine','bookscan-zoom','bookscan-reset','bookscan-confirm-pair']);
+
+function syncSelection() {
+  const selected = getState().bookSelections || [];
+  document.querySelectorAll('[data-action="bookscan-spine"]').forEach((hotspot)=>{
+    const active=selected.includes(hotspot.dataset.book);
+    hotspot.classList.toggle('is-selected',active);
+    hotspot.setAttribute('aria-pressed',String(active));
+  });
+  document.querySelectorAll('[data-bookscan-selection]').forEach((output)=>{output.textContent=selected.length?selected.map((id)=>LABELS[id]).join(' + '):'nenhuma';});
+  document.querySelectorAll('[data-action="bookscan-confirm-pair"]').forEach((button)=>{button.disabled=selected.length!==2;});
+}
+
+function handleBookscanClick(action,button,context) {
+  if (!ACTIONS.has(action)) return false;
+  if (action === 'bookscan-spine') {
+    const id=button.dataset.book;
+    updateState((state)=>{
+      const selected=state.bookSelections || [];
+      state.bookSelections=selected.includes(id)?selected.filter((item)=>item!==id):[...selected.slice(-1),id];
+    });
+    syncSelection();
+    Motion.pulse(button,'is-marking','fast');
+    audioManager.playEvent('forensic.contact',{volume:.045});
+    return true;
+  }
+  const viewport=button.closest('[data-bookscan]')?.querySelector('[data-bookscan-viewport]');
+  const canvas=viewport?.querySelector('[data-bookscan-canvas]');
+  if (action === 'bookscan-zoom') {
+    const zoom=Math.max(1,Math.min(2.5,Number(viewport?.dataset.zoom || 1)+Number(button.dataset.delta)));
+    if (viewport) viewport.dataset.zoom=String(zoom);
+    if (canvas) canvas.style.width=`${zoom*100}%`;
+    button.closest('[data-bookscan]')?.querySelector('[data-bookscan-zoom]')?.replaceChildren(document.createTextNode(`${Math.round(zoom*100)}%`));
+    audioManager.playEvent('phone.tap',{volume:.035});
+    return true;
+  }
+  if (action === 'bookscan-reset') {
+    if (viewport) { viewport.dataset.zoom='1'; viewport.scrollTo({left:0,top:0,behavior:'smooth'}); }
+    if (canvas) canvas.style.width='100%';
+    button.closest('[data-bookscan]')?.querySelector('[data-bookscan-zoom]')?.replaceChildren(document.createTextNode('100%'));
+    return true;
+  }
+  const pair=[...(getState().bookSelections||[])].sort().join('|');
+  if (pair!=='acaba|comeca') { context.wrong('14',pair,'As marcas não formam FIM e COMEÇO com distância 01.'); return true; }
+  updateState((state)=>{state.flags.bookPairIdentified=true;},{progress:true});
+  document.querySelector('.bookscan-return')?.removeAttribute('hidden');
+  Motion.emit('evidence:linked',{source:'bookscan-adjacency'});
+  context.feedback('PAR IDENTIFICADO // AGORA CONSULTE OS VOLUMES FÍSICOS','good');
+  return true;
+}
+
+exports.handleBookscanClick = handleBookscanClick;
+},
+"js/events/navigation.js": function(module, exports, __require) {
+const { audioManager } = __require("js/audio.js");
+const { GAME_CONFIG } = __require("js/config.js");
+const { syncHintPanel, syncMuteControls } = __require("js/dom-sync.js");
+const { useHint } = __require("js/hints.js");
+const { getState, resetState, unlockThrough } = __require("js/state.js");
+const { uiFeedback } = __require("js/ui-feedback.js");
+const ACTIONS = new Set(['navigate','hint','toggle-mute','play-final-music','dev-next','dev-reset']);
+
+function handleNavigationClick(action,button,context) {
+  if (!ACTIONS.has(action)) return false;
+  if (action === 'navigate') { context.go(button.dataset.target); return true; }
+  if (action === 'hint') {
+    useHint(button.dataset.puzzle);
+    syncHintPanel(button.dataset.puzzle,getState());
+    uiFeedback.reveal(button.closest('.hint-panel'),{kind:'hint'});
+    return true;
+  }
+  if (action === 'toggle-mute') {
+    const muted=!getState().settings.muted;
+    audioManager.setMuted(muted);
+    if (!muted) audioManager.confirmEnabled();
+    syncMuteControls(muted);
+    uiFeedback.toast(muted?'EFEITOS SONOROS DESLIGADOS':'EFEITOS SONOROS LIGADOS');
+    return true;
+  }
+  if (action === 'play-final-music') {
+    audioManager.playMusic(GAME_CONFIG.musicUrl).then((played)=>uiFeedback.toast(played?'SINAL DE ÁUDIO INICIADO':'NÃO FOI POSSÍVEL INICIAR O ÁUDIO',{kind:played?'success':'error'}));
+    return true;
+  }
+  if (action === 'dev-next') {
+    const next=String(Math.min(Number(context.last()),Number(context.current())+1)).padStart(2,'0');
+    unlockThrough(next);
+    context.go(next);
+    return true;
+  }
+  if (action === 'dev-reset' && confirm('Reiniciar esta sessão em memória?')) {
+    resetState();
+    context.go('01');
+  }
+  return true;
+}
+
+exports.handleNavigationClick = handleNavigationClick;
+},
+"js/events/puzzle-actions.js": function(module, exports, __require) {
+const { syncDocumentExtraction, syncForensicSelection, syncLocationSelection } = __require("js/dom-sync.js");
+const { Motion } = __require("js/motion-engine.js");
+const { getState, recordAttempt, updateState } = __require("js/state.js");
+const { uiFeedback } = __require("js/ui-feedback.js");
+const ACTIONS = new Set(['document-row','commit-document','open-file','forensic-feature','ack-conflict','location-fragment']);
+
+function handlePuzzleClick(action,button,context) {
+  if (!ACTIONS.has(action)) return false;
+  if (action === 'document-row') {
+    const token=button.dataset.token;
+    Motion.emit('evidence:contact',{source:'document-comparison',row:button.dataset.row});
+    if (!token) {
+      recordAttempt('06',button.dataset.row,false);
+      uiFeedback.error('TRECHO ALTERADO // As duas versões divergem neste índice.');
+      Motion.pulse(button,'is-invalid','fast');
+      return true;
+    }
+    updateState((state)=>{
+      const selected=state.documentFragments||[];
+      state.documentFragments=selected.includes(token)?selected.filter((fragment)=>fragment!==token):[...selected,token];
+    });
+    syncDocumentExtraction(getState());
+    Motion.emit('evidence:linked',{source:'document-invariant',token});
+    Motion.pulse(button,'is-revealed','fast');
+    return true;
+  }
+  if (action === 'commit-document') {
+    const order=['A DATA','ABRE','O ARQUIVO'];
+    const selected=order.filter((token)=>(getState().documentFragments||[]).includes(token));
+    if (selected.length!==order.length) { context.feedback('EXTRAÇÃO INCOMPLETA // Encontre os três trechos preservados.','warn'); return true; }
+    button.disabled=true;
+    Motion.emit('evidence:resolve',{source:'document-invariant'});
+    context.correctAnswer('06',order.join(' '));
+    return true;
+  }
+  if (action === 'open-file') {
+    Motion.emit('archive:open',{file:button.dataset.file});
+    const preview=document.querySelector('[data-file-preview]');
+    const file=button.dataset.file;
+    document.querySelectorAll('.file-row').forEach((row)=>row.classList.remove('is-open'));
+    button.classList.add('is-open');
+    preview?.classList.remove('hidden');
+    if (preview) preview.textContent=file==='final_agora_vai.txt'?'10:10 // CHAVE DO CONTEÚDO CORRESPONDENTE':'VERSÃO PLAUSÍVEL. HORÁRIO INCONSISTENTE.';
+    uiFeedback.reveal(preview);
+    if (file==='final_agora_vai.txt') { Motion.cancel('file-consistency'); context.progress('07',['08'],'METADADOS CONFIÁVEIS ENCONTRADOS'); return true; }
+    button.classList.add('is-processing');
+    context.feedback('CONSISTÊNCIA ........ APROVADA','good');
+    Motion.schedule('file-consistency',()=>{button.classList.remove('is-processing');context.wrong('07',file,'CONSISTÊNCIA ........ FALSA // O NOME NÃO É EVIDÊNCIA');},Motion.reduced?0:900);
+    return true;
+  }
+  if (action === 'forensic-feature') {
+    Motion.emit('evidence:contact',{source:'forensic-layer'});
+    updateState((state)=>{const key=button.dataset.feature;state.forensicSelections=state.forensicSelections.includes(key)?state.forensicSelections.filter((item)=>item!==key):[...state.forensicSelections,key];});
+    syncForensicSelection(button,getState());
+    Motion.pulse(button,'is-revealed','fast');
+    return true;
+  }
+  if (action === 'ack-conflict') {
+    const required=['volume','sides','length','silhouette'];
+    if (!required.every((item)=>(getState().forensicSelections||[]).includes(item))) { context.feedback('MODELO INCONCLUSIVO: USE AS QUATRO CAMADAS QUE DESCREVEM GEOMETRIA','warn'); return true; }
+    Motion.emit('evidence:resolve',{source:'forensic-model'});
+    Motion.play('memory-reconstruction',{target:document.querySelector('[data-forensic]')});
+    context.progress('11',['12'],'GEOMETRIA DO CONFLITO EXTRAÍDA',{delay:900});
+    return true;
+  }
+  Motion.emit('evidence:contact',{source:'location-fragment'});
+  updateState((state)=>{const fragment=button.dataset.fragment;state.locationFragments=state.locationFragments.includes(fragment)?state.locationFragments.filter((item)=>item!==fragment):[...state.locationFragments,fragment];});
+  syncLocationSelection(button,getState());
+  Motion.pulse(button,'is-revealed','fast');
+  return true;
+}
+
+exports.handlePuzzleClick = handlePuzzleClick;
 },
 "js/narrative-events.js": function(module, exports, __require) {
 const { Motion } = __require("js/motion-engine.js");
