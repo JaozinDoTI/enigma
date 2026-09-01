@@ -121,11 +121,11 @@ function books(state) {
           <img data-evidence-source src="./assets/evidence/books/shelf-cam-01.jpg" alt="Captura degradada da estante real">
           <div class="bookscan-noise" aria-hidden="true"></div><time>CAM_01 · 17/09/2025 03:__</time>
           <div class="bookscan-hotspots" aria-label="Lombadas examináveis">
-            <button type="button" data-action="bookscan-spine" data-book="teto" style="--x:24.4%;--y:34%;--w:3.4%;--h:45%" aria-label="Examinar lombada Teto para Dois"><span>Teto para Dois</span></button>
-            <button type="button" data-action="bookscan-spine" data-book="acaba" class="${selected.includes('acaba')?'is-selected':''}" style="--x:27.8%;--y:34%;--w:3.4%;--h:45%" aria-label="Examinar lombada É Assim que Acaba"><span>É Assim que Acaba</span></button>
-            <button type="button" data-action="bookscan-spine" data-book="comeca" class="${selected.includes('comeca')?'is-selected':''}" style="--x:31.2%;--y:34%;--w:3.4%;--h:45%" aria-label="Examinar lombada É Assim que Começa"><span>É Assim que Começa</span></button>
-            <button type="button" data-action="bookscan-spine" data-book="maldicao" style="--x:34.6%;--y:34%;--w:3.2%;--h:45%" aria-label="Examinar lombada A Maldição do Ex"><span>A Maldição do Ex</span></button>
-            <button type="button" data-action="bookscan-spine" data-book="lua" style="--x:49.2%;--y:34%;--w:3.8%;--h:45%" aria-label="Examinar lombada Cidade da Lua Crescente"><span>Cidade da Lua Crescente</span></button>
+            <button type="button" data-action="bookscan-spine" data-book="lado" style="--x:25.1%;--y:34%;--w:2.9%;--h:45%" aria-label="Examinar lombada O Lado Feio do Amor"><span>O Lado Feio do Amor</span></button>
+            <button type="button" data-action="bookscan-spine" data-book="acaba" class="${selected.includes('acaba')?'is-selected':''}" style="--x:27.6%;--y:34%;--w:2.9%;--h:45%" aria-label="Examinar lombada É Assim que Acaba"><span>É Assim que Acaba</span></button>
+            <button type="button" data-action="bookscan-spine" data-book="comeca" class="${selected.includes('comeca')?'is-selected':''}" style="--x:30.5%;--y:34%;--w:2.9%;--h:45%" aria-label="Examinar lombada É Assim que Começa"><span>É Assim que Começa</span></button>
+            <button type="button" data-action="bookscan-spine" data-book="maldicao" style="--x:33.4%;--y:34%;--w:3.0%;--h:45%" aria-label="Examinar lombada A Maldição do Ex"><span>A Maldição do Ex</span></button>
+            <button type="button" data-action="bookscan-spine" data-book="lua" style="--x:50.4%;--y:34%;--w:4.0%;--h:45%" aria-label="Examinar lombada Cidade da Lua Crescente"><span>Cidade da Lua Crescente</span></button>
           </div>
           <div class="bookscan-missing"><strong>CAPTURA 01 AUSENTE</strong><span>assets/evidence/books/shelf-cam-01.jpg</span></div>
           <figcaption>JPEG recomposto · selecione duas lombadas diretamente na imagem</figcaption>
@@ -134,7 +134,7 @@ function books(state) {
       <figure class="bookscan-reference" data-evidence-frame><img data-evidence-source src="./assets/evidence/books/shelf-cam-02.jpg" alt="Segunda captura degradada da estante real"><div class="bookscan-missing"><strong>CAPTURA 02 AUSENTE</strong><span>assets/evidence/books/shelf-cam-02.jpg</span></div><figcaption>CAM_02 · referência de coleção e ordenação</figcaption></figure>
     </div>
     <div class="bookscan-log"><code>CRITÉRIO // EXTREMIDADES</code><code>DISTÂNCIA ENTRE VOLUMES // 01</code><code>MENSAGEM RECUPERADA // “o fim ficou perto demais do começo”</code></div>
-    <div class="bookscan-selection"><span>LOMBADAS MARCADAS</span><output data-bookscan-selection>${selected.length ? selected.map((id)=>({acaba:'É Assim que Acaba',comeca:'É Assim que Começa',teto:'Teto para Dois',maldicao:'A Maldição do Ex',lua:'Cidade da Lua Crescente'})[id]).join(' + ') : 'nenhuma'}</output><button type="button" class="primary-button" data-action="bookscan-confirm-pair" ${selected.length===2?'':'disabled'}>CORRELACIONAR MARCAS</button></div>
+    <div class="bookscan-selection"><span>LOMBADAS MARCADAS</span><output data-bookscan-selection>${selected.length ? selected.map((id)=>({acaba:'É Assim que Acaba',comeca:'É Assim que Começa',lado:'O Lado Feio do Amor',maldicao:'A Maldição do Ex',lua:'Cidade da Lua Crescente'})[id]).join(' + ') : 'nenhuma'}</output><button type="button" class="primary-button" data-action="bookscan-confirm-pair" ${selected.length===2?'':'disabled'}>CORRELACIONAR MARCAS</button></div>
     <section class="bookscan-return" ${state.flags.bookPairIdentified?'':'hidden'}><strong>PAR ADJACENTE CONFIRMADO</strong><p>Consulte os dois volumes físicos na mesma ordem: FIM → COMEÇO. Cada inserto completa metade do timestamp.</p>${answerForm('14','horário formado pelos insertos')}</section>
     <div class="feedback" data-feedback></div>
   </section>`;

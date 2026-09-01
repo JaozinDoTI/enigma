@@ -301,9 +301,9 @@ body.is-immersive .spotify-dock {
 
 @media (min-width: 701px) {
   .receiver-scene__equipment {
-    justify-self: start;
-    width: min(1120px, calc(100% - 420px));
-    margin-left: max(24px, calc((100vw - 1440px) / 2));
+    justify-self: center;
+    width: min(1120px, calc(100% - clamp(40px, 8vw, 120px)));
+    margin-left: 0;
   }
 }
 
@@ -361,10 +361,13 @@ body.is-immersive .spotify-dock {
 .receiver-scene__assistance {
   position: absolute;
   z-index: 6;
+  top: 58px;
   right: 14px;
-  bottom: 42px;
-  width: min(330px, calc(100% - 28px));
+  bottom: auto;
+  width: 84px;
 }
+
+.receiver-scene__assistance .hint-panel[open] { position:absolute; top:0; right:0; width:min(320px,calc(100vw - 28px)); padding:10px; background:rgba(8,12,11,.97); box-shadow:0 14px 42px rgba(0,0,0,.48); }
 
 /* FORENSIC: superficie espacial, docket e anotacoes independentes. */
 .investigation-scene {

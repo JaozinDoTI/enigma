@@ -2,7 +2,7 @@ import { audioManager } from '../audio.js';
 import { Motion } from '../motion-engine.js';
 import { getState, updateState } from '../state.js';
 
-const LABELS = Object.freeze({ acaba:'É Assim que Acaba', comeca:'É Assim que Começa', teto:'Teto para Dois', maldicao:'A Maldição do Ex', lua:'Cidade da Lua Crescente' });
+const LABELS = Object.freeze({ acaba:'É Assim que Acaba', comeca:'É Assim que Começa', lado:'O Lado Feio do Amor', maldicao:'A Maldição do Ex', lua:'Cidade da Lua Crescente' });
 const ACTIONS = new Set(['bookscan-spine','bookscan-zoom','bookscan-reset','bookscan-confirm-pair']);
 
 function syncSelection() {

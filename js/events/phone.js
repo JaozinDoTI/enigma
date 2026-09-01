@@ -54,7 +54,8 @@ export function handlePhoneClick(action, button, context) {
     });
     patch();
     document.querySelectorAll('.phone-notification').forEach((item)=>item.remove());
-    audioManager.playEvent(action==='phone-unlock'?'phone.unlock':'phone.tap',{volume:.055});
+    const sound = action === 'phone-unlock' ? 'phone.unlock' : action === 'phone-app' ? 'phone.app.open' : 'phone.tap';
+    audioManager.playEvent(sound,{volume:.05});
     return true;
   }
   if (action === 'phone-gallery-open') {

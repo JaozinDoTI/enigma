@@ -99,8 +99,11 @@ class AudioExperience {
   dropout(names, options) { return this.engine.dropout(names, options); }
 
   transitionToScene(family, { state = getState() } = {}) {
-    this.sceneFamily = family;
-    const environment = ENVIRONMENT_BY_FAMILY[family] || 'system';
+    const puzzleId = document.body.dataset.puzzle || '';
+    const environment = ['20', '21'].includes(puzzleId)
+      ? 'room-zero'
+      : ENVIRONMENT_BY_FAMILY[family] || 'system';
+    this.sceneFamily = environment;
     this.engine.transition(environment, { duration: family === 'device' ? .9 : .7 });
     if (family === 'device') this.engine.setReceiverState(state.tv, this.receiverMode());
     this.scheduleRareEvent();
@@ -127,7 +130,7 @@ class AudioExperience {
     if (!this.engine.unlocked) return this.unlock().then((available) => { if (available) this.normalError(detail); });
     const critical = Boolean(detail.critical);
     const message = String(detail.message || '');
-    const sound = message.startsWith('ENTRADA INVÃLIDA') || message.startsWith('FORMATO NÃƒO RECONHECIDO')
+    const sound = message.startsWith('ENTRADA INVÁLIDA') || message.startsWith('FORMATO NÃO RECONHECIDO')
       ? 'input.invalid'
       : message.startsWith('RESPOSTA INCORRETA')
         ? 'input.wrong'
@@ -153,7 +156,7 @@ class AudioExperience {
 
   async workspaceArea(panel) {
     if (!await this.unlock()) return;
-    const environment = panel === 'archive' ? 'archive' : 'system';
+    const environment = panel === 'archive' ? 'archive' : 'computer';
     this.sceneFamily = environment;
     this.engine.transition(environment, { duration: .42 });
     if (panel === 'archive') {
@@ -252,6 +255,8 @@ class AudioExperience {
     Motion.schedule('audio-rare-event', () => {
       if (sequence !== this.rareSequence || getState().settings.muted) return this.scheduleRareEvent();
       const eventByFamily = {
+        computer: ['rare.relay', 'rare.crackle', 'system.disk'],
+        'room-zero': ['rare.wood', 'rare.distant', 'room.zero.contact'],
         system: ['rare.relay', 'rare.crackle', 'system.disk'],
         archive: ['archive.seek', 'rare.relay', 'rare.distant'],
         device: ['rare.fragment', 'rare.crackle'],
@@ -289,9 +294,11 @@ class AudioExperience {
 
   async playRecoveredSignal() {
     if (!await this.unlock()) return false;
-    this.engine.duck(['ambience', 'device'], { depth: .2, hold: 1.4, release: 1.2 });
+    this.engine.duck(['ambience', 'device'], { depth: .12, hold: 1.8, release: 1.5 });
+    this.engine.play('final.swell', { volume: .07 });
     const notes = [261.63, 329.63, 392, 523.25, 392, 659.25];
-    notes.forEach((frequency, index) => this.engine.play('memory.resolve', { when: index * .22, frequency, endFrequency: frequency, duration: .32, volume: .08 }));
+    notes.forEach((frequency, index) => this.engine.play('memory.resolve', { when: .18 + index * .22, frequency, endFrequency: frequency, duration: .32, volume: .072 }));
+    this.engine.play('final.contact', { when: 1.52, volume: .055 });
     return true;
   }
 

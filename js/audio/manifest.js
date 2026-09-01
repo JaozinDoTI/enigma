@@ -31,6 +31,10 @@ export const AUDIO_MANIFEST = Object.freeze({
   'phone.vibration': { generator: 'noise', bus: 'device', volume: .08, duration: .24, filterType: 'lowpass', filter: 180, q: 1.2 },
   'source.03': { generator: 'impact', bus: 'signal', volume: .11, duration: .7, frequency: 72, endFrequency: 48 },
   'source.signature': { generator: 'impact', bus: 'narrative', volume: .085, duration: .12, frequency: 84, endFrequency: 62 },
+  'phone.app.open': { generator: 'tone', bus: 'ui', volume: .045, duration: .075, frequency: 420, endFrequency: 510, type: 'triangle', filter: 1100 },
+  'room.zero.contact': { generator: 'impact', bus: 'ambience', volume: .024, duration: .11, frequency: 76, endFrequency: 58, panVariation: .55 },
+  'final.swell': { generator: 'tone', bus: 'narrative', volume: .08, duration: 2.2, frequency: 55, endFrequency: 110, type: 'sine', filter: 360 },
+  'final.contact': { generator: 'relay', bus: 'narrative', volume: .065, duration: .18, frequency: 164 },
   'system.flyback': { generator: 'tone', bus: 'device', volume: .035, duration: .62, frequency: 10800, endFrequency: 12600, type: 'sine' },
   'receiver.knob': { generator: 'click', bus: 'device', volume: .24, duration: .045, variants: [{ frequency: 372 }, { frequency: 410 }, { frequency: 438 }, { frequency: 465 }, { frequency: 492 }], rateVariation: .025 },
   'receiver.volume': { generator: 'click', bus: 'device', volume: .12, duration: .03, variants: [{ frequency: 590 }, { frequency: 625 }, { frequency: 660 }, { frequency: 695 }] },
@@ -79,5 +83,6 @@ export const AUDIO_ENVIRONMENTS = Object.freeze({
   phone: { bus: 'device', hum: [61], noise: .002, volume: .018, filter: 420 },
   forensic: { bus: 'ambience', hum: [54, 108], noise: .006, volume: .026, filter: 360 },
   reconstruction: { bus: 'ambience', hum: [36, 71.6, 143.2], noise: .005, volume: .026, filter: 240 },
+  'room-zero': { bus: 'ambience', hum: [31, 62], noise: .0018, volume: .012, filter: 145 },
   override: { bus: 'ambience', hum: [27.5], noise: .002, volume: .012, filter: 150 }
 });

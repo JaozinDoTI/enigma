@@ -21,11 +21,6 @@ export function renderShell({ puzzle, puzzles, state, content, animate = true })
   document.body.classList.toggle('is-false-final', puzzle.id === '21' && !state.flags.fakeFinalSeen);
   const immersive = !['system', 'computer'].includes(experience.sceneFamily);
   document.body.classList.toggle('is-immersive', immersive);
-  const spotify = document.querySelector('.spotify-dock');
-  if (spotify) {
-    spotify.toggleAttribute('inert', immersive);
-    spotify.setAttribute('aria-hidden', String(immersive));
-  }
   document.body.dataset.puzzle = puzzle.id;
   document.body.dataset.world = experience.world;
 
