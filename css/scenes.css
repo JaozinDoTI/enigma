@@ -890,4 +890,15 @@ body.is-immersive .spotify-dock {
   .document-scene[data-puzzle-id="06"] .document-compare__row { min-height: 34px; }
   .document-scene[data-puzzle-id="06"] .document-extraction__slot { min-height: 30px; }
 }
+
+/* SPEC 05: Receiver centralizado; orientação lateral não reduz a altura útil. */
+@media (min-width:901px) {
+  .receiver-scene { grid-template-columns:minmax(190px,24vw) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);align-items:stretch; }
+  .receiver-scene__exit { grid-column:1/-1;grid-row:1; }
+  .receiver-scene > .puzzle-brief--floating { position:relative;z-index:7;grid-column:1;grid-row:2;top:auto;right:auto;align-self:center;width:auto;margin:18px 0 18px clamp(14px,3vw,46px); }
+  .receiver-scene__equipment { grid-column:2;grid-row:2;align-self:center;justify-self:center;width:min(980px,calc(100% - 34px));max-height:calc(100svh - 72px);padding:8px 0; }
+  .receiver-scene__equipment .tv-cabinet { width:min(920px,100%,calc((100svh - 120px)*1.45));margin:auto; }
+  .receiver-scene__floor { position:absolute;right:0;bottom:0;left:24vw;min-height:24px;padding-block:4px;pointer-events:none; }
+  .receiver-scene__assistance { top:auto;right:18px;bottom:28px; }
+}
 .puzzle-brief__intent { display:grid; gap:4px; color:var(--text); font-size:.72rem; line-height:1.5; }.puzzle-brief__intent span { color:var(--signal); font-size:.56rem; letter-spacing:.12em; }

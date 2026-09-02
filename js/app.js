@@ -10,10 +10,29 @@ import { audioManager, bindMotionAudio } from './audio.js';
 import { orchestrateNarrative } from './narrative-events.js';
 import { Motion } from './motion-engine.js';
 import { sceneFamilyFor } from './scenes/registry.js';
+import { tickBehaviorDirector } from './behavior-director.js';
+import { configureTransitionDirector } from './transition-director.js';
+import { cameraTargetFor, setRoomCamera } from './room-stage.js';
 
 const root = document.querySelector('#app');
 let renderedRoute = null;
 let renderedSceneFamily = null;
+
+function commitRoomMarkup(markup) {
+  const currentStage=root.querySelector('[data-room-stage]');
+  if(!currentStage){root.innerHTML=markup;return;}
+  const template=document.createElement('template');template.innerHTML=markup.trim();
+  const incomingStage=template.content.querySelector('[data-room-stage]');
+  if(!incomingStage){root.innerHTML=markup;return;}
+  const currentFocus=currentStage.querySelector('.room-stage__focus');
+  const incomingFocus=incomingStage.querySelector('.room-stage__focus');
+  currentStage.className=incomingStage.className;
+  currentStage.dataset.cameraTarget=incomingStage.dataset.cameraTarget;
+  currentStage.dataset.cameraPrevious=incomingStage.dataset.cameraPrevious;
+  if(currentFocus&&incomingFocus)currentFocus.replaceChildren(...incomingFocus.childNodes);
+  [...root.children].forEach((child)=>{if(child!==currentStage)child.remove();});
+  [...template.content.children].forEach((child)=>{if(child!==incomingStage)root.append(child);});
+}
 
 function focusToken() {
   const active = document.activeElement;
@@ -44,6 +63,7 @@ function commitRender(id, animate) {
   const previousFocus = focusToken();
   const routeChanged = renderedRoute !== null && renderedRoute !== id;
   const puzzle = PUZZLE_BY_ID[id] || PUZZLE_BY_ID['01'];
+  if (getState().roomCamera.target!==cameraTargetFor(puzzle) && !['moving','arrived'].includes(getState().pendingTransition?.status)) updateState((state)=>setRoomCamera(state,cameraTargetFor(puzzle),null));
   if (renderedRoute !== null && renderedRoute !== puzzle.id && (getState().ui?.activePanel || getState().ui?.archiveView)) {
     updateState((draft) => {
       draft.ui.activePanel = null;
@@ -52,7 +72,7 @@ function commitRender(id, animate) {
   }
   const state = getState();
   const content = renderScene(puzzle, state);
-  root.innerHTML = renderShell({ puzzle, puzzles: PUZZLES, state, content, animate });
+  commitRoomMarkup(renderShell({ puzzle, puzzles: PUZZLES, state, content, animate }));
   root.querySelectorAll('[data-evidence-source]').forEach((image)=>{
     const frame=image.closest('[data-evidence-frame]');
     const update=()=>frame?.classList.toggle('has-source',image.complete&&image.naturalWidth>0);
@@ -75,6 +95,11 @@ function render(id = currentRoute(), { animate = true } = {}) {
     return;
   }
   if (animate && routeChanged) {
+    const transitionStatus=getState().pendingTransition?.status;
+    if (transitionStatus==='moving' || transitionStatus==='arrived') {
+      commitRender(id,true);
+      return;
+    }
     const nextSceneFamily = sceneFamilyFor(PUZZLE_BY_ID[id] || PUZZLE_BY_ID['01']);
       const immersiveChange = nextSceneFamily !== 'computer' || renderedSceneFamily !== 'computer';
     if (immersiveChange) {
@@ -114,6 +139,7 @@ initInteractions({
   current: currentRoute,
   last: () => PUZZLES.at(-1)?.id || '01'
 });
+configureTransitionDirector({navigate,refresh:()=>render(currentRoute(),{animate:false})});
 initRouter(render);
 processNodeQuery();
 
@@ -127,7 +153,11 @@ window.setInterval(() => {
   const state = getState();
   const id = currentRoute();
   const threshold = GAME_CONFIG.inactivityHintMinutes * 60 * 1000;
-  if (id === '25' || Date.now() - state.lastProgressAt < threshold || state.noProgressNotified[id]) return;
+  const idle=Date.now()-state.lastProgressAt;
+  const stalled=idle>=threshold || ((state.attempts[id]||0)>=2 && idle>=90000) || ((state.pagesVisited[id]||0)>=3 && idle>=180000);
+  if (id === '25' || !stalled || state.noProgressNotified[id]) return;
   updateState((draft) => { draft.noProgressNotified[id] = true; });
   notifyNoProgress();
 }, 30000);
+
+window.setInterval(tickBehaviorDirector,15000);

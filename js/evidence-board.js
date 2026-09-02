@@ -7,7 +7,7 @@ const EVIDENCE = [
   { id: 'DOC-1708', type: 'DOCUMENTO', origin: 'ARQUIVO', confidence: '91%', residual: 'DATA', unlock: '06' },
   { id: 'FILE-1010', type: 'METADADO', origin: 'DIRETÓRIO J', confidence: '96%', residual: '10:10', unlock: '07' },
   { id: 'PACKET-24', type: 'PACOTE', origin: 'ARQUIVO', confidence: '94%', residual: 'OBJETO: LUA', unlock: '08' },
-  { id: 'IMG_2019_MULLET', type: 'MEMÓRIA', origin: 'CELULAR / METADATA', confidence: '99.4%', residual: 'S', unlock: '12' },
+  { id: 'IMG_CURITIBA_PRESENTE', type: 'OBJETO / MEMÓRIA', origin: 'CELULAR / METADATA', confidence: '99.4%', residual: 'OBJETO C', unlock: '12' },
   { id: 'IMG-F01C', type: 'IMAGEM RESIDUAL', origin: 'RECEPTOR', confidence: '89%', residual: 'FIM · 01 · COMEÇO', unlock: '13' },
   { id: 'INST-NOITE', type: 'INSTRUÇÃO', origin: 'FRAGMENTOS', confidence: '93%', residual: 'ONDE A NOITE DEIXA O QUE VOCÊ PRECISA', unlock: '15' },
   { id: 'VX-11', type: 'RESÍDUO', origin: 'SEM PORTADORA', confidence: '18%', residual: 'BLOQUEADO', unlock: '02' },
@@ -66,7 +66,7 @@ export function renderColdStorage(state) {
 }
 
 export function renderIdentity(state) {
-  const shared = [state.flags.eventChanged, state.flags.mulletConfirmed, state.flags.locationRecovered].filter(Boolean).length;
+  const shared = [state.flags.eventChanged, state.flags.curitibaConfirmed, state.flags.locationRecovered].filter(Boolean).length;
   const status = state.flags.finalRecovered ? 'RAYSSA' : state.flags.identityLinked ? 'RAYSSA?' : 'DESCONHECIDA';
   const author = state.flags.booksNodeValidated || state.flags.finalRecovered ? 'JOÃO' : state.flags.eventChanged ? 'J.' : 'DESCONHECIDO';
   return `<div class="identity-register">

@@ -12,7 +12,7 @@ import { archiveRecordFor } from './archive.js';
 import { syncIdentityRelations, syncRoomState } from './dom-sync.js';
 import { handleComputerClick, handleComputerKeydown, returnComputerToTask } from './events/computer.js';
 import { handleReconstructionClick } from './events/reconstruction.js';
-import { handleDesktopBackgroundClick, handleDesktopClick, handleDesktopDoubleClick, handleDesktopKeydown, handleDesktopPointerDown, handleDesktopPointerMove, handleDesktopPointerUp, handleDesktopContextMenu } from './events/desktop-os.js';
+import { handleDesktopBackgroundClick, handleDesktopChange, handleDesktopClick, handleDesktopContextMenu, handleDesktopDoubleClick, handleDesktopKeydown, handleDesktopPointerDown, handleDesktopPointerMove, handleDesktopPointerUp, handleDesktopSubmit } from './events/desktop-os.js';
 import { handlePhoneClick } from './events/phone.js';
 import { handleReceiverClick } from './events/receiver.js';
 import { handleClockClick } from './events/clock.js';
@@ -20,6 +20,11 @@ import { handleBookscanClick } from './events/bookscan.js';
 import { handleNavigationClick } from './events/navigation.js';
 import { handlePuzzleClick } from './events/puzzle-actions.js';
 import { emitWorldEvent } from './worlds/world-events.js';
+import { beginSimulatedReboot } from './computer-runtime.js';
+import { signalBehavior } from './behavior-director.js';
+import { offerPhaseTransition } from './transition-director.js';
+import { evaluatePaperBoard, ensurePaperBoard } from './paper-engine.js';
+import { handlePaperClick, handlePaperPointerDown, handlePaperPointerMove, handlePaperPointerUp } from './events/paper.js';
 
 let refresh = () => {};
 let go = () => {};
@@ -32,6 +37,7 @@ function feedback(message, kind = '') {
 }
 
 function progress(id, next, message = 'REGISTRO ACEITO', { delay = null } = {}) {
+  if (getState().completed.includes(id)) return;
   const narrativeMilestones = new Set(['05', '09', '12', '19']);
   const loadingLabels = {
     '11': 'COMPARANDO ENTIDADES',
@@ -41,15 +47,18 @@ function progress(id, next, message = 'REGISTRO ACEITO', { delay = null } = {}) 
     '24': 'FUNDINDO RELAÇÕES'
   };
   completePuzzle(id, next);
+  signalBehavior('progress',{id});
   addEvent('puzzle-complete', id);
   uiFeedback.success(message, { impact: narrativeMilestones.has(id) ? 'dramatic' : false });
   Motion.play('narrative-loading', { target: document.querySelector('[data-narrative-loader]'), label: loadingLabels[id] || 'INDEXANDO BLOCOS DE MEMÓRIA' });
-  const navigationDelay = Motion.reduced ? 0 : (delay ?? uiFeedback.duration('slow'));
-  uiFeedback.schedule('progress-navigation', () => go(next[0]), navigationDelay);
+  go(id);
+  uiFeedback.schedule('title-reveal-clear',()=>updateState((state)=>{if(state.ui.titleReveal?.id===id) state.ui.titleReveal=null;}),Motion.reduced?800:2600);
+  offerPhaseTransition(id,{delay});
 }
 
 function wrong(id, answer, message = clarityFor(id).wrongFeedback) {
   recordAttempt(id, answer, false);
+  signalBehavior('wrong-answer',{id});
   const attempts = getState().attempts[id];
   uiFeedback.error(`RESPOSTA INCORRETA // ${message}`, { critical: attempts % 3 === 0, target: document.activeElement });
   if (attempts === 3) {
@@ -77,7 +86,7 @@ function handleAnswer(id, answer) {
     return;
   }
   if (isAcceptedAnswer(id, answer)) correctAnswer(id, answer);
-  else wrong(id, answer);
+  else wrong(id, answer, `FORMATO ACEITO // VALOR INCONSISTENTE. ${contract.wrongFeedback}`);
 }
 
 async function initializeSystem(button) {
@@ -165,16 +174,67 @@ function handleClick(event) {
   if (!button) return;
   const action = button.dataset.action;
   trackClick(action.startsWith('tv-') ? `tv:${action}` : action);
+  if (action.startsWith('tv-')) signalBehavior('receiver',{action});
+  if (action === 'os-quarantine') signalBehavior('quarantine',{id:button.dataset.resource});
+  if (['os-open-resource','os-select','os-open-context'].includes(action)) signalBehavior('resource',{id:button.dataset.resource || button.dataset.osResource || getState().desktopOs.selectedIcon});
   if (handleDesktopClick(action, button, event)) return;
   if (handleComputerClick(action, button)) return;
   if (handleReconstructionClick(action, button)) return;
-  if (handlePhoneClick(action,button,{ current, feedback, correctAnswer })) return;
+  if (handlePhoneClick(action,button,{ current, feedback, correctAnswer, navigate:go })) return;
   if (handleReceiverClick(action,button,{ current, feedback, progress, toast:(message)=>uiFeedback.toast(message,{kind:'discovery'}) })) return;
   if (handleClockClick(action,{ current, feedback, wrong, progress })) return;
   if (handleBookscanClick(action,button,{ feedback, wrong })) return;
+  if (handlePaperClick(action,button)) return refresh();
   if (handlePuzzleClick(action,button,{ feedback, wrong, progress, correctAnswer })) return;
   if (handleNavigationClick(action,button,{ go, current, last })) return;
   if (action === 'boot-fragment') return initializeSystem(button);
+  if (action === 'signal-lock') {
+    const state=getState();const exact=state.signalAnalyzer.coarse===170&&state.signalAnalyzer.fine===8;
+    if(!exact){const distance=Math.abs((state.signalAnalyzer.coarse+state.signalAnalyzer.fine/10)-170.8);return feedback(distance<1?'PORTADORA PRÓXIMA // FINE AINDA INSTÁVEL':'SEM SINCRONIA // DERIVE A PORTADORA DE 17-08','warn');}
+    updateState((draft)=>{draft.signalAnalyzer.locked=true;},{progress:true});
+    Motion.emit('evidence:resolve',{source:'signal-1708'});return refresh();
+  }
+  if (action === 'vx-download') {
+    const snapshot=Number(button.dataset.snapshot);
+    if(snapshot!==3)return wrong('07',String(snapshot),'SNAPSHOT INCONSISTENTE // dois metadados precisam concordar com EVENTO_1010.');
+    updateState((state)=>{state.vxNet.downloads=[...new Set([...state.vxNet.downloads,'DUMP_24.bin'])];state.vxNet.recoveredLink=true;},{progress:true});
+    return progress('07',['08'],'LINK PARCIAL RECUPERADO // DUMP_24.bin EM DOWNLOADS');
+  }
+  if (['vx-back','vx-forward','vx-reload','vx-page'].includes(action)) {
+    updateState((state)=>{if(action==='vx-page'){const url=button.dataset.url;state.vxNet.history=state.vxNet.history.slice(0,state.vxNet.index+1);state.vxNet.history.push(url);state.vxNet.index=state.vxNet.history.length-1;state.vxNet.url=url;}if(action==='vx-back')state.vxNet.index=Math.max(0,state.vxNet.index-1);if(action==='vx-forward')state.vxNet.index=Math.min(state.vxNet.history.length-1,state.vxNet.index+1);state.vxNet.url=state.vxNet.history[state.vxNet.index];});return refresh();
+  }
+  if (action === 'moon-recover') {
+    const root=button.closest('[data-moon-forensics]');const contrast=Number(root?.querySelector('[data-moon-control="contrast"]')?.value||0);const channel=root?.querySelector('[data-moon-control="channel"]')?.value;
+    if(contrast<65||channel!=='infra')return feedback('CRUZAMENTO INSUFICIENTE // O RESÍDUO NÃO ESTÁ NO CANAL VISÍVEL','warn');
+    updateState((state)=>{state.computer.files['webcam-cache'].recovered=true;},{progress:true});return refresh();
+  }
+  if (action === 'paper-validate') {
+    const boardId=button.dataset.board;const evaluation=evaluatePaperBoard(getState(),boardId);
+    updateState((state)=>{const board=ensurePaperBoard(state,boardId);board.tested=true;board.solved=evaluation.ready;});
+    if(!evaluation.ready)return feedback(`COMPOSIÇÃO INSTÁVEL // ${evaluation.aligned} DE ${evaluation.total} RELAÇÕES COINCIDEM`,'warn');
+    if(boardId==='11')return progress('11',['12'],'SILHUETA PARCIAL // OBJETO TÊXTIL RECORRENTE');
+    if(boardId==='18')return refresh();
+    if(boardId==='20'){updateState((state)=>{state.flags.roomRebuilt=true;state.flags.houseAnomalyRevealed=true;},{progress:true});uiFeedback.screenImpact('error','TRANSPARÊNCIAS DIVERGEM // +11,2 m²',{level:'dramatic'});return refresh();}
+    if(boardId==='24')return refresh();
+  }
+  if (action === 'hypothesis-document') {
+    const id=button.dataset.document;const selected=getState().hypothesisSelection;
+    updateState((state)=>{if(!selected.length){state.hypothesisSelection=[id];return;}const first=selected[0];if(first===id){state.hypothesisSelection=[];return;}const key=[first,id].sort().join(':');state.hypothesisLinks=[...new Set([...state.hypothesisLinks,key])];state.hypothesisSelection=[];},{progress:true});return refresh();
+  }
+  if (action === 'remove-hypothesis') {const link=button.dataset.link;updateState((state)=>{state.hypothesisLinks=state.hypothesisLinks.filter((item)=>item!==link);});return refresh();}
+  if (action === 'test-hypothesis') {
+    const required=['conversation:date','curitiba:object-c','place:shore','clock:receiver'];const links=getState().hypothesisLinks;
+    const inconsistent=links.filter((link)=>!required.includes(link));const missing=required.filter((link)=>!links.includes(link));
+    if(inconsistent.length||missing.length)return feedback(`HIPÓTESE INCONSISTENTE // ${inconsistent.length} RELAÇÕES SEM SUPORTE · ${missing.length} RELAÇÕES AUSENTES`,'warn');
+    updateState((state)=>{state.flags.identityLinked=true;},{progress:true});emitWorldEvent('reconstruction.identity.linked');return progress('19',['20'],'HIPÓTESE DE MEMÓRIA COMPARTILHADA: SUSTENTADA');
+  }
+  if (action === 'bookshelf-title') {
+    const id=button.dataset.title;updateState((state)=>{state.bookshelfSelections=state.bookshelfSelections.includes(id)?state.bookshelfSelections.filter((item)=>item!==id):[...state.bookshelfSelections,id].slice(-3);},{progress:true});return refresh();
+  }
+  if (action === 'bookshelf-region') {
+    const selected=getState().bookshelfSelections;const correct=selected.length===3&&['acaba','comeca','teto'].every((id)=>selected.includes(id));
+    if(!correct)return feedback('REGIÃO NÃO SUSTENTADA // USE FIM, COMEÇO E ACIMA DE DOIS','warn');return refresh();
+  }
   if (action === 'os-isolate-event') {
     Motion.emit('archive:record-open', { record: 'evento-1010', altered: false });
     audioManager.playEvent('system.disk', { volume: .12 });
@@ -187,6 +247,8 @@ function handleClick(event) {
   }
   if (action === 'os-ack-change') {
     if (current() !== '10') return feedback('ALTERAÇÃO FORA DA FASE ATUAL', 'warn');
+    if (!getState().computer.files['event-1010']?.quarantined) return feedback('COMPARE A VERSÃO ATUAL COM UMA CÓPIA ESTABILIZADA NA QUARENTENA','warn');
+    if (!getState().vxNet.history.includes('mirror://final')) return feedback('SNAPSHOT ANTERIOR AUSENTE // CONSULTE O HISTÓRICO DO VX_NET','warn');
     updateState((state) => {
       state.flags.eventChanged = true;
       state.archive.reads['evento-1010'] = 2;
@@ -240,14 +302,24 @@ function handleClick(event) {
   }
   if (action === 'fake-end') {
     updateState((state)=>{state.flags.fakeFinalSeen=true;});
-    refresh();
     Motion.play('system-signal-loss');
-    return uiFeedback.screenImpact('error', 'INTEGRIDADE 99% // 1 RELAÇÃO NÃO RESOLVIDA', { level: 'dramatic' });
+    uiFeedback.screenImpact('error', 'INTEGRIDADE 99% // RECALCULANDO // ORIGEM AUSENTE', { level: 'dramatic' });
+    Motion.schedule('simulated-reboot',()=>{
+      updateState((state)=>beginSimulatedReboot(state,'INTEGRIDADE_99'));
+      emitWorldEvent('computer.integrity.ruptured');
+      refresh();
+    },Motion.reduced?0:1800);
+    return;
   }
   if (action === 'continue-after-fake') return progress('21',['22'],'CANAL EXTERNO ENCONTRADO');
 }
 
 function handleSubmit(event) {
+  if (handleDesktopSubmit(event)) return;
+  const vxAddress=event.target.closest('[data-vx-address]');
+  if(vxAddress){event.preventDefault();const url=String(new FormData(vxAddress).get('url')||'').trim().toLowerCase();updateState((state)=>{state.vxNet.history=state.vxNet.history.slice(0,state.vxNet.index+1);state.vxNet.history.push(url);state.vxNet.index=state.vxNet.history.length-1;state.vxNet.url=url;},{progress:Boolean(url)});return refresh();}
+  const vxSearch=event.target.closest('[data-vx-search]');
+  if(vxSearch){event.preventDefault();const query=String(new FormData(vxSearch).get('query')||'').trim();updateState((state)=>{state.vxNet.query=query;},{progress:Boolean(query)});return refresh();}
   const archiveSearch = event.target.closest('[data-archive-search]');
   if (archiveSearch) {
     event.preventDefault();
@@ -267,7 +339,8 @@ function handleSubmit(event) {
     const expected = {
       green: GAME_CONFIG.greenNodeCode,
       yard: GAME_CONFIG.yardNodeCode,
-      room: GAME_CONFIG.roomNodeCode
+      room: GAME_CONFIG.roomNodeCode,
+      books: GAME_CONFIG.booksNodeCode
     }[node] || '';
     const attemptId = `${node}-node`;
     if (!normalizeAnswer(token)) return uiFeedback.error('ENTRADA INVÁLIDA // Informe o código exibido pelo NÓ.', { target: nodeForm.querySelector('.answer-input') });
@@ -280,14 +353,15 @@ function handleSubmit(event) {
       state.flags[`${node}NodeScanned`] = true;
       state.flags[`${node}NodeValidated`] = true;
       state.physicalNodes[node] = 'validated';
-      const fragment = node === 'green' ? 'fragment:yard-symbols' : node === 'yard' ? 'fragment:repeat-event' : 'fragment:reading-0317';
+      const fragment = node === 'green' ? 'fragment:yard-symbols' : node === 'yard' ? 'fragment:repeat-event' : node==='books'?'fragment:audio-header':'fragment:reading-0317';
       state.discoveries = [...new Set([...state.discoveries, `node:${node}`, fragment])];
     }, { progress: true });
     addEvent('external-node-authenticated', node);
     if (node === 'room') emitWorldEvent('room.node.validated');
     Motion.emit('evidence:resolve', { source: `${node}-node` });
-    const labels = { green: 'NÓ_14 // FONTE VERDE VINCULADA', yard: 'NÓ_17 // MARGEM AUTENTICADA', room: 'NÓ_00 // LEITURA 03:17 ANEXADA' };
+    const labels = { green: 'NÓ_14 // FONTE VERDE VINCULADA', yard: 'NÓ_17 // MARGEM AUTENTICADA', room: 'NÓ_00 // LEITURA 03:17 ANEXADA', books:'NÓ_11 // ESTANTE AUTENTICADA' };
     uiFeedback.toast(labels[node] || 'NÓ AUTENTICADO', { kind: 'discovery' });
+    if(node==='books')return correctAnswer('22',token);
     return refresh();
   }
   const form = event.target.closest('[data-answer]');
@@ -302,6 +376,21 @@ function handleSubmit(event) {
 }
 
 function handleInput(event) {
+  if (handleDesktopChange(event)) return;
+  if (event.target.matches('[data-document-overlay]')) {
+    const value=Math.max(0,Math.min(100,Number(event.target.value)||0));
+    updateState((state)=>{state.documentRuntime.overlay=value;});
+    event.target.closest('.document-puzzle')?.querySelector('[data-document-compare]')?.style.setProperty('--overlay',String(value/100));
+    const output=event.target.closest('label')?.querySelector('[data-document-overlay-output]');
+    if(output) output.textContent=`${value}%`;
+    return;
+  }
+  if (event.target.matches('[data-signal-control]')) {
+    const key=event.target.dataset.signalControl;const value=Number(event.target.value);
+    updateState((state)=>{state.signalAnalyzer[key]=value;state.signalAnalyzer.locked=false;});
+    const output=event.target.closest('label')?.querySelector('output');if(output)output.textContent=key==='fine'?`.${value}`:String(value);
+    return;
+  }
   if (event.target.matches('.answer-input')) uiFeedback.clearFieldState(event.target);
   if (event.target.matches('[data-master-volume]')) {
     audioManager.setVolume(Number(event.target.value));
@@ -312,6 +401,7 @@ function handleInput(event) {
 
 function handlePointerDown(event) {
   if (handleDesktopPointerDown(event)) return;
+  if (handlePaperPointerDown(event)) return;
   const object = event.target.closest('.room-object[data-object]');
   const room = object?.closest('[data-room]');
   if (!object || !room || (event.pointerType === 'mouse' && event.button !== 0)) return;
@@ -341,6 +431,7 @@ function handlePointerDown(event) {
 
 function handlePointerMove(event) {
   if (handleDesktopPointerMove(event)) return;
+  if (handlePaperPointerMove(event)) return;
   if (!roomPointer || roomPointer.pointerId !== event.pointerId) return;
   event.preventDefault();
   const { object, roomRect, startLeft, startTop, offsetX, offsetY } = roomPointer;
@@ -407,9 +498,10 @@ export function initInteractions(options) {
   document.addEventListener('input', handleInput);
   document.addEventListener('pointerdown', handlePointerDown);
   document.addEventListener('pointermove', handlePointerMove, { passive: false });
-  document.addEventListener('pointerup', (event) => { if (!handleDesktopPointerUp(event)) finishRoomPointer(event); });
-  document.addEventListener('pointercancel', (event) => { if (!handleDesktopPointerUp(event, true)) finishRoomPointer(event, true); });
+  document.addEventListener('pointerup', (event) => { if (!handleDesktopPointerUp(event) && !handlePaperPointerUp(event)) finishRoomPointer(event); });
+  document.addEventListener('pointercancel', (event) => { if (!handleDesktopPointerUp(event, true) && !handlePaperPointerUp(event, true)) finishRoomPointer(event, true); });
   document.addEventListener('keydown', handleKeydown);
+  document.addEventListener('computer:reboot-complete',()=>{emitWorldEvent('computer.reboot.completed');refresh();});
 }
 
 export function notifyNodeDetection(node, early) {

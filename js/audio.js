@@ -63,9 +63,22 @@ class AudioExperience {
 
   async playUnknownSource({ duration = 1.4 } = {}) {
     if (!await this.unlock()) return false;
-    this.engine.duck(['ambience','device'], { depth:.08, attack:.04, hold:Math.min(duration,.9), release:1.1 });
-    [0,.31,.67].forEach((when,index)=>this.engine.play('source.signature',{ when, volume:.07-index*.008, frequency:84-index*5 }));
-    this.engine.play('source.03',{ when:.88, duration:Math.max(.28,Math.min(1.2,duration-.88)), volume:.045 });
+    this.engine.duck(['ambience','device'], { depth:.22, attack:.04, hold:Math.max(.8,duration-.7), release:.85 });
+    this.engine.play('receiver.static',{when:0,duration:Math.max(1,Math.min(7,duration)),volume:.11,filter:520});
+    [0,.42,.91].forEach((when,index)=>this.engine.play('source.signature',{ when, volume:.2-index*.018, frequency:124-index*9 }));
+    this.engine.play('source.03',{ when:1.25, duration:Math.max(.7,Math.min(3.6,duration-1.25)), volume:.2 });
+    return true;
+  }
+
+  async playWorldHandoff(plan={}) {
+    if (!await this.unlock()) return false;
+    this.engine.duck(['ambience'],{depth:.35,attack:.05,hold:.7,release:.8});
+    this.engine.play(plan.fromWorld==='phone'?'phone.lock':'chair.release',{volume:.18});
+    this.engine.play('room.steps.short',{when:.28,volume:.16});
+    this.engine.play('room.steps.short',{when:.55,volume:.13,frequency:108});
+    if (plan.toWorld==='tv') this.engine.play('receiver.wake',{when:.72,volume:.22});
+    else if (plan.toWorld==='phone') this.engine.play('phone.pickup',{when:.68,volume:.18});
+    else if (plan.toWorld==='computer') this.engine.play('system.relay',{when:.74,volume:.22});
     return true;
   }
 
@@ -74,6 +87,25 @@ class AudioExperience {
     this.engine.dropout(['ambience','device'], { depth:.001, attack:.018, hold:.52, release:1.7 });
     this.engine.play('system.disk',{ when:.04,duration:.46,volume:.13 });
     this.engine.play('computer.file.changed',{ when:.34,volume:.08 });
+    return true;
+  }
+
+  async playFilePayload(type='suspicious') {
+    if (!await this.unlock()) return false;
+    const profile=String(type).split(':')[0];
+    if (profile==='temporal') {
+      this.engine.play('computer.file.changed',{volume:.07});
+      this.engine.play('system.disk',{when:.08,duration:.22,volume:.08});
+    } else if (profile==='mirror') {
+      this.engine.play('ui.contact',{volume:.04});
+      this.engine.play('ui.contact',{when:.055,volume:.035,frequency:705});
+    } else if (profile==='rupture') {
+      this.engine.dropout(['ambience','device'],{depth:.01,attack:.02,hold:.36,release:1.1});
+      this.engine.play('system.relay',{when:.12,volume:.1});
+    } else {
+      this.engine.play('system.disk',{volume:.07});
+      this.engine.play('receiver.static',{when:.07,duration:.06,volume:.025});
+    }
     return true;
   }
 
@@ -223,7 +255,11 @@ class AudioExperience {
     if (name === 'screen-tear') return this.engine.play('impact.glitch');
     if (name === 'horizontal-roll') return this.engine.play('receiver.interference', { duration: .16, volume: .07 });
     if (name === 'vertical-desync') return this.engine.play('receiver.interference', { duration: .2, volume: .09, filter: 520 });
-    if (name === 'system-signal-loss') return this.engine.play('receiver.collapse', { volume: .12 });
+    if (name === 'system-signal-loss') {
+      this.engine.dropout(['ambience','device'],{depth:.001,attack:.018,hold:.7,release:1.8});
+      [0,.27,.61].forEach((when,index)=>this.engine.play('source.signature',{when,volume:.065-index*.007,frequency:84-index*5}));
+      return this.engine.play('receiver.collapse', { when:.82, volume: .12 });
+    }
     if (name === 'frame-ghost') return this.engine.play('rare.crackle', { volume: .035 });
     if (name === 'phosphor-burn') return this.engine.play('system.flyback', { duration: .2, volume: .018 });
     if (name === 'signal-recovery') return this.engine.play('receiver.lock', { volume: .08 });
@@ -251,7 +287,10 @@ class AudioExperience {
     Motion.cancel('audio-rare-event');
     if (!this.engine.unlocked) return;
     const sequence = ++this.rareSequence;
-    const delay = 28000 + Math.floor(Math.random() * 65000);
+    const act=Math.max(1,Math.min(5,Number(document.body.dataset.act)||1));
+    const ranges={1:[18000,45000],2:[14000,38000],3:[10000,30000],4:[8000,25000],5:[18000,52000]};
+    const [minimum,maximum]=ranges[act];
+    const delay=minimum+Math.floor(Math.random()*(maximum-minimum));
     Motion.schedule('audio-rare-event', () => {
       if (sequence !== this.rareSequence || getState().settings.muted) return this.scheduleRareEvent();
       const eventByFamily = {

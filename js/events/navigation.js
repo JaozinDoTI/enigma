@@ -4,12 +4,16 @@ import { syncHintPanel, syncMuteControls } from '../dom-sync.js';
 import { useHint } from '../hints.js';
 import { getState, resetState, unlockThrough } from '../state.js';
 import { uiFeedback } from '../ui-feedback.js';
+import { evaluateBehaviorDirector } from '../behavior-director.js';
+import { releaseLocalCapture } from '../local-capture.js';
+import { acceptPendingTransition, clearPendingTransition } from '../transition-director.js';
 
-const ACTIONS = new Set(['navigate','hint','toggle-mute','play-final-music','dev-next','dev-reset']);
+const ACTIONS = new Set(['navigate','accept-transition','hint','toggle-mute','play-final-music','dev-next','dev-event','dev-clear-transition','dev-reset']);
 
 export function handleNavigationClick(action,button,context) {
   if (!ACTIONS.has(action)) return false;
   if (action === 'navigate') { context.go(button.dataset.target); return true; }
+  if (action === 'accept-transition') { acceptPendingTransition(); return true; }
   if (action === 'hint') {
     useHint(button.dataset.puzzle);
     syncHintPanel(button.dataset.puzzle,getState());
@@ -34,7 +38,14 @@ export function handleNavigationClick(action,button,context) {
     context.go(next);
     return true;
   }
+  if (action === 'dev-event') {
+    const delivered=evaluateBehaviorDirector({force:button.dataset.event});
+    uiFeedback.toast(delivered?`EVENTO SIMULADO // ${delivered}`:'EVENTO INELEGÍVEL',{kind:delivered?'discovery':'error'});
+    return true;
+  }
+  if (action === 'dev-clear-transition') { clearPendingTransition(); return true; }
   if (action === 'dev-reset' && confirm('Reiniciar esta sessão em memória?')) {
+    releaseLocalCapture();
     resetState();
     context.go('01');
   }

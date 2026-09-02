@@ -21,7 +21,7 @@ export function syncClarityStatus(id, state) {
 export function syncDocumentExtraction(state) {
   const order = ['A DATA', 'ABRE', 'O ARQUIVO'];
   const selected = order.filter((token) => (state.documentFragments || []).includes(token));
-  document.querySelectorAll('[data-action="document-row"]').forEach((row) => {
+  document.querySelectorAll('[data-action="document-row"],[data-action="memory-region"]').forEach((row) => {
     const active = Boolean(row.dataset.token && selected.includes(row.dataset.token));
     row.classList.toggle('is-selected', active);
     row.setAttribute('aria-pressed', String(active));
@@ -35,7 +35,7 @@ export function syncDocumentExtraction(state) {
   const count = document.querySelector('[data-document-count]');
   if (count) count.textContent = `${selected.length} / ${order.length}`;
   const commit = document.querySelector('[data-action="commit-document"]');
-  if (commit) commit.disabled = selected.length !== order.length;
+  if (commit) commit.disabled = selected.length !== order.length || !(state.documentRuntime?.snapshots?.length);
   const status = document.querySelector('[data-document-status]');
   if (status) status.textContent = selected.length === order.length
     ? 'INSTRUÇÃO RECONSTRUÍDA // PRONTA PARA EXTRAÇÃO'

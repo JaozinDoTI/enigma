@@ -22,6 +22,7 @@ index.html
        ├─ scene-renderer.js    componentes narrativos por mecânica
        ├─ view.js              composição de cena, foco e modo imersivo
        ├─ phase-one-computer.js sistema gráfico fictício, recursos e janelas da etapa 01
+       ├─ computer-runtime.js overlays de arquivo, payloads, quarentena, navegação e reboot fictício
        ├─ worlds/world-events.js agenda e entrega efeitos entre worlds
        ├─ experience.js        ato, papel, área e corrupção derivados
        ├─ motion-engine.js     scheduler, timelines e eventos de motion
@@ -56,10 +57,18 @@ O objeto `gameState` mantém durante a página aberta:
 - histórico de chamadas, mensagens entregues e notificações do telefone;
 - posições do quarto virtual;
 - ordem de fragmentos, relações, seleção espacial e estado das janelas do computador da etapa 01;
+- overlays dinâmicos dos arquivos, contagem de leituras, quarentena, histórico/busca do Explorer e processos fictícios;
+- estado da shell e do boot simulado, independente de recarregar a página;
 - visitas, retornos, eventos e estatísticas;
 - horário inicial, último progresso e configurações de áudio.
 
 Manter apenas a “fase atual” impediria retornos, descobertas antecipadas e mudanças silenciosas durante a sessão. Por isso cada evidência vive em flag própria. O estado não é gravado no navegador: recarregar ou fechar a página reinicia a experiência.
+
+## Filesystem em runtime
+
+`phase-one-computer.js` mantém os recursos-base imutáveis. `computer-runtime.js` resolve os overlays da sessão: variante, visibilidade, tamanho, origem, comportamento, número de leituras, quarentena e última mutação. Assim `REG_101000.idx` continua sendo um único arquivo, embora seu conteúdo e seus metadados possam divergir depois da revisita.
+
+Payloads narrativos são determinísticos e governados por flags, registros desbloqueados, relógio e número de abertura. Eventos cosméticos podem variar, mas nenhuma pista crítica depende de RNG. O reboot de `INTEGRIDADE.exe` desmonta e remonta apenas a shell fictícia; progresso, telefone, Receiver, evidências e janelas permanecem no estado da sessão.
 
 ## Rotas
 

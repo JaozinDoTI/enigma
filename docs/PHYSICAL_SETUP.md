@@ -76,6 +76,14 @@ Prenda cada tira como marcador, sem cola sobre páginas.
 - Token configurado: `VX-LIVROS-0214`
 - Se for encontrado cedo, o código pode ser guardado; o registro 22 só dará contexto no momento correto
 
+## Curitiba — presença física opcional
+
+- Não transformar Curitiba em um quinto QR obrigatório.
+- Se o gato de pelúcia real participar, prender apenas uma etiqueta removível ou deixar um pequeno papel dobrado junto ao objeto.
+- Sugestão de texto: `OBJETO C // ORIGEM DOMÉSTICA // IDENTIDADE RECUPERADA`.
+- A etiqueta é confirmação afetiva e worldbuilding; o avanço do registro 12 continua acessível pelo telefone e pela metadata.
+- Não colar material diretamente no tecido nem esconder o objeto em local inseguro.
+
 ## Retorno temporal — 10:10
 
 - Depois de `03:17`, a estação mantém a hora calibrada.

@@ -1,6 +1,11 @@
 import { audioManager } from '../audio.js';
-import { getState, updateState } from '../state.js';
+import { discoverPuzzle, getState, updateState } from '../state.js';
 import { desktopResource, desktopWindowMarkup } from '../phase-one-computer.js';
+import { finishSimulatedReboot, markTempDuplicate, moveNavigation, noteNavigation, quarantineFile, recordFileOpen, stabilizeComputer } from '../computer-runtime.js';
+import { Motion } from '../motion-engine.js';
+import { signalBehavior } from '../behavior-director.js';
+import { requestLocalCapture } from '../local-capture.js';
+import { scheduleWorldAction } from '../worlds/world-events.js';
 
 let drag = null;
 
@@ -38,6 +43,44 @@ function focusWindow(key) {
 
 function windowKey(resourceId, kind = 'resource') { return `${kind}:${resourceId}`; }
 
+function discoverDocumentComparison(resourceId) {
+  if (!['rel-1708-a','rel-1708-b'].includes(resourceId)) return;
+  const state=getState();
+  if (state.documentRuntime.copiesSeen.includes('A') && state.documentRuntime.copiesSeen.includes('B')) discoverPuzzle('06','two-copies');
+}
+
+function refreshWindow(key) {
+  const state=getState();
+  const entry=state.desktopOs.windows.find((candidate)=>candidate.key===key);
+  const target=windowElement(key);
+  if (!entry || !target) return;
+  const shell=document.createElement('div');
+  shell.innerHTML=desktopWindowMarkup(entry,state).trim();
+  const replacement=shell.firstElementChild;
+  if (replacement) target.replaceWith(replacement);
+}
+
+function refreshResourceWindows(...resourceIds) {
+  getState().desktopOs.windows.filter((entry)=>resourceIds.includes(entry.resourceId)).forEach((entry)=>refreshWindow(entry.key));
+}
+
+function reactToPayload(payload,resourceId) {
+  if (!payload) return;
+  const desktop=desktopRoot();
+  desktop?.classList.add('has-file-payload');
+  audioManager.playFilePayload(payload);
+  if (payload==='parasite:temp-duplicate') {
+    Motion.schedule('file-payload:temp-duplicate',()=>{
+      updateState((state)=>markTempDuplicate(state));
+      refreshResourceWindows('temp','tmp1');
+      desktop?.classList.remove('has-file-payload');
+      play('computer.file.changed',{volume:.07});
+    },Motion.reduced?0:1800);
+  }
+  if (payload==='mirror:backup-contaminated' || payload==='temporal:clock-conflict') refreshResourceWindows(resourceId);
+  Motion.schedule(`file-payload:clear:${resourceId}`,()=>desktop?.classList.remove('has-file-payload'),Motion.reduced?0:620);
+}
+
 function openResource(resourceId, kind = 'resource') {
   const resource = desktopResource(resourceId);
   const layer = document.querySelector('.os-window-layer');
@@ -45,24 +88,41 @@ function openResource(resourceId, kind = 'resource') {
   const key = windowKey(resourceId, kind);
   const existing = getState().desktopOs.windows.find((entry) => entry.key === key);
   if (existing) {
+    let payload=null;
+    updateState((state)=>{
+      if (resource.type==='folder' || resource.type==='trash') noteNavigation(state,resourceId);
+      else payload=recordFileOpen(state,resourceId);
+    });
+    refreshWindow(key);
     focusWindow(key);
     play('ui.contact', { volume: .07 });
+    reactToPayload(payload,resourceId);
+    discoverDocumentComparison(resourceId);
     return true;
   }
   let entry;
+  let payload=null;
+  const bounds=layer.getBoundingClientRect();
   updateState((state) => {
     state.desktopOs.zCounter += 1;
     const count = state.desktopOs.windows.length;
+    const critical=['final-recovery-app','truth-app','event-1010'].includes(resourceId);
+    const estimatedWidth=Math.min(680,Math.max(360,bounds.width*.72));
+    const estimatedHeight=Math.min(520,Math.max(280,bounds.height*.72));
+    const cascadeX=critical?Math.max(12,(bounds.width-estimatedWidth)/2):36+(count%6)*30;
+    const cascadeY=critical?Math.max(12,(bounds.height-estimatedHeight)/2):28+(count%5)*25;
     entry = {
       key, resourceId, kind,
-      x: 54 + (count % 5) * 34,
-      y: 42 + (count % 4) * 28,
+      x: Math.round(Math.max(8,Math.min(cascadeX,Math.max(8,bounds.width-estimatedWidth-8)))),
+      y: Math.round(Math.max(8,Math.min(cascadeY,Math.max(8,bounds.height-estimatedHeight-42)))),
       z: state.desktopOs.zCounter,
       minimized: false,
       maximized: false
     };
     state.desktopOs.windows.push(entry);
     state.desktopOs.startOpen = false;
+    if (resource.type==='folder' || resource.type==='trash') noteNavigation(state,resourceId);
+    else payload=recordFileOpen(state,resourceId);
   });
   layer.insertAdjacentHTML('beforeend', desktopWindowMarkup(entry, getState()));
   windowElement(key)?.querySelectorAll('[data-evidence-source]').forEach((image)=>{
@@ -85,6 +145,8 @@ function openResource(resourceId, kind = 'resource') {
   document.querySelector('[data-os-context-menu]')?.setAttribute('hidden','');
   focusWindow(key);
   play(resource.type === 'folder' || resource.type === 'trash' ? 'computer.folder.open' : 'computer.window.open', { volume: resource.type === 'folder' ? .07 : .09 });
+  reactToPayload(payload,resourceId);
+  discoverDocumentComparison(resourceId);
   return true;
 }
 
@@ -153,13 +215,67 @@ export function handleDesktopClick(action, button) {
     setSelected(id);
     document.querySelector('[data-os-context-menu]')?.setAttribute('hidden','');
     play('ui.contact', { volume: .04 });
-    if (matchMedia('(max-width: 760px), (pointer: coarse)').matches) openResource(id);
+    if (matchMedia('(max-width: 760px), (pointer: coarse)').matches) openResource(id,button.closest('[data-resource="quarantine"]')?'quarantine':'resource');
     return true;
   }
   if (action === 'os-open-resource') return openResource(button.dataset.resource);
   if (action === 'os-open-context') return openSelected();
   if (action === 'os-properties') return openSelected('properties');
+  if (action === 'os-quarantine') {
+    const id=button.dataset.resource;
+    let changed=false;
+    updateState((state)=>{changed=quarantineFile(state,id);});
+    if (changed) {
+      refreshResourceWindows(id,'quarantine');
+      play('computer.file.changed',{volume:.06});
+      button.textContent='CÓPIA ESTABILIZADA';
+      button.disabled=true;
+    }
+    return true;
+  }
+  if (action === 'os-document-snapshot') {
+    const copy=button.dataset.copy;
+    updateState((state)=>{
+      const snapshot={copy,revision:state.documentRuntime.revision,at:Date.now()};
+      state.documentRuntime.snapshots=[...state.documentRuntime.snapshots.filter((item)=>item.copy!==copy),snapshot];
+    },{progress:true});
+    button.textContent=`ESTADO ${copy} CAPTURADO`;
+    button.disabled=true;
+    play('system.disk',{volume:.07});
+    return true;
+  }
+  if (action === 'local-capture-authorize') {
+    if (getState().capture.status==='requesting') return true;
+    updateState((state)=>{state.capture.status='requesting';state.capture.requestedAt=Date.now();state.capture.error=null;});
+    button.disabled=true;
+    button.textContent='AGUARDANDO PERMISSÃO…';
+    requestLocalCapture().then((frame)=>{
+      updateState((state)=>{state.capture.status='captured';state.capture.capturedAt=Date.now();state.capture.error=null;});
+      scheduleWorldAction('capture.local.completed',{domain:'phone',type:'gallery',delay:18000,payload:{id:'gallery:local-capture',capture:true,label:'FRAME_LOCAL_1010',meta:`${frame.width}×${frame.height} · memória volátil · origem: esta sessão`,notification:'novo quadro sem origem no aparelho'}});
+      refreshResourceWindows('cam-local-app');
+      play('system.relay',{volume:.07});
+    }).catch((error)=>{
+      updateState((state)=>{state.capture.status='denied';state.capture.error=String(error?.name||error?.message||'denied');});
+      scheduleWorldAction('capture.local.fallback',{domain:'phone',type:'gallery',delay:12000,payload:{id:'gallery:local-fallback',fallback:true,label:'FRAME_LOCAL_INDISPONÍVEL',meta:'captura fictícia · permissão não concedida',notification:'fallback local preparado'}});
+      refreshResourceWindows('cam-local-app');
+      play('ui.reject',{volume:.06});
+    });
+    return true;
+  }
+  if (action === 'os-nav-back' || action === 'os-nav-forward') {
+    let target=null;
+    updateState((state)=>{target=moveNavigation(state,action==='os-nav-back'?-1:1);});
+    if (target) openResource(target);
+    return true;
+  }
+  if (action === 'os-reboot-return') {
+    updateState((state)=>{finishSimulatedReboot(state);stabilizeComputer(state);});
+    document.dispatchEvent(new CustomEvent('computer:reboot-complete'));
+    play('system.relay',{volume:.08});
+    return true;
+  }
   if (action === 'os-window-close') return closeWindow(button);
+  if (action === 'os-window-front') { const target=button.closest('[data-os-window]');if(target)focusWindow(target.dataset.osWindow);return true; }
   if (action === 'os-window-minimize') return minimizeWindow(button);
   if (action === 'os-window-maximize') return maximizeWindow(button);
   if (action === 'os-task-window') { focusWindow(button.dataset.window); return true; }
@@ -203,8 +319,15 @@ export function handleDesktopClick(action, button) {
     return true;
   }
   if (action === 'os-audio-preview') {
-    play('receiver.static', { duration: .16, volume: .055 });
-    button.textContent = 'LEITURA ENCERRADA';
+    if (button.disabled) return true;
+    button.disabled=true;
+    button.textContent='REPRODUZINDO 00:04';
+    audioManager.duck(['ambience','device'],{depth:.22,attack:.04,hold:3.4,release:.7});
+    play('receiver.static', { duration: 4, volume: .2, filter:620 });
+    play('source.signature',{when:.7,volume:.18});
+    play('source.signature',{when:1.6,volume:.16,frequency:109});
+    play('source.signature',{when:2.55,volume:.14,frequency:101});
+    Motion.schedule('desktop-audio-preview-finish',()=>{if(button.isConnected){button.disabled=false;button.textContent='REPRODUZIR';}},4000);
     return true;
   }
   if (action === 'os-image-zoom') {
@@ -227,7 +350,8 @@ export function handleDesktopDoubleClick(event) {
   if (!icon || !desktopRoot()) return false;
   event.preventDefault();
   setSelected(icon.dataset.osResource);
-  return openResource(icon.dataset.osResource);
+  const inQuarantine=Boolean(icon.closest('[data-resource="quarantine"]'));
+  return openResource(icon.dataset.osResource,inQuarantine?'quarantine':'resource');
 }
 
 export function handleDesktopContextMenu(event) {
@@ -294,7 +418,7 @@ export function handleDesktopKeydown(event) {
   if (!desktopRoot()) return false;
   if (event.key === 'Enter' && document.activeElement?.matches('[data-os-resource]')) {
     event.preventDefault();
-    return openResource(document.activeElement.dataset.osResource);
+    return openResource(document.activeElement.dataset.osResource,document.activeElement.closest('[data-resource="quarantine"]')?'quarantine':'resource');
   }
   if (event.key === 'Escape') {
     const menu = document.querySelector('[data-os-context-menu]:not([hidden])');
@@ -307,4 +431,27 @@ export function handleDesktopKeydown(event) {
     }
   }
   return false;
+}
+
+export function handleDesktopSubmit(event) {
+  const form=event.target.closest('[data-os-search]');
+  if (!form || !desktopRoot()) return false;
+  event.preventDefault();
+  const query=String(new FormData(form).get('query')||'').trim();
+  updateState((state)=>{state.computer.navigation.searchQuery=query;});
+  const windowNode=form.closest('[data-os-window]');
+  const key=windowNode?.dataset.osWindow;
+  if (key) refreshWindow(key);
+  const hasResults=Boolean(key && windowElement(key)?.querySelector('[data-os-resource]'));
+  if (query && !hasResults) signalBehavior('empty-search',{query});
+  play('system.disk',{volume:.045});
+  return true;
+}
+
+export function handleDesktopChange(event) {
+  if (!event.target.matches('[data-os-sort]') || !desktopRoot()) return false;
+  updateState((state)=>{state.computer.navigation.sortBy=event.target.value||'name';});
+  const windowNode=event.target.closest('[data-os-window]');
+  if (windowNode) refreshWindow(windowNode.dataset.osWindow);
+  return true;
 }

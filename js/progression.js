@@ -1,15 +1,20 @@
 import { puzzleFor } from './puzzles/catalog.js';
 import { answerMatches } from './utils.js';
+import { stabilizeComputer } from './computer-runtime.js';
 
 const EFFECTS = Object.freeze({
   moonFirstFound(state) { state.flags.moonFirstFound = true; },
-  mulletConfirmed(state) { state.flags.mulletConfirmed = true; },
+  curitibaConfirmed(state) {
+    state.flags.curitibaConfirmed = true;
+    const file=state.computer.files['object-c-thumb'];
+    if (file) { file.variant='identified'; file.recovered=true; file.lastMutation='metadata-attached'; }
+  },
   booksFound(state) { state.flags.booksFound = true; },
   bedsideFound(state) { state.flags.bedsideFound = true; },
   locationRecovered(state) { state.flags.locationRecovered = true; },
   booksNodeValidated(state) { state.flags.booksNodeValidated = true; state.physicalNodes.books = 'validated'; },
   bookPairResolved(state) { state.flags.bookPairResolved = true; },
-  finalRecovered(state) { state.flags.finalRecovered = true; }
+  finalRecovered(state) { state.flags.finalRecovered = true; stabilizeComputer(state); }
 });
 
 export function isAcceptedAnswer(id, answer) {

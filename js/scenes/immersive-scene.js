@@ -14,6 +14,7 @@ export function renderReconstructionScene(context) {
 
 export function renderOverrideScene(context) {
   const { puzzle, state, content, animate, total } = context;
+  if (puzzle.id==='25') return `<section class="override-scene override-scene--25${animate?' scene-enter is-entering':''}" data-scene-family="final" data-motion-scope="scene"><main class="override-scene__content">${content}</main></section>`;
   return `<section class="override-scene override-scene--${puzzle.id}${animate ? ' scene-enter is-entering' : ''}" data-scene-family="override" data-motion-scope="scene">
     <div class="override-scene__mark">${puzzle.title}<span>SESSÃO NÃO LINEAR</span></div>${puzzle.id === '25' ? '' : renderPuzzleBrief(puzzle, state, { floating: true })}<main class="override-scene__content">${content}</main>
     <footer class="override-scene__controls">${renderReturnControl(puzzle, state)}${renderSceneTools(state, { compact: true })}</footer>

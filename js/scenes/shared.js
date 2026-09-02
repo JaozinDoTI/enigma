@@ -39,7 +39,8 @@ export function renderNarrativeLoader() {
 }
 
 export function renderReturnControl(puzzle, state, label = 'VOLTAR AO SISTEMA') {
-  const returnTarget = state.unlocked.filter((id) => id !== puzzle.id).at(-1);
+  if (state.pendingTransition?.from===puzzle.id && ['preparing','offered','moving'].includes(state.pendingTransition.status)) return '<span class="scene-session-lock">CONTINUAÇÃO SENDO PREPARADA</span>';
+  const returnTarget = state.discovered.filter((id) => id !== puzzle.id && id !== state.pendingTransition?.to).at(-1);
   if (!returnTarget) return '<span class="scene-session-lock">SESSÃO DE INICIALIZAÇÃO</span>';
   return `<button type="button" class="scene-return" data-action="navigate" data-target="${returnTarget}"><kbd>ESC</kbd>${label}</button>`;
 }
@@ -49,6 +50,11 @@ export function renderDevPanel(state) {
   if (!dev) return '';
   return `<details class="dev-panel scene-dev-panel"><summary>console de manutenção</summary><div class="dev-actions">
     <button type="button" class="micro-button" data-action="dev-next">liberar próximo</button>
+    <button type="button" class="micro-button" data-action="dev-event" data-event="same-file-four">simular repetição</button>
+    <button type="button" class="micro-button" data-action="dev-event" data-event="wrong-answer-chain">simular erro</button>
+    <button type="button" class="micro-button" data-action="dev-event" data-event="phone-ignored">simular abandono</button>
+    <button type="button" class="micro-button" data-action="dev-event" data-event="receiver-obsession">simular receiver</button>
+    <button type="button" class="micro-button" data-action="dev-clear-transition">limpar transição</button>
     <button type="button" class="danger-button" data-action="dev-reset">reiniciar</button>
-  </div><pre class="dev-state">${JSON.stringify(state, null, 2)}</pre></details>`;
+  </div><p>SEED ${state.director.seed} · CURSOR ${state.director.cursor} · EVENTOS ${state.director.delivered.length}</p><pre class="dev-state">${JSON.stringify(state, null, 2)}</pre></details>`;
 }

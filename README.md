@@ -12,7 +12,7 @@ Edite `js/config.js` e preencha pelo menos:
 - `gallery`
 - `finalVideoUrl` / `finalSecretUrl`, se desejar
 - códigos dos nodes, caso queira substituir os padrões
-- posições dos livros, caso 2–5–1 não sejam práticas
+- posições dos livros, caso o par FIM · distância 01 · COMEÇO não seja prático
 
 O `index.html` pode ser aberto diretamente por duplo clique. Os arquivos em `js/` continuam modulares para manutenção, enquanto `js/app.bundle.js` é a versão carregada pelo navegador.
 

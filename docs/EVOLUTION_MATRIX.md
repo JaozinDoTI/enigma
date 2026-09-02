@@ -179,26 +179,26 @@ A matriz foi derivada dos 25 descritores em `js/puzzles/`, das cenas em `js/scen
 - **Evento antecipado:** `ENTIDADE B: DESCONHECIDA` muda brevemente para `ENCONTRADA` e volta; o painel preserva log acessível da ocorrência.
 - **Classificação:** `MOTION HIGH · CORRUPTION 3 · RECEPTOR 1 · MUTATION YES · RETROACTIVE YES`.
 
-## 11 — CONFLITO_DE_MEMORIA
+## 11 — OBJETO_NAO_CATALOGADO
 
 - **Contrato:** Ato III; requer 10; EVIDÊNCIAS é aberto; comparação deve funcionar sem imagem ou precisão motora.
 - **Puzzle atual → problema:** duas listas e um botão entregam a geometria sem permitir a investigação forense proposta.
-- **Nova mecânica / interação:** selecionar volume, laterais, comprimento, silhueta, relato e inconsistência para compor uma hipótese de corte.
-- **Animação:** signature em quatro passes — scan, wireframe SVG, silhueta, textura — sempre acionados por escolhas; incompatibilidades desfazem somente a camada correspondente.
-- **Pista → solução:** laterais curtas + comprimento atrás + repetição; concluir a comparação prepara `MULLET`, sem alterar o avanço atual para o 12.
-- **Evidência gerada:** `HAIR-GEOMETRY`, `ENTITY_A TESTIMONY` e `ENTITY_B DENIAL` com níveis de confiança distintos.
+- **Nova mecânica / interação:** selecionar material têxtil, forma animal, origem doméstica, recorrência, fonte e inconsistência para compor uma classificação sem nome.
+- **Animação:** signature em quatro passes — scan, wireframe SVG, silhueta felina e textura — sempre acionados por escolhas.
+- **Pista → solução:** as invariantes classificam `OBJETO C`, mas não revelam sua identidade; o avanço prepara a consulta ao telefone.
+- **Evidência gerada:** `OBJETO-C`, `FONTE A` e `FONTE B` com níveis de confiança distintos.
 - **Mutação / retorno:** EVIDÊNCIAS passa de lista para grafo técnico; o sistema começa a avaliar a entidade, não apenas o arquivo.
 - **Evento antecipado:** o relato da entidade B recebe `CONFIANÇA DECLARADA ≠ CONFIANÇA CALCULADA`.
 - **Classificação:** `MOTION SIGNATURE · CORRUPTION 2 · RECEPTOR 1 · MUTATION YES · RETROACTIVE NO`.
 
-## 12 — RESOLUCAO_DO_CONFLITO
+## 12 — IDENTIDADE_OBJETO_C
 
 - **Contrato:** Ato III; requer 11; IDENTIDADE contém A e B sem relação; input mantém mensagem textual e foco.
-- **Puzzle atual → problema:** digitar `MULLET` é correto, mas o gag de rejeição não é encenado como falha do sistema em aceitar a própria conclusão.
-- **Nova mecânica / interação:** confirmar o identificador calculado; o sistema valida, recebe a negação da entidade B e recalcula antes de aceitar.
-- **Animação:** campo contrai e processa; `CORRETO` surge, sofre character substitution para `INCORRETO`, pausa e termina em `MEMÓRIA CONFIRMADA ... sério?`; sem shake forte.
-- **Pista → solução:** usar o nome `MULLET` já reconstruído.
-- **Evidência gerada:** `IMG_2019_MULLET / METADATA ANEXADA / ENTITY_B: NEGA`.
+- **Puzzle atual → problema:** o objeto técnico ainda não possui identidade nem relação humana.
+- **Nova mecânica / interação:** abrir a conversa de J., consultar a imagem e anexar a metadata recuperada ao filesystem.
+- **Animação:** o anexo é indexado; `OBJETO C` recebe o nome `CURITIBA` e provoca uma reação silenciosa do Receiver.
+- **Pista → solução:** usar a metadata explícita `OBJETO C → CURITIBA`.
+- **Evidência gerada:** `IMG_CURITIBA_PRESENTE / METADATA ANEXADA / OBJETO C`.
 - **Mutação / retorno:** linguagem técnica apresenta a primeira frase humana; papel da jogadora muda para `TESTEMUNHA`.
 - **Evento antecipado:** o RECEPTOR recebe silenciosamente um estado pendente para canal 11.
 - **Classificação:** `MOTION HIGH · CORRUPTION 2 · RECEPTOR 1 · MUTATION YES · RETROACTIVE YES`.
@@ -207,9 +207,9 @@ A matriz foi derivada dos 25 descritores em `js/puzzles/`, das cenas em `js/scen
 
 - **Contrato:** Ato III; requer 12 e retorno ao módulo persistente; código também aparece como texto após descoberta para acessibilidade.
 - **Puzzle atual:** canal 11 só deixa a relação `FIM · 01 · COMEÇO` como imagem residual depois de ser desligado.
-- **Nova mecânica / interação:** chegar ao canal 11 parece inconclusivo; desligar a TV revela o afterimage `2 5 1` por aproximadamente um segundo.
+- **Nova mecânica / interação:** chegar ao canal 11 parece inconclusivo; desligar a TV revela o afterimage `FIM · 01 · COMEÇO` por aproximadamente um segundo.
 - **Animação:** signature `tv-afterimage`: lock vazio, desligamento CRT, frame residual verde/cinza e dissipação lenta; ao religar, o código não está mais lá.
-- **Pista → solução:** o RECEPTOR mudou em segundo plano; visitar canal 11 e desligar para recuperar 2–5–1.
+- **Pista → solução:** o RECEPTOR mudou em segundo plano; visitar canal 11 e desligar para recuperar `FIM · 01 · COMEÇO`.
 - **Evidência gerada:** `RCV-11 / AFTERIMAGE / FIM-DISTÂNCIA-COMEÇO`.
 - **Mutação / retorno:** TV passa ao estado `AFTERIMAGE`; pode ligar sozinha por 400 ms em outros ambientes, com frequência limitada.
 - **Evento antecipado:** `CH 00` evolui para `CH B` em uma ativação silenciosa posterior.
@@ -217,7 +217,7 @@ A matriz foi derivada dos 25 descritores em `js/puzzles/`, das cenas em `js/scen
 
 ## 14 — OBJETOS_ORDENADOS
 
-- **Contrato:** Ato III; requer 13; COLD_STORAGE usa 2–5–1; a atividade física tem alternativa textual e configuração em `GAME_CONFIG`.
+- **Contrato:** Ato III; requer 13; COLD_STORAGE usa a relação FIM · distância 01 · COMEÇO; a atividade física tem alternativa textual e configuração em `GAME_CONFIG`.
 - **Puzzle atual → problema:** os índices apontam para livros, porém o painel digital apenas exibe chips estáticos antes do input.
 - **Nova mecânica / interação:** associar visualmente os três índices à coleção `LIVROS`; a ação física continua localizar as posições e combinar o token.
 - **Animação:** linha de índice percorre 02→05→01; EVIDÊNCIAS destaca a dependência entre RECEPTOR e COLD_STORAGE, sem simular os objetos físicos.
@@ -281,7 +281,7 @@ A matriz foi derivada dos 25 descritores em `js/puzzles/`, das cenas em `js/scen
 - **Puzzle atual → problema:** pares corretos persistem, mas as linhas e o cálculo de relação ainda não existem visualmente.
 - **Nova mecânica / interação:** conectar três pares de evidências no grafo técnico; cada vínculo calcula origem, confiança e memória compartilhada.
 - **Animação:** linha percorre A→B; acerto pulsa e se estabiliza, erro falha e retrocede; ao fechar o terceiro par, todos os caminhos convergem em `ENTITY_B`.
-- **Pista → solução:** ligar EVENTO/conversa, cabelo/mullet, margem/local.
+- **Pista → solução:** ligar EVENTO/conversa, objeto sem nome/Curitiba, margem/local.
 - **Evidência gerada:** três `SHARED_MEMORY` e `ENTITY_B / POSSÍVEL CORRESPONDÊNCIA`.
 - **Mutação / retorno:** papel vira `POSSÍVEL CONTAMINAÇÃO`; labels e timings respondem à presença da jogadora, não só aos dados.
 - **Evento antecipado:** evidências antigas VX reaparecem em segundo plano com resíduos ainda bloqueados.

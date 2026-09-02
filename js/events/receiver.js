@@ -41,7 +41,7 @@ export function handleReceiverClick(action,button,context) {
   syncTv(state);
   const id = context.current();
   if (id === '03' && state.tv.power && !previous.unlocked.includes('13') && state.tv.channel === 4) {
-    updateState((draft) => { draft.tv.unlocked = true; });
+    updateState((draft) => { draft.tv.unlocked = true; draft.tv.lastTransmission='CANAL 04 // PORTADORA'; });
     Motion.play('receiver-channel-lock', { target: document.querySelector('.tv-cabinet') });
     emitWorldEvent('tv.channel.04.locked');
     context.progress('03',['04'],'CANAL ANÔMALO ENCONTRADO');
@@ -56,14 +56,15 @@ export function handleReceiverClick(action,button,context) {
     return true;
   }
   if (['03','13'].includes(id) && action==='tv-power' && !state.tv.power && state.tv.channel===11 && state.flags.tvChannel11Primed && !state.completed.includes('13')) {
-    updateState((draft)=>{draft.flags.tvSequenceSeen=true;});
+    updateState((draft)=>{draft.flags.tvSequenceSeen=true;draft.tv.lastTransmission='CANAL 11 // SEM PORTADORA';draft.tv.afterimage='FIM · 01 · COMEÇO';});
     syncTv(getState());
     Motion.play('tv-afterimage',{target:document.querySelector('.tv-screen')});
+    emitWorldEvent('tv.afterimage.recovered');
     context.progress('13',['14'],'IMAGEM RESIDUAL RECUPERADA: FIM / 01 / COMEÇO',{delay:1000});
     return true;
   }
   if (id==='17' && state.tv.power && state.tv.channel===10 && state.tv.volume===10 && state.tv.fine===3) {
-    updateState((draft)=>{draft.flags.tvTuned=true;});
+    updateState((draft)=>{draft.flags.tvTuned=true;draft.tv.lastTransmission='PORTADORA 1010';});
     Motion.play('receiver-channel-lock',{target:document.querySelector('.tv-cabinet')});
     context.progress('17',['18'],'PORTADORA DO EVENTO_1010 FIXADA');
     return true;

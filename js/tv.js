@@ -20,6 +20,7 @@ export function tvPresentation(state, mode = 'normal') {
 export function renderTV(state, { mode = 'normal' } = {}) {
   const tv = state.tv;
   const presentation = tvPresentation(state, mode);
+  const tuningStrength=mode==='tuning'?Math.max(0,100-(Math.abs(tv.channel-10)*18+Math.abs(tv.volume-10)*7+Math.abs(tv.fine-3)*11)):0;
 
   return `<div class="tv-wrap ${tv.power ? 'is-powered' : 'is-unpowered'}" data-tv-mode="${escapeHtml(mode)}">
     <div class="tv-cabinet" data-motion-scope="device">
@@ -30,6 +31,7 @@ export function renderTV(state, { mode = 'normal' } = {}) {
             <div class="tv-static" aria-hidden="true"></div>
             <span class="tv-number">CAN ${String(tv.channel).padStart(2, '0')}</span>
             <div class="tv-channel">${escapeHtml(presentation.content)}</div>
+            ${mode==='tuning'?`<div class="tv-waveform" style="--lock:${tuningStrength}%" aria-label="Estabilidade ${tuningStrength} por cento">${Array.from({length:41},(_,index)=>`<i style="--wave:${12+((index*13+tuningStrength)%72)}%"></i>`).join('')}</div><div class="tv-lock-meter"><i></i><span>${tuningStrength===100?'LOCK':`${tuningStrength}%`}</span></div>`:''}
             <span class="tv-frequency">${presentation.frequency} MHz</span>
           </div>
         </div>

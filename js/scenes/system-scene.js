@@ -13,14 +13,13 @@ const PHASE_NAMES = Object.freeze({
 });
 
 function visiblePhases(puzzles, state) {
-  const highest = Math.max(...state.unlocked.map(Number), 1);
-  return puzzles.filter((puzzle) => Number(puzzle.id) <= Math.min(puzzles.length, highest + 2));
+  return puzzles.filter((puzzle) => state.discovered.includes(puzzle.id) || state.completed.includes(puzzle.id) || puzzle.id === state.currentPuzzle);
 }
 
 function phaseState(puzzle, current, state) {
   if (puzzle.id === current.id) return 'current';
   if (state.completed.includes(puzzle.id)) return 'complete';
-  if (state.unlocked.includes(puzzle.id)) return 'discovered';
+  if (state.discovered.includes(puzzle.id)) return 'discovered';
   return 'locked';
 }
 
@@ -28,9 +27,9 @@ function progressRail(puzzle, puzzles, state) {
   const phases = visiblePhases(puzzles, state);
   return `<ol class="phase-progress">${phases.map((item) => {
     const status = phaseState(item,puzzle,state);
-    const label = PHASE_NAMES[item.renderer] || item.code;
+    const label = state.completed.includes(item.id) ? item.revealTitle : `REGISTRO ${item.id}`;
     const changed = item.id === '10' && !state.completed.includes('10') && Number(state.currentPuzzle) >= 10;
-    return `<li class="is-${status}${changed?' has-change':''}"><button type="button" data-action="navigate" data-target="${item.id}" ${status==='locked'?'disabled aria-disabled="true"':''} ${status==='current'?'aria-current="step"':''}><i>${item.id}</i><span>${status==='locked'?'BLOQUEADO':escapeHtml(label)}</span><b aria-label="${status}">${status==='complete'?'●':status==='current'?'◉':status==='discovered'?'◌':'○'}</b>${changed?'<em aria-label="conteúdo alterado">*</em>':''}</button></li>`;
+    return `<li class="is-${status}${changed?' has-change':''}"><button type="button" data-action="navigate" data-target="${item.id}" ${status==='locked'?'disabled aria-disabled="true"':''} ${status==='current'?'aria-current="step"':''}><i>${item.id}</i><span>${escapeHtml(label)}</span><b aria-label="${status}">${status==='complete'?'●':status==='current'?'◉':'◌'}</b>${changed?'<em aria-label="conteúdo alterado">*</em>':''}</button></li>`;
   }).join('')}</ol>`;
 }
 

@@ -1,4 +1,4 @@
-import { getState, recordVisit } from './state.js';
+import { discoverPuzzle, getState, recordVisit } from './state.js';
 import { uiFeedback } from './ui-feedback.js';
 
 let onRoute = null;
@@ -7,7 +7,7 @@ let lastDenied = null;
 export function currentRoute() {
   const match = location.hash.match(/^#\/record\/(\d{2})$/);
   const requested = match?.[1] || getState().currentPuzzle || '01';
-  if (getState().unlocked.includes(requested)) { lastDenied = null; return requested; }
+  if (getState().discovered.includes(requested)) { lastDenied = null; return requested; }
   if (requested !== lastDenied) {
     lastDenied = requested;
     queueMicrotask(() => uiFeedback.toast(`REGISTRO ${requested} AINDA NÃO FOI INDEXADO`, { kind: 'error' }));
@@ -16,6 +16,7 @@ export function currentRoute() {
 }
 
 export function navigate(id, { replace = false } = {}) {
+  if (getState().unlocked.includes(id)) discoverPuzzle(id,'navigation');
   const hash = `#/record/${id}`;
   if (replace) history.replaceState(null, '', hash);
   else location.hash = hash;

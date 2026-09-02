@@ -1,18 +1,18 @@
 import { syncDocumentExtraction, syncForensicSelection, syncLocationSelection } from '../dom-sync.js';
 import { Motion } from '../motion-engine.js';
-import { getState, recordAttempt, updateState } from '../state.js';
+import { getState, updateState } from '../state.js';
 import { uiFeedback } from '../ui-feedback.js';
 
-const ACTIONS = new Set(['document-row','commit-document','open-file','forensic-feature','ack-conflict','location-fragment']);
+const ACTIONS = new Set(['document-row','memory-region','document-snapshot','commit-document','open-file','forensic-feature','ack-conflict','location-fragment']);
 
 export function handlePuzzleClick(action,button,context) {
   if (!ACTIONS.has(action)) return false;
-  if (action === 'document-row') {
+  if (action === 'document-row' || action === 'memory-region') {
+    if (!getState().signalAnalyzer.locked) { context.feedback('SEM SIGNAL LOCK // AS REGIÕES AINDA NÃO SÃO CONFIÁVEIS','warn'); return true; }
     const token=button.dataset.token;
     Motion.emit('evidence:contact',{source:'document-comparison',row:button.dataset.row});
     if (!token) {
-      recordAttempt('06',button.dataset.row,false);
-      uiFeedback.error('TRECHO ALTERADO // As duas versões divergem neste índice.');
+      context.wrong('06',button.dataset.row,'REGIÃO INSTÁVEL // O conteúdo saiu do alinhamento.');
       Motion.pulse(button,'is-invalid','fast');
       return true;
     }
@@ -25,11 +25,24 @@ export function handlePuzzleClick(action,button,context) {
     Motion.pulse(button,'is-revealed','fast');
     return true;
   }
+  if (action === 'document-snapshot') {
+    updateState((state)=>{
+      state.documentRuntime.snapshots=[...state.documentRuntime.snapshots,{copy:'OVERLAY',revision:state.documentRuntime.revision,at:Date.now()}].slice(-6);
+    },{progress:true});
+    button.textContent='ESTADO ATUAL CAPTURADO';
+    button.disabled=true;
+    syncDocumentExtraction(getState());
+    Motion.emit('evidence:contact',{source:'document-snapshot'});
+    return true;
+  }
   if (action === 'commit-document') {
     const order=['A DATA','ABRE','O ARQUIVO'];
     const selected=order.filter((token)=>(getState().documentFragments||[]).includes(token));
-    if (selected.length!==order.length) { context.feedback('EXTRAÇÃO INCOMPLETA // Encontre os três trechos preservados.','warn'); return true; }
+    if (!getState().documentRuntime.snapshots.length) { context.feedback('ESTADO VOLÁTIL // Capture um snapshot antes de consolidar.','warn'); return true; }
+    if (selected.length!==order.length) { context.feedback('EXTRAÇÃO INCOMPLETA // Fixe apenas o que não se move.','warn'); return true; }
+    if (!getState().signalAnalyzer.locked) { context.feedback('PORTADORA NÃO ESTABILIZADA','warn'); return true; }
     button.disabled=true;
+    updateState((state)=>{state.signalAnalyzer.frozen=true;},{progress:true});
     Motion.emit('evidence:resolve',{source:'document-invariant'});
     context.correctAnswer('06',order.join(' '));
     return true;
@@ -57,11 +70,11 @@ export function handlePuzzleClick(action,button,context) {
     return true;
   }
   if (action === 'ack-conflict') {
-    const required=['volume','sides','length','silhouette'];
-    if (!required.every((item)=>(getState().forensicSelections||[]).includes(item))) { context.feedback('MODELO INCONCLUSIVO: USE AS QUATRO CAMADAS QUE DESCREVEM GEOMETRIA','warn'); return true; }
+    const required=['textile','animal','domestic','recurrence'];
+    if (!required.every((item)=>(getState().forensicSelections||[]).includes(item))) { context.feedback('MODELO INCONCLUSIVO: USE AS QUATRO CAMADAS INVARIANTES DO OBJETO','warn'); return true; }
     Motion.emit('evidence:resolve',{source:'forensic-model'});
     Motion.play('memory-reconstruction',{target:document.querySelector('[data-forensic]')});
-    context.progress('11',['12'],'GEOMETRIA DO CONFLITO EXTRAÍDA',{delay:900});
+    context.progress('11',['12'],'OBJETO TÊXTIL // FORMA ANIMAL // IDENTIDADE PENDENTE',{delay:900});
     return true;
   }
   Motion.emit('evidence:contact',{source:'location-fragment'});

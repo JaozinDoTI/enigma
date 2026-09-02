@@ -5,14 +5,21 @@ export const GAME_CONFIG = Object.freeze({
   protagonistName: 'João',
   locationAnswer: 'parquinho da beira-mar',
   locationAliases: ['parquinho', 'parquinho da beira mar', 'beira mar', 'parquinho beira mar'],
-  memoryAnswer: 'mullet',
-  memoryAliases: ['mullet', 'corte mullet', 'o mullet'],
+  memoryAnswer: 'curitiba',
+  memoryAliases: ['curitiba', 'gato curitiba', 'gato de pelúcia', 'gato de pelucia', 'objeto c'],
   finalAnswer: 'nós',
   finalAliases: ['nos', 'nós', 'a gente', 'nós dois'],
   greenNodeCode: 'VX-VERDE-0314',
   yardNodeCode: 'VX-MARGEM-1703',
   roomNodeCode: 'VX-QUARTO-0317',
   booksNodeCode: 'VX-LIVROS-0214',
+  bookPageTargets: Object.freeze({
+    'Teto para Dois': null,
+    'É Assim que Acaba': null,
+    'É Assim que Começa': null,
+    'A Maldição do Ex': null,
+    'Cidade da Lua Crescente': null
+  }),
   roomLayout: {
     bed: { x: 32, y: 63 },
     shelf: { x: 33, y: 14 },
@@ -20,7 +27,7 @@ export const GAME_CONFIG = Object.freeze({
     bedside: { x: 18, y: 66 },
     moon: { x: 62, y: 18 }
   },
-  metaOrder: ['1010', 'tv', 'mullet', 'lua', 'parquinho', 'livros', 'musica'],
+  metaOrder: ['1010', 'tv', 'curitiba', 'lua', 'parquinho', 'livros', 'musica'],
   songTitle: 'So Easy to Fall in Love',
   musicUrl: '',
   finalVideoUrl: '',
@@ -29,7 +36,7 @@ export const GAME_CONFIG = Object.freeze({
   gallery: [],
   devMode: false,
   inactivityHintMinutes: 12,
-  version: 3
+  version: 5
 });
 
 export const ROUTES = Object.freeze({

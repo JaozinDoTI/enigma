@@ -136,29 +136,29 @@ Os nomes abaixo são internos. Para a jogadora, tudo aparece como um único arqu
 - **Retorno futuro:** EVENT_1010 passa a significar duas entidades e conversa.
 - **Descoberta antecipada:** impossível antes da flag; versão antiga permanece justa.
 
-## 11 — Memória conflitante
+## 11 — Objeto não catalogado
 
-- **Objetivo:** reconstruir uma forma a partir de dois relatos.
-- **O que vê:** laterais curtas, comprimento atrás e uma negação confiante.
-- **Pista real:** geometria de um corte conhecido.
-- **Distrações:** credibilidade declarada da entidade B.
-- **Solução:** comparar os registros.
+- **Objetivo:** classificar um objeto recorrente sem conhecer seu nome.
+- **O que vê:** duas fontes descrevendo material, forma, origem e recorrência.
+- **Pista real:** características invariantes de um objeto têxtil com forma animal.
+- **Distrações:** detalhes divergentes das duas fontes.
+- **Solução:** correlacionar TÊXTIL, FORMA ANIMAL, ORIGEM DOMÉSTICA e RECORRÊNCIA.
 - **Dependências:** 10.
 - **Flags:** conflito extraído; libera 12.
-- **Dicas:** descrição → nome de corte → mullet.
+- **Dicas:** invariância → categoria → quatro características.
 - **Retorno futuro:** `CONFLICT` integra a cadeia de evidências da relação entre as duas fontes.
 - **Descoberta antecipada:** não aplicável.
 
-## 12 — MULLET
+## 12 — Curitiba
 
-- **Objetivo:** nomear a memória negada.
-- **O que vê:** campo de identificador.
-- **Pista real:** conclusão do registro anterior.
-- **Distrações:** resposta errada recebe trollagem leve.
-- **Solução:** `MULLET`.
+- **Objetivo:** dar identidade humana ao OBJETO C.
+- **O que vê:** conversa no telefone e `IMG_CURITIBA_PRESENTE.jpg`.
+- **Pista real:** metadata preservada no anexo.
+- **Distrações:** o thumbnail parcial encontrado anteriormente.
+- **Solução:** anexar a metadata `OBJETO C → CURITIBA`.
 - **Dependências:** 11.
-- **Flags:** `mulletConfirmed`; libera 13.
-- **Dicas:** nome do corte → entidade B nega → resposta explícita.
+- **Flags:** `curitibaConfirmed`; libera 13.
+- **Dicas:** telefone → conversa de J. → anexo explícito.
 - **Retorno futuro:** entra no teste de identidade e meta.
 - **Descoberta antecipada:** resposta sem contexto não é acessível.
 
@@ -248,7 +248,7 @@ Os nomes abaixo são internos. Para a jogadora, tudo aparece como um único arqu
 - **O que vê:** seis cartões de registros.
 - **Pista real:** pares descrevem a mesma lembrança.
 - **Distrações:** ordem visual embaralhada.
-- **Solução:** EVENT/conversa, cabelo/mullet, margem/local.
+- **Solução:** EVENT/conversa, objeto sem nome/Curitiba, margem/local.
 - **Dependências:** 18, 12 e 10.
 - **Flags:** `relationLinks`, `identityLinked`; libera 20.
 - **Dicas:** vínculos → pares semânticos → pares explícitos.

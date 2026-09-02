@@ -1,11 +1,12 @@
 import { GAME_CONFIG } from './config.js';
 import { RECOVERED_FILES, LOCATION_FRAGMENTS } from '../data/records.js';
-import { HAIR_CONFLICT, IDENTITY_RECORDS } from '../data/memories.js';
+import { OBJECT_CONFLICT, IDENTITY_RECORDS } from '../data/memories.js';
 import { DOCUMENT_COMPARISON_ROWS } from '../data/puzzles.js';
 import { renderTV } from './tv.js';
 import { escapeHtml, formatDuration, daysSince } from './utils.js';
 import { evaluateRoom } from './room-model.js';
 import { clarityFor } from './puzzles/clarity.js';
+import { renderPaperBoard } from './paper-engine.js';
 
 const answerForm = (id, placeholderFallback = 'resposta necessária', buttonFallback = 'VERIFICAR') => {
   const contract = clarityFor(id);
@@ -58,56 +59,76 @@ const yardNodeGate = (state) => `<section class="external-auth external-auth--ya
 function documentScene(state) {
   const selected = state.documentFragments || [];
   const order = ['A DATA', 'ABRE', 'O ARQUIVO'];
-  const rows = DOCUMENT_COMPARISON_ROWS.map((row, index) => {
-    const isSelected = row.token && selected.includes(row.token);
-    return `<button type="button" class="document-compare__row${isSelected ? ' is-selected' : ''}" data-action="document-row" data-row="${row.id}" ${row.token ? `data-token="${escapeHtml(row.token)}"` : ''} aria-pressed="${Boolean(isSelected)}" aria-label="Linha ${index + 1}. Versão A: ${escapeHtml(row.versionA)}. Versão B: ${escapeHtml(row.versionB)}.">
-      <span class="document-compare__ref">${String(index + 1).padStart(2, '0')}</span>
-      <span class="document-compare__cell" data-version="A">${escapeHtml(row.versionA)}</span>
-      <span class="document-compare__cell" data-version="B">${escapeHtml(row.versionB)}</span>
-    </button>`;
+  const revision=state.documentRuntime.revision%3;
+  const a=[['o índice reconhece a data','o índice rejeita a data','o índice esqueceu a data'][revision],'A DATA','ABRE','O ARQUIVO',['quando a cópia se move','antes que a cópia responda','depois que a janela retorna'][revision]];
+  const b=[['a origem preserva a hora','a origem nega a hora','a origem troca a hora'][revision],'A DATA','ABRE','O ARQUIVO',['enquanto ainda existe nome','quando o nome desaparece','se a leitura for repetida'][revision]];
+  const layer=(copy,lines)=>`<article class="document-overlay__layer is-${copy.toLowerCase()}" aria-label="Cópia ${copy}">${lines.map((line,index)=>`<p data-overlay-line="${index}"><small>${String(index+1).padStart(2,'0')}</small>${escapeHtml(line)}</p>`).join('')}</article>`;
+  const regions=a.map((line,index)=>{
+    const token=index>0&&index<4?order[index-1]:'';
+    const active=token&&selected.includes(token);
+    return `<button type="button" class="document-overlay__region${active?' is-selected':''}" style="--region:${index}" data-action="memory-region" data-row="${index}" ${token?`data-token="${escapeHtml(token)}"`:''} aria-pressed="${Boolean(active)}"><span>${active?'REGIÃO FIXADA':'FIXAR REGIÃO'}</span></button>`;
   }).join('');
   const slots = order.map((token, index) => `<span class="document-extraction__slot${selected.includes(token) ? ' is-filled' : ''}" data-document-slot="${escapeHtml(token)}"><small>0${index + 1}</small>${selected.includes(token) ? escapeHtml(token) : 'TRECHO AUSENTE'}</span>`).join('');
-  return `<section class="document-puzzle">
-    <header class="document-puzzle__intro"><span>RELATÓRIO ALTERADO // COMPARAÇÃO LOCAL</span><p>O invasor deixou duas cópias. Toque apenas nas linhas que permaneceram idênticas.</p></header>
-    <div class="document-compare" data-document-compare role="group" aria-label="Comparação entre as versões A e B">
-      <div class="document-compare__head" aria-hidden="true"><span>REF</span><strong>VERSÃO A</strong><strong>VERSÃO B</strong></div>
-      ${rows}
+  const locked = state.signalAnalyzer.locked;
+  return `<section class="document-puzzle ${locked ? 'has-signal-lock' : 'is-degraded'}">
+    <header class="document-puzzle__intro"><span>REL_1708 // COMPARADOR DE ESTADOS</span><p>As duas cópias continuam mudando. Sobreponha os estados e fixe apenas as regiões que não produzem ghosting.</p></header>
+    <section class="signal-analyzer" data-signal-analyzer>
+      <header><span>PORTADORA DERIVADA DOS METADADOS // 17-08</span><strong>${locked ? 'SIGNAL LOCK' : 'SEM SINCRONIA'}</strong></header>
+      <div class="signal-spectrum">${Array.from({ length: 37 }, (_, index) => `<i style="--amp:${18 + ((index * 19) % 77)}%"></i>`).join('')}</div>
+      <label>COARSE <input type="range" min="160" max="180" step="1" value="${state.signalAnalyzer.coarse}" data-signal-control="coarse"><output>${state.signalAnalyzer.coarse}</output></label>
+      <label>FINE <input type="range" min="0" max="9" step="1" value="${state.signalAnalyzer.fine}" data-signal-control="fine"><output>.${state.signalAnalyzer.fine}</output></label>
+      <button type="button" data-action="signal-lock">TESTAR PORTADORA</button>
+    </section>
+    <div class="document-overlay" data-document-compare style="--overlay:${state.documentRuntime.overlay/100}" role="group" aria-label="Sobreposição entre estados A e B">
+      ${layer('A',a)}${layer('B',b)}<div class="document-overlay__regions">${regions}</div>
     </div>
+    <label class="document-overlay__control"><span>TRANSPARÊNCIA A/B</span><input type="range" min="0" max="100" value="${state.documentRuntime.overlay}" data-document-overlay><output data-document-overlay-output>${state.documentRuntime.overlay}%</output></label>
+    <div class="document-snapshot"><span>${state.documentRuntime.snapshots.length?'ESTADO CAPTURADO DISPONÍVEL':'NENHUM ESTADO CAPTURADO'}</span><button type="button" data-action="document-snapshot">CAPTURAR ESTADO ATUAL</button></div>
     <footer class="document-extraction">
-      <div class="document-extraction__result"><span>CONTEÚDO INVARIANTE <strong data-document-count>${selected.length} / 3</strong></span><div class="document-extraction__slots">${slots}</div></div>
-      <button type="button" class="primary-button document-extraction__commit" data-action="commit-document" ${selected.length === order.length ? '' : 'disabled'}>EXTRAIR INSTRUÇÃO</button>
+      <div class="document-extraction__result"><span>REGIÕES ESTABILIZADAS <strong data-document-count>${selected.length}</strong></span><div class="document-extraction__slots">${slots}</div></div>
+      ${locked&&selected.length===order.length?'<code class="document-carrier-reference">REF EXTERNA // mirror://final</code>':''}
+      <button type="button" class="primary-button document-extraction__commit" data-action="commit-document" ${locked && selected.length === order.length && state.documentRuntime.snapshots.length ? '' : 'disabled'}>CONGELAR SINAL E CONSOLIDAR</button>
     </footer>
-    <div class="feedback document-puzzle__feedback" data-feedback data-document-status aria-live="polite">${selected.length === order.length ? 'INSTRUÇÃO RECONSTRUÍDA // PRONTA PARA EXTRAÇÃO' : 'COMPARE O MESMO ÍNDICE NAS DUAS VERSÕES'}</div>
+    <div class="feedback document-puzzle__feedback" data-feedback data-document-status aria-live="polite">${selected.length === order.length ? 'AS REGIÕES FIXAS FORMAM UMA INSTRUÇÃO' : 'MOVIMENTE A TRANSPARÊNCIA E OBSERVE O DESALINHAMENTO'}</div>
   </section>`;
 }
 
-function files() {
-  return `<p class="muted">PROPRIETÁRIO DO DIRETÓRIO: J. O nome de um arquivo pode ser uma isca. A hora em que ele foi tocado deixa rastro.</p>${voiceMessage('human', 'J.', 'Eu nunca soube dar nome pra arquivo. Dessa vez isso ajuda.') }<div class="file-stack">${RECOVERED_FILES.map((file) => `<button type="button" class="file-row" data-action="open-file" data-file="${file.name}"><span>${file.name}</span><span>${file.modified}</span><span>${file.size}</span></button>`).join('')}</div><div class="system-message hidden" data-file-preview></div>`;
+function files(state) {
+  const url=state.vxNet.history[state.vxNet.index]||state.vxNet.url||'vx://home';
+  const snapshots=`<span>VX_NET // SNAPSHOTS DE MIRROR://FINAL</span>${state.unlocked.includes('10')?'<p class="vx-page-change">PÁGINA ATUAL ALTERADA // O HISTÓRICO PRESERVA O SNAPSHOT 1010-A</p>':''}<p>O relatório estabilizado preservou um endereço, não um nome de arquivo. Cinco snapshots discordam em pelo menos um metadado.</p><div class="vx-snapshots">${RECOVERED_FILES.map((file,index)=>`<article><header><strong>SNAPSHOT ${String(index+1).padStart(2,'0')}</strong><small>${file.name}</small></header><dl><div><dt>MODIFIED</dt><dd>${file.modified}</dd></div><div><dt>CACHE</dt><dd>${index===3?'10:10:06':`10:${12+index}:0${index}`}</dd></div><div><dt>ORIGEM</dt><dd>${index===3?'EVENTO_1010':'MIRROR LOCAL'}</dd></div><div><dt>CHECKSUM</dt><dd>${index===3?(state.unlocked.includes('10')?'1010-B / HISTÓRICO: 1010-A':'1010-A'):'DIVERGENTE'}</dd></div></dl><button type="button" data-action="vx-download" data-snapshot="${index}">${index===3?'RECUPERAR LINK PARCIAL':'ABRIR FINAL'}</button></article>`).join('')}</div>`;
+  const pages={
+    'vx://home':'<span>VX_NET 3.8 // REDE LOCAL</span><p>Favorito antigo: <button type="button" data-action="vx-page" data-url="mirror://final">mirror://final</button></p><p>Serviços: archive.local · index.local · mirror.local</p>',
+    'vx://history':'<span>HISTÓRICO</span><ol><li>archive.local/manual</li><li>mirror://final <small>snapshot preservado às 10:10</small></li><li>index.local/REG_101000.idx</li></ol>',
+    'vx://favorites':'<span>FAVORITOS</span><ol><li><button type="button" data-action="vx-page" data-url="archive.local/manual">Manual da estação</button></li><li><button type="button" data-action="vx-page" data-url="mirror://final">mirror://final</button></li></ol>',
+    'vx://search':`<span>BUSCA LOCAL</span><form data-vx-search><input name="query" value="${escapeHtml(state.vxNet.query||'')}" placeholder="buscar no índice local"><button>BUSCAR</button></form>${state.vxNet.query?`<p>RESULTADOS PARA ${escapeHtml(state.vxNet.query)} // mirror://final · index.local · cache local</p>`:'<p>Nenhuma consulta ativa.</p>'}`,
+    'vx://cache':'<span>CACHE LOCAL</span><p>mirror://final · 5 snapshots · um checksum confirmado por duas fontes</p>',
+    'vx://downloads':`<span>DOWNLOADS</span><p>${state.vxNet.downloads.length?state.vxNet.downloads.join(' · '):'NENHUM DOWNLOAD RECUPERADO'}</p>`,
+    'archive.local/manual':'<span>MANUAL DA ESTAÇÃO R-1010</span><p>Serviço de manutenção. Cópias em cache podem divergir da origem depois de uma remontagem.</p><p>Esta página não contém registro investigativo.</p>',
+    'mirror://final':snapshots
+  };
+  const page=pages[url]||'<span>404 // ENDEREÇO NÃO ENCONTRADO</span><p>A rede é local. Verifique histórico, favoritos ou cache.</p>';
+  return `<section class="vx-browser" data-vx-browser><header><button type="button" data-action="vx-back">‹</button><button type="button" data-action="vx-forward">›</button><button type="button" data-action="vx-reload">RECARREGAR</button><form data-vx-address><input name="url" value="${escapeHtml(url)}" aria-label="Endereço"><button>IR</button></form></header><nav><button data-action="vx-page" data-url="vx://home">INÍCIO</button><button data-action="vx-page" data-url="vx://history">HISTÓRICO</button><button data-action="vx-page" data-url="vx://favorites">FAVORITOS</button><button data-action="vx-page" data-url="vx://search">BUSCA</button><button data-action="vx-page" data-url="vx://cache">CACHE</button><button data-action="vx-page" data-url="vx://downloads">DOWNLOADS</button></nav><main data-vx-page>${page}</main></section>`;
 }
 
 function binary() {
   const bits = '010011000101010101000001'.split('');
-  return `<p>Alguém apagou o cabeçalho, mas deixou os 24 bits separados em três blocos legíveis.</p><div class="binary-board" aria-label="24 bits agrupados visualmente de oito em oito">${bits.map((bit) => `<span class="bit">${bit}</span>`).join('')}</div>${answerForm('08','objeto recuperado')}`;
+  return `<section class="download-decoder"><header><span>DOWNLOADS / DUMP_24.bin</span><strong>DECODER INTERNO</strong></header><p>Alguém apagou o cabeçalho, mas deixou os 24 bits separados em três blocos legíveis.</p><div class="binary-board" aria-label="24 bits agrupados visualmente de oito em oito">${bits.map((bit) => `<span class="bit">${bit}</span>`).join('')}</div>${answerForm('08','objeto recuperado')}</section>`;
+}
+
+function moonDigital(state) {
+  const recovered=Boolean(state.computer.files['webcam-cache']?.recovered);
+  return `<section class="moon-search"><header><span>BUSCA LOCAL // LUA</span><strong>3 RESULTADOS EM ORIGENS DIFERENTES</strong></header><div class="moon-results"><article><span>IMAGEM</span><strong>tecido_scan.bmp</strong><small>CACHE / scanner local / canais danificados</small></article><article><span>LOG</span><strong>SCAN_LUA_04.log</strong><small>realce incompleto · referência VX</small></article><article><span>CACHE</span><strong>webcam-frame-0017.jpg</strong><small>thumbnail sem origem</small></article></div><div class="moon-forensics ${recovered?'is-recovered':''}" data-moon-forensics><figure><img src="./assets/images/moon-scan.svg" alt="Scan degradado de um tecido com lua"><div class="moon-channel-noise"></div></figure><div><label>CONTRASTE <input type="range" min="0" max="100" value="${recovered?78:20}" data-moon-control="contrast"></label><label>CANAL <select data-moon-control="channel"><option>RGB</option><option value="blue">AZUL</option><option value="infra">RESÍDUO</option></select></label><button type="button" data-action="moon-recover">CRUZAR LOG + CACHE + IMAGEM</button></div></div>${recovered?`<div class="moon-recovered-code"><span>MARCA RECUPERADA NO TECIDO</span><strong>VX-04</strong></div>${answerForm('09','marca recuperada')}`:'<p class="system-message">A marca não pertence a nenhum resultado isolado.</p>'}</section>`;
+}
+
+function booksNode(state) {
+  const selected=state.bookshelfSelections||[];
+  const decoded=selected.length===3&&['acaba','comeca','teto'].every((id)=>selected.includes(id));
+  const titles=[['teto','Teto para Dois'],['acaba','É Assim que Acaba'],['comeca','É Assim que Começa'],['maldicao','A Maldição do Ex'],['lua','Cidade da Lua Crescente']];
+  return `<section class="bookshelf-node"><header><span>CABEÇALHO RECUPERADO</span><strong>FIM · COMEÇO · ACIMA DE DOIS</strong><p>Os títulos indicam a coleção e a região. Eles não fornecem página nem dependem do texto dos livros.</p></header><div class="bookshelf-title-strip">${titles.map(([id,label])=>`<button type="button" class="${selected.includes(id)?'is-selected':''}" data-action="bookshelf-title" data-title="${id}">${label}</button>`).join('')}</div><button type="button" class="primary-button" data-action="bookshelf-region">TESTAR REGIÃO DA ESTANTE</button><div class="feedback" data-feedback></div>${decoded?`${externalStep('A relação aponta para a face inferior da prateleira que sustenta o conjunto, entre FIM e COMEÇO.')}<form class="answer-form" data-node-auth="books"><label class="answer-label" for="node-books">Assinatura do nó sob a estante</label><div class="answer-control"><input id="node-books" class="answer-input" name="token" autocomplete="off" placeholder="VX-LIVROS-0000"><button class="primary-button" type="submit">AUTENTICAR</button></div></form>`:''}</section>`;
 }
 
 function conflict(state) {
-  const selected = state.forensicSelections || [];
-  const features = [['volume','VOLUME'],['sides','LATERAIS'],['length','COMPRIMENTO'],['silhouette','SILHUETA'],['report','RELATO'],['conflict','INCONSISTÊNCIAS']];
-  return `<div class="forensic-layout" data-forensic>
-    <svg class="forensic-thread-map" viewBox="0 0 1000 520" preserveAspectRatio="none" aria-hidden="true"><path d="M220 248 C410 170 566 122 742 106"></path><path d="M220 258 C428 314 612 390 846 366"></path><circle cx="220" cy="253" r="7"></circle><circle cx="742" cy="106" r="6"></circle><circle cx="846" cy="366" r="6"></circle></svg>
-    <div class="forensic-model" style="--forensic-progress:${selected.length / features.length}">
-      <svg viewBox="0 0 240 260" role="img" aria-label="Reconstrução vetorial de uma silhueta de cabelo">
-        <path class="forensic-scan" d="M30 32 H210"></path>
-        <path class="forensic-head" pathLength="1" d="M74 116 C68 52 172 42 176 116 C178 163 155 199 122 203 C88 198 69 161 74 116Z"></path>
-        <path class="forensic-hair" pathLength="1" d="M72 112 C58 50 183 35 184 114 L175 174 L155 151 L149 220 L114 196 L88 170Z"></path>
-      </svg>
-      <div class="forensic-status">CAMADAS RECONSTRUÍDAS <strong>${selected.length} / ${features.length}</strong></div>
-    </div>
-    <div><div class="relation-board"><article class="evidence-sheet evidence-sheet--a"><span class="evidence-sheet__stamp">ENTIDADE A / confiança 99,4%</span><i aria-hidden="true"></i>${HAIR_CONFLICT.entityA.map((line) => `<p>+ ${line}</p>`).join('')}<small>FONTE: REGISTRO PRIMÁRIO // 10.10</small></article><article class="evidence-sheet evidence-sheet--b"><span class="evidence-sheet__stamp">ENTIDADE B / autodeclarado</span><i aria-hidden="true"></i>${HAIR_CONFLICT.entityB.map((line) => `<p>− ${line}</p>`).join('')}<small>ASSINATURA: FONTE B // PARCIAL</small></article></div>
-      <div class="forensic-features">${features.map(([key,label]) => `<button type="button" class="meta-key ${selected.includes(key) ? 'is-active' : ''}" data-action="forensic-feature" data-feature="${key}" aria-pressed="${selected.includes(key)}">${label}</button>`).join('')}</div>
-      <button type="button" class="primary-button" data-action="ack-conflict">CALCULAR GEOMETRIA</button><div class="feedback" data-feedback></div>
-    </div>
-  </div>`;
+  return renderPaperBoard(state,'11',{instruction:'Organize as fotografias, alinhe o contorno e use a metadata como segunda origem. Duas peças não pertencem ao objeto.',secondary:'A silhueta deve surgir da composição; nenhuma categoria pronta será oferecida.'});
 }
 
 function books(state) {
@@ -141,36 +162,24 @@ function books(state) {
 }
 
 function identity(state) {
-  const selected = state.relationSelection || [];
-  const linked = state.relationLinks || [];
-  const linkedPairs = Math.floor(linked.length / 2);
-  return `<p>As duas fontes nunca contam a mesma lembrança do mesmo jeito. Ligue os registros que só fazem sentido quando ficam lado a lado.</p><div class="identity-link-status">MEMÓRIAS COMPARTILHADAS <strong>${linkedPairs} / 3</strong></div><div class="relation-board identity-board" data-relations>
-    <svg class="identity-connections" viewBox="0 0 100 150" preserveAspectRatio="none" aria-hidden="true">${Array.from({ length: linkedPairs }, (_, index) => `<path d="M42 ${25 + index * 50} C50 ${8 + index * 50} 50 ${42 + index * 50} 58 ${25 + index * 50}" pathLength="1"></path>`).join('')}</svg>
-    ${IDENTITY_RECORDS.map((record) => `<button type="button" class="record-chip ${selected.includes(record.id) ? 'is-selected' : ''} ${linked.includes(record.id) ? 'is-linked' : ''}" data-action="relation" data-record="${record.id}" data-pair="${record.pair}" aria-pressed="${selected.includes(record.id) || linked.includes(record.id)}" ${linked.includes(record.id) ? 'disabled' : ''}>${record.label}</button>`).join('')}</div><div class="feedback" data-feedback></div>`;
+  const selected=state.hypothesisSelection||[];const links=state.hypothesisLinks||[];
+  const documents=[...IDENTITY_RECORDS,{id:'receiver',label:'RECEIVER // 10:10'},{id:'clock',label:'DATA // 10 DE OUTUBRO'}];
+  return `<section class="hypothesis-table"><header><span>MESA DE EVIDÊNCIAS</span><strong>MODELO DE DUAS FONTES</strong><p>Crie relações livremente. Nenhuma ligação será julgada até que a hipótese seja testada.</p></header><div class="hypothesis-documents">${documents.map((record,index)=>`<button type="button" class="hypothesis-document ${selected.includes(record.id)?'is-selected':''}" data-action="hypothesis-document" data-document="${record.id}" style="--doc-r:${-7+(index*5)%15}deg"><i>${String(index+1).padStart(2,'0')}</i><strong>${escapeHtml(record.label)}</strong></button>`).join('')}</div><ol class="hypothesis-links">${links.map((link)=>`<li>${escapeHtml(link.replace(':',' ↔ '))}<button type="button" data-action="remove-hypothesis" data-link="${escapeHtml(link)}" aria-label="Remover relação">×</button></li>`).join('')||'<li>NENHUMA RELAÇÃO PROPOSTA</li>'}</ol><button type="button" class="primary-button" data-action="test-hypothesis">TESTAR HIPÓTESE</button><div class="feedback" data-feedback></div></section>`;
 }
 
 function locationScene(state) {
   if (!state.flags.yardNodeValidated) return yardNodeGate(state);
-  const selected = state.locationFragments || [];
-  const points = [[28,34],[142,24],[226,72],[72,134],[178,144],[248,122]];
-  const selectedPoints = selected.map((tag) => points[LOCATION_FRAGMENTS.findIndex(([candidate]) => candidate === tag)]).filter(Boolean);
-  const connections = selectedPoints.slice(1).map((to, index) => {
-    const from = selectedPoints[index];
-    return `<path d="M${from[0]} ${from[1]} L${to[0]} ${to[1]}" pathLength="1"></path>`;
-  }).join('');
-  return `<p>O nome do lugar foi apagado. O que sobrou foi o tipo de coisa que alguém lembraria depois de estar lá.</p>
-    <div class="spatial-reconstruction" data-location-map style="--location-progress:${selected.length / LOCATION_FRAGMENTS.length}">
-      <svg viewBox="0 0 280 170" role="img" aria-label="Mapa abstrato formado pelas relações selecionadas">
-        <path class="spatial-contour" d="M20 82 C54 20 136 8 202 30 C252 48 274 90 244 140 C198 164 91 162 34 129Z" pathLength="1"></path>
-        <g data-location-connections>${connections}</g>
-        ${points.map(([x,y], index) => `<circle cx="${x}" cy="${y}" r="4" data-location-point="${escapeHtml(LOCATION_FRAGMENTS[index][0])}" class="${selected.includes(LOCATION_FRAGMENTS[index][0]) ? 'is-active' : ''}"></circle>`).join('')}
-      </svg>
-      <div class="spatial-fragments">${LOCATION_FRAGMENTS.map(([tag,text], index)=>`<button type="button" class="evidence-slip spatial-fragment ${selected.includes(tag) ? 'is-selected' : ''}" data-action="location-fragment" data-fragment="${escapeHtml(tag)}" aria-pressed="${selected.includes(tag)}" style="--slip-index:${index}"><span>${tag}</span><strong>${text}</strong><small>REF ${String(index + 1).padStart(2, '0')} // 10:10</small></button>`).join('')}</div>
-      <div class="system-message" data-location-status>MEMÓRIA ESPACIAL: ${selected.length === LOCATION_FRAGMENTS.length ? 'CONTORNO RECUPERADO' : `${selected.length} / ${LOCATION_FRAGMENTS.length} FRAGMENTOS`}</div>
-    </div>${answerForm('18','local recuperado')}`;
+  const solved=Boolean(state.paperEngine.boards['18']?.solved);
+  return `${renderPaperBoard(state,'18',{instruction:'Seis fragmentos pertencem ao mesmo mapa. Gire e aproxime bordas, marcas e continuidade de caminho.',secondary:'As quatro distrações podem permanecer fora do núcleo.'})}${solved?`<section class="map-second-source"><figure><img src="./assets/images/camera-01.svg" alt="Fotografia antiga parcial usada como segunda fonte"><figcaption>CELULAR // FOTO ANTIGA CORTADA</figcaption></figure><p>A fotografia e o núcleo montado compartilham margem, banco, brinquedo e linha d’água.</p>${answerForm('18','local reconhecido')}</section>`:''}`;
 }
 
 function room(state) {
+  if (state.flags.houseAnomalyRevealed && !state.flags.roomNodeValidated) {
+    return `<section class="room-anomaly">${voiceMessage('system','SISTEMA','TRANSPARÊNCIAS ALINHADAS // ÁREA INDEXADA MENOR QUE ÁREA CALCULADA')}<div class="room-anomaly__measure"><span>ÁREA CALCULADA<strong>118,6 m²</strong></span><span>ÁREA INDEXADA<strong>107,4 m²</strong></span><span>VOLUME AUSENTE<strong>+11,2 m²</strong></span></div>${externalStep('A divergência aponta para o cômodo correspondente. Procure as três marcas preparadas próximas à madeira.')}<form class="answer-form" data-node-auth="room"><label class="answer-label" for="node-room">Assinatura do espaço não classificado</label><div class="answer-control"><input id="node-room" class="answer-input" name="token" autocomplete="off" placeholder="VX-QUARTO-0000"><button class="primary-button" type="submit">ANEXAR LEITURA</button></div></form><div class="feedback" data-feedback></div></section>`;
+  }
+  if (state.flags.roomNodeValidated) return `<section class="room-anomaly room-anomaly--resolved">${voiceMessage('system','SISTEMA','NODE_00 // LEITURA ATUAL ANEXADA // LEITURA ANTERIOR 03:17 MANTIDA')}<p>O volume agora existe. A leitura afirma ter ocorrido antes da entrada.</p><button type="button" class="primary-button" data-action="confirm-room-return">FECHAR LEITURA E SAIR</button></section>`;
+  return renderPaperBoard(state,'20',{instruction:'Alinhe estrutura, mobiliário, captura antiga e leitura do sistema. Procure a única área que não fecha.',secondary:'A tolerância é pequena; use paredes e aberturas como registro.'});
+  /* Grade legada mantida abaixo apenas como referência de migração; não é renderizada. */
   const positions = state.room || {};
   const evaluation = evaluateRoom(state);
   const objects = [
@@ -203,7 +212,10 @@ function room(state) {
     <button type="button" class="primary-button" data-action="validate-room">VALIDAR MODELO</button><div class="feedback" data-feedback></div>`;
 }
 
-function meta() {
+function meta(state) {
+  const solved=Boolean(state?.paperEngine?.boards?.['24']?.solved);
+  return `${renderPaperBoard(state,'24',{instruction:'Reúna índices do PC, quadros do Receiver, ordem dos livros e orientação da mesa. A interface não informa a operação.',secondary:'A chave é lida como uma única linha, na direção indicada.'})}${solved?`<section class="final-key-entry"><span>LEITURA COMPOSTA DISPONÍVEL</span><p>Use somente os fragmentos estabilizados. Nenhuma soma é solicitada.</p>${answerForm('24','chave recuperada')}</section>`:''}`;
+  /* Composição tutorial legada desativada. */
   return `<section class="key-composition">
     <header><span>CLASSIFICADOR DE RELAÇÃO // ÚLTIMA OPERAÇÃO</span><strong>DUAS CADEIAS CONVERGENTES</strong></header>
     <div class="key-chains">
@@ -219,7 +231,7 @@ function meta() {
 function finalExperience(state) {
   const elapsed = formatDuration(Date.now() - (state.startedAt || Date.now()));
   const counter = daysSince(GAME_CONFIG.importantDate);
-  return `<section class="final-stage"><div class="final-key-meaning"><span>520</span><i>I LOVE YOU</i><span>1314</span><i>FOR A LIFETIME</i><strong>I LOVE YOU FOR ETERNITY</strong></div><p class="final-call">Rayssa?</p><p class="final-salutation">Bom dia, princesa.</p><div class="date">10/10<small>o dia em que a gente se conheceu.</small></div><h1 tabindex="-1" data-scene-heading>nós.</h1><p class="final-human">João + Rayssa<br>estado: aqui.</p><div class="counter"><div><strong data-counter="days">${counter.days}</strong><span>dias</span></div><div><strong data-counter="hours">${counter.hours}</strong><span>horas</span></div><div><strong data-counter="minutes">${counter.minutes}</strong><span>minutos</span></div><div><strong data-counter="seconds">${counter.seconds}</strong><span>segundos</span></div></div><p class="final-message">${escapeHtml(GAME_CONFIG.finalMessage)}</p><button type="button" class="primary-button" data-action="play-final-music">${GAME_CONFIG.musicUrl ? 'TOCAR MÚSICA RECUPERADA' : 'TOCAR SINAL RECUPERADO'}</button><div class="stats-table"><div class="stats-row"><span>TEMPO TOTAL</span><strong data-total-elapsed>${elapsed}</strong></div><div class="stats-row"><span>TENTATIVAS</span><strong>${state.stats.wrongAnswers}</strong></div><div class="stats-row"><span>DICAS CONSULTADAS</span><strong>${Object.values(state.hintsUsed).reduce((a,b)=>a+b,0)}</strong></div></div></section>`;
+  return `<section class="final-room" data-final-room><div class="final-room__devices" aria-hidden="true"><div class="final-room__pc"><i>100%</i></div><div class="final-room__receiver"><i>SEM ESTÁTICA</i></div><div class="final-room__phone"><i>0 NOTIFICAÇÕES</i></div><div class="final-room__table"><i></i><i></i><i></i></div></div><main class="final-stage"><p class="final-call">Rayssa?</p><p class="final-salutation">Bom dia, princesa.</p><div class="date">10/10<small>o dia em que a gente se conheceu.</small></div><h1 tabindex="-1" data-scene-heading>nós.</h1><p class="final-human">João + Rayssa<br>estado: aqui.</p><div class="final-memory-strip"><span>Curitiba</span><span>Parquinho da Beira-Mar</span><span>03:17</span></div><div class="counter"><div><strong data-counter="days">${counter.days}</strong><span>dias</span></div><div><strong data-counter="hours">${counter.hours}</strong><span>horas</span></div><div><strong data-counter="minutes">${counter.minutes}</strong><span>minutos</span></div><div><strong data-counter="seconds">${counter.seconds}</strong><span>segundos</span></div></div><p class="final-message">${escapeHtml(GAME_CONFIG.finalMessage)}</p><button type="button" class="primary-button" data-action="play-final-music">${GAME_CONFIG.musicUrl ? 'TOCAR MÚSICA RECUPERADA' : 'TOCAR SINAL RECUPERADO'}</button><div class="stats-table"><div class="stats-row"><span>TEMPO TOTAL</span><strong data-total-elapsed>${elapsed}</strong></div><div class="stats-row"><span>TENTATIVAS</span><strong>${state.stats.wrongAnswers}</strong></div><div class="stats-row"><span>DICAS CONSULTADAS</span><strong>${Object.values(state.hintsUsed).reduce((a,b)=>a+b,0)}</strong></div></div></main></section>`;
 }
 
 export function updateFinalMetrics(state) {
@@ -240,9 +252,9 @@ export function renderScene(puzzle, state) {
     case 'morse': return `<div class="receiver-puzzle receiver-puzzle--morse">${renderTV(state,{mode:'morse'})}<div class="receiver-puzzle__answer">${answerForm('04','interpretação do sinal')}</div></div>`;
     case 'file-properties': return `<section class="mount-table"><header><span>MESA // TABELA DE MONTAGEM</span><strong>1 DISPOSITIVO SEM CORRESPONDÊNCIA</strong></header><div class="mount-rows"><article><span>UNIDADE_A</span><strong>07 / 04 / 93</strong><i>LOCAL // ATIVA</i></article><article class="is-anomaly"><span>ARCHIVE_?</span><strong>17 / 04 / 91</strong><i>DISPOSITIVO // AUSENTE</i></article><article><span>BACKUP_B</span><strong>02 / 11 / 99</strong><i>REMOVÍVEL // OFFLINE</i></article></div><p class="system-message">FORMATO DE ÍNDICE // DDMMYY // NÃO ALTERAR A ORDEM</p>${answerForm('05','índice da montagem órfã')}</section>`;
     case 'document': return documentScene(state);
-    case 'files': return files();
+    case 'files': return files(state);
     case 'binary': return binary();
-    case 'moon-one': return `${externalStep('Os três blocos formaram LUA.', 'Não é a do céu. Você sabe qual é.')}<div class="terminal"><p class="terminal-line">OBJETO: L_U_A</p><p class="terminal-line">localização: ambiente próximo</p><p class="terminal-line">camadas detectadas: 02</p></div><p>Nesta visita, apenas a primeira marca possui contexto.</p>${answerForm('09','código do fragmento físico')}`;
+    case 'moon-one': return moonDigital(state);
     case 'return-event': return '';
     case 'conflict': return conflict(state);
     case 'phone-memory': return '';
@@ -254,8 +266,8 @@ export function renderScene(puzzle, state) {
     case 'location': return locationScene(state);
     case 'identity': return identity(state);
     case 'room': return room(state);
-    case 'impossible': return state.flags.fakeFinalSeen ? `<div class="terminal glitch-once"><p class="terminal-line error">INTEGRIDADE: 99%</p><p class="terminal-line">1 RELAÇÃO NÃO RESOLVIDA</p><p class="terminal-line">A TV NÃO PERTENCE AO QUARTO</p><p class="terminal-line">A TV PERTENCE AO SISTEMA</p></div>${voiceMessage('human', 'J.', 'Não. Ainda não acabou.')}<button type="button" class="primary-button" data-action="continue-after-fake">VOLTAR AO ARQUIVO</button>` : `<section class="final-stage false-final"><div class="date">RECUPERAÇÃO CONCLUÍDA</div><p class="faint">OBJETO SEM ÂNCORA FÍSICA<br>INTEGRIDADE DECLARADA: 99%</p><h1>arquivo restaurado.</h1><p>O sistema quer que você aceite uma conclusão que não explica tudo.</p><div class="fake-progress"><span></span></div><button type="button" class="primary-button" data-action="fake-end">TESTAR ENCERRAMENTO</button></section>`;
-    case 'books-node': return `${externalStep('O canal externo deixou a frase: abaixo de onde as histórias ficam.', 'Eu sabia que você ia olhar nos livros primeiro.', 'JOÃO')}<p class="muted">Talvez o NÓ já tenha sido encontrado antes. Só agora o código possui contexto.</p>${state.flags.booksNodeScanned ? '<p class="good">NÓ_11 DETECTADO.</p>' : ''}<div class="system-message">CABEÇALHO DE ÁUDIO PARCIAL: “TÃO FÁCIL SE APAIXONAR…”</div>${answerForm('22','código do nó')}`;
+    case 'impossible': return state.flags.fakeFinalSeen ? `<div class="terminal glitch-once"><p class="terminal-line error">INTEGRIDADE: 99%</p><p class="terminal-line">RELAÇÕES: 18/18</p><p class="terminal-line">1 RELAÇÃO NÃO ANCORADA</p><p class="terminal-line">ORIGEM AUSENTE</p><p class="terminal-line">SHELL RECUPERADA // BOOT ${String(state.computer.boot.count).padStart(2,'0')}</p><p class="terminal-line">A TV NÃO PERTENCE AO QUARTO</p><p class="terminal-line">A TV PERTENCE AO SISTEMA</p></div><button type="button" class="primary-button" data-action="continue-after-fake">CONSULTAR ARQUIVO RECUPERADO</button>` : `<section class="final-stage false-final"><div class="date">RECUPERAÇÃO CONCLUÍDA</div><p class="faint">INTEGRIDADE: 99%<br>RELAÇÕES: 18/18<br>MEMÓRIA: ESTÁVEL</p><h1>arquivo restaurado.</h1><p>ENCERRANDO...</p><div class="fake-progress"><span></span></div><button type="button" class="primary-button" data-action="fake-end">VERIFICAR 1% RESTANTE</button></section>`;
+    case 'books-node': return booksNode(state);
     case 'clock-origin': return '';
     case 'meta': return meta(state);
     case 'final': return finalExperience(state);
