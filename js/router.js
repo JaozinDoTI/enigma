@@ -18,9 +18,16 @@ export function currentRoute() {
 export function navigate(id, { replace = false } = {}) {
   if (getState().unlocked.includes(id)) discoverPuzzle(id,'navigation');
   const hash = `#/record/${id}`;
-  if (replace) history.replaceState(null, '', hash);
-  else location.hash = hash;
-  if (location.hash === hash) route();
+  if (replace) {
+    history.replaceState(null, '', hash);
+    route();
+    return;
+  }
+  if (location.hash === hash) {
+    route();
+    return;
+  }
+  location.hash = hash;
 }
 
 function route() {

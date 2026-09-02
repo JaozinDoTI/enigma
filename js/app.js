@@ -10,7 +10,8 @@ import { audioManager, bindMotionAudio } from './audio.js';
 import { orchestrateNarrative } from './narrative-events.js';
 import { Motion } from './motion-engine.js';
 import { sceneFamilyFor } from './scenes/registry.js';
-import { tickBehaviorDirector } from './behavior-director.js';
+import { initPhoneSystem, runPhoneDirector, setPhoneSilence } from './phone/runtime.js';
+import { reconcileWorldEvents } from './worlds/world-events.js';
 import { configureTransitionDirector } from './transition-director.js';
 import { cameraTargetFor, setRoomCamera } from './room-stage.js';
 
@@ -24,6 +25,9 @@ function commitRoomMarkup(markup) {
   const template=document.createElement('template');template.innerHTML=markup.trim();
   const incomingStage=template.content.querySelector('[data-room-stage]');
   if(!incomingStage){root.innerHTML=markup;return;}
+  const currentOffer=root.querySelector('[data-transition-offer]');
+  const incomingOffer=template.content.querySelector('[data-transition-offer]');
+  if(currentOffer&&incomingOffer&&currentOffer.dataset.transitionId===incomingOffer.dataset.transitionId)incomingOffer.replaceWith(currentOffer);
   const currentFocus=currentStage.querySelector('.room-stage__focus');
   const incomingFocus=incomingStage.querySelector('.room-stage__focus');
   currentStage.className=incomingStage.className;
@@ -71,8 +75,14 @@ function commitRender(id, animate) {
     });
   }
   const state = getState();
+  const titleRevealStatus=state.ui?.titleReveal?.status || (state.ui?.titleReveal ? 'pending' : null);
+  const phaseIntentStatus=state.ui?.phaseIntent?.id===puzzle.id?state.ui.phaseIntent.status:null;
   const content = renderScene(puzzle, state);
   commitRoomMarkup(renderShell({ puzzle, puzzles: PUZZLES, state, content, animate }));
+  if (titleRevealStatus==='pending' && state.ui?.titleReveal?.id===puzzle.id) updateState((draft)=>{draft.ui.titleReveal={...draft.ui.titleReveal,status:'rendered',renderedAt:Date.now()};});
+  else if (titleRevealStatus==='rendered' && state.ui?.titleReveal?.id===puzzle.id) updateState((draft)=>{draft.ui.titleReveal={...draft.ui.titleReveal,status:'consumed',consumedAt:Date.now()};});
+  if (phaseIntentStatus==='pending' && state.ui?.phaseIntent?.id===puzzle.id) updateState((draft)=>{draft.ui.phaseIntent={...draft.ui.phaseIntent,status:'rendered',renderedAt:Date.now()};});
+  else if (phaseIntentStatus==='rendered' && state.ui?.phaseIntent?.id===puzzle.id) updateState((draft)=>{draft.ui.phaseIntent={...draft.ui.phaseIntent,status:'consumed',consumedAt:Date.now()};});
   root.querySelectorAll('[data-evidence-source]').forEach((image)=>{
     const frame=image.closest('[data-evidence-frame]');
     const update=()=>frame?.classList.toggle('has-source',image.complete&&image.naturalWidth>0);
@@ -90,6 +100,7 @@ function commitRender(id, animate) {
 
 function render(id = currentRoute(), { animate = true } = {}) {
   const routeChanged = renderedRoute !== null && renderedRoute !== id;
+  if(routeChanged)setPhoneSilence(1100,'scene-transition');
   if (animate && renderedRoute === id) {
     commitRender(id, false);
     return;
@@ -140,6 +151,7 @@ initInteractions({
   last: () => PUZZLES.at(-1)?.id || '01'
 });
 configureTransitionDirector({navigate,refresh:()=>render(currentRoute(),{animate:false})});
+initPhoneSystem({refresh:()=>render(currentRoute(),{animate:false})});
 initRouter(render);
 processNodeQuery();
 
@@ -160,4 +172,4 @@ window.setInterval(() => {
   notifyNoProgress();
 }, 30000);
 
-window.setInterval(tickBehaviorDirector,15000);
+window.setInterval(()=>{reconcileWorldEvents(Date.now());runPhoneDirector();},15000);

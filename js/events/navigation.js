@@ -4,11 +4,11 @@ import { syncHintPanel, syncMuteControls } from '../dom-sync.js';
 import { useHint } from '../hints.js';
 import { getState, resetState, unlockThrough } from '../state.js';
 import { uiFeedback } from '../ui-feedback.js';
-import { evaluateBehaviorDirector } from '../behavior-director.js';
 import { releaseLocalCapture } from '../local-capture.js';
 import { acceptPendingTransition, clearPendingTransition } from '../transition-director.js';
+import { bootstrapPhone, runPhoneDirector } from '../phone/runtime.js';
 
-const ACTIONS = new Set(['navigate','accept-transition','hint','toggle-mute','play-final-music','dev-next','dev-event','dev-clear-transition','dev-reset']);
+const ACTIONS = new Set(['navigate','accept-transition','hint','toggle-mute','play-final-music','dev-next','dev-force-phone','dev-clear-transition','dev-reset']);
 
 export function handleNavigationClick(action,button,context) {
   if (!ACTIONS.has(action)) return false;
@@ -38,15 +38,18 @@ export function handleNavigationClick(action,button,context) {
     context.go(next);
     return true;
   }
-  if (action === 'dev-event') {
-    const delivered=evaluateBehaviorDirector({force:button.dataset.event});
-    uiFeedback.toast(delivered?`EVENTO SIMULADO // ${delivered}`:'EVENTO INELEGÍVEL',{kind:delivered?'discovery':'error'});
+  if(action==='dev-force-phone'){
+    const id=button.closest('.dev-phone-console')?.querySelector('[data-dev-phone-event]')?.value;
+    const delivered=runPhoneDirector({force:id});
+    uiFeedback.toast(delivered?`EVENTO FORÇADO // ${delivered}`:'EVENTO NÃO ENCONTRADO',{kind:delivered?'discovery':'error'});
+    context.refresh?.();
     return true;
   }
   if (action === 'dev-clear-transition') { clearPendingTransition(); return true; }
   if (action === 'dev-reset' && confirm('Reiniciar esta sessão em memória?')) {
     releaseLocalCapture();
     resetState();
+    bootstrapPhone();
     context.go('01');
   }
   return true;

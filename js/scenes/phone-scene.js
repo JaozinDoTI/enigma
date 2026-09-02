@@ -1,5 +1,5 @@
 import { renderHintPanel } from '../hints.js';
-import { renderPhoneDevice } from '../phone.js';
+import { renderPhoneDevice } from '../phone/render.js';
 import { renderDevPanel, renderNarrativeLoader, renderPuzzleBrief, renderReturnControl, renderSceneTools } from './shared.js';
 
 export function renderPhoneScene({ puzzle, state, animate }) {

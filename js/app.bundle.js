@@ -15,7 +15,8 @@ const { audioManager, bindMotionAudio } = __require("js/audio.js");
 const { orchestrateNarrative } = __require("js/narrative-events.js");
 const { Motion } = __require("js/motion-engine.js");
 const { sceneFamilyFor } = __require("js/scenes/registry.js");
-const { tickBehaviorDirector } = __require("js/behavior-director.js");
+const { initPhoneSystem, runPhoneDirector, setPhoneSilence } = __require("js/phone/runtime.js");
+const { reconcileWorldEvents } = __require("js/worlds/world-events.js");
 const { configureTransitionDirector } = __require("js/transition-director.js");
 const { cameraTargetFor, setRoomCamera } = __require("js/room-stage.js");
 const root = document.querySelector('#app');
@@ -28,6 +29,9 @@ function commitRoomMarkup(markup) {
   const template=document.createElement('template');template.innerHTML=markup.trim();
   const incomingStage=template.content.querySelector('[data-room-stage]');
   if(!incomingStage){root.innerHTML=markup;return;}
+  const currentOffer=root.querySelector('[data-transition-offer]');
+  const incomingOffer=template.content.querySelector('[data-transition-offer]');
+  if(currentOffer&&incomingOffer&&currentOffer.dataset.transitionId===incomingOffer.dataset.transitionId)incomingOffer.replaceWith(currentOffer);
   const currentFocus=currentStage.querySelector('.room-stage__focus');
   const incomingFocus=incomingStage.querySelector('.room-stage__focus');
   currentStage.className=incomingStage.className;
@@ -75,8 +79,14 @@ function commitRender(id, animate) {
     });
   }
   const state = getState();
+  const titleRevealStatus=state.ui?.titleReveal?.status || (state.ui?.titleReveal ? 'pending' : null);
+  const phaseIntentStatus=state.ui?.phaseIntent?.id===puzzle.id?state.ui.phaseIntent.status:null;
   const content = renderScene(puzzle, state);
   commitRoomMarkup(renderShell({ puzzle, puzzles: PUZZLES, state, content, animate }));
+  if (titleRevealStatus==='pending' && state.ui?.titleReveal?.id===puzzle.id) updateState((draft)=>{draft.ui.titleReveal={...draft.ui.titleReveal,status:'rendered',renderedAt:Date.now()};});
+  else if (titleRevealStatus==='rendered' && state.ui?.titleReveal?.id===puzzle.id) updateState((draft)=>{draft.ui.titleReveal={...draft.ui.titleReveal,status:'consumed',consumedAt:Date.now()};});
+  if (phaseIntentStatus==='pending' && state.ui?.phaseIntent?.id===puzzle.id) updateState((draft)=>{draft.ui.phaseIntent={...draft.ui.phaseIntent,status:'rendered',renderedAt:Date.now()};});
+  else if (phaseIntentStatus==='rendered' && state.ui?.phaseIntent?.id===puzzle.id) updateState((draft)=>{draft.ui.phaseIntent={...draft.ui.phaseIntent,status:'consumed',consumedAt:Date.now()};});
   root.querySelectorAll('[data-evidence-source]').forEach((image)=>{
     const frame=image.closest('[data-evidence-frame]');
     const update=()=>frame?.classList.toggle('has-source',image.complete&&image.naturalWidth>0);
@@ -94,6 +104,7 @@ function commitRender(id, animate) {
 
 function render(id = currentRoute(), { animate = true } = {}) {
   const routeChanged = renderedRoute !== null && renderedRoute !== id;
+  if(routeChanged)setPhoneSilence(1100,'scene-transition');
   if (animate && renderedRoute === id) {
     commitRender(id, false);
     return;
@@ -144,6 +155,7 @@ initInteractions({
   last: () => PUZZLES.at(-1)?.id || '01'
 });
 configureTransitionDirector({navigate,refresh:()=>render(currentRoute(),{animate:false})});
+initPhoneSystem({refresh:()=>render(currentRoute(),{animate:false})});
 initRouter(render);
 processNodeQuery();
 
@@ -164,7 +176,7 @@ window.setInterval(() => {
   notifyNoProgress();
 }, 30000);
 
-window.setInterval(tickBehaviorDirector,15000);
+window.setInterval(()=>{reconcileWorldEvents(Date.now());runPhoneDirector();},15000);
 
 
 },
@@ -322,8 +334,8 @@ const ENTRY_POINTS_BY_PHASE = Object.freeze({
 });
 
 const BEHAVIOR_HOOKS_BY_PHASE = Object.freeze({
-  '02':['repeated-file','wrong-folders'],'03':['receiver-interactions','phone-ignored'],'06':['wrong-invariant','window-reopen','snapshot'],
-  '10':['backtracking','repeated-file'],'11':['object-c-open'],'12':['phone-ignored'],'17':['receiver-interactions'],'21':['early-99'],'23':['clock-return']
+  '02':['repeated-file','wrong-folders'],'03':['receiver-interactions','REACT_IGNORED_PHONE'],'06':['wrong-invariant','window-reopen','snapshot'],
+  '10':['backtracking','repeated-file'],'11':['object-c-open'],'12':['REACT_IGNORED_PHONE'],'17':['receiver-interactions'],'21':['early-99'],'23':['clock-return']
 });
 
 const TRANSITIONS_BY_PHASE = Object.freeze({
@@ -332,7 +344,7 @@ const TRANSITIONS_BY_PHASE = Object.freeze({
   '03':{mode:'AUTO_CONTINUE',label:'ACOMPANHAR A PORTADORA',motion:'receiver-lock'},
   '04':{mode:'WORLD_HANDOFF',label:'VOLTAR À MESA DO COMPUTADOR',motion:'seat-tv-to-computer'},
   '05':{mode:'DIEGETIC_ENTRY',label:'ABRIR A UNIDADE MONTADA',motion:'archive-mounted'},
-  '06':{mode:'WORLD_HANDOFF',label:'FECHAR O COMPARADOR E VOLTAR AO PC',motion:'document-to-computer'},
+  '06':{mode:'DIEGETIC_ENTRY',label:'ABRIR VX_NET',motion:'desktop-awaken'},
   '07':{mode:'DIEGETIC_ENTRY',label:'ABRIR O PACOTE RECUPERADO',motion:'desktop-awaken'},
   '08':{mode:'DIEGETIC_ENTRY',label:'USAR LUA COMO CHAVE DE BUSCA',motion:'desktop-awaken'},
   '09':{mode:'DIEGETIC_ENTRY',label:'REABRIR O REGISTRO ALTERADO',motion:'desktop-awaken'},
@@ -423,7 +435,7 @@ const PUZZLES = Object.freeze([
     mutations:[{id:'dump-reader',when:{unlocked:'08'},phaseApp:'dump-app',notice:'DUMP_24.bin SALVO EM C:\\DOWNLOADS'}],
     narrative:'A versão correta guarda 24 bits já separados em três blocos.', objective:'Converter os blocos em um objeto.', interaction:'ler três bytes como caracteres', successMeaning:'Um objeto conhecido ganha função investigativa.', solution:{accepted:['lua']}, completion:{message:'OBJETO RECUPERADO // LUA'}, ui:{inputLabel:'Palavra formada pelos três bytes',placeholder:'objeto recuperado',submitLabel:'INDEXAR OBJETO',wrongFeedback:'Os bytes não formam esse objeto.'} }),
   P({ id:'09', act:2, family:'computer', world:'computer', area:'images', code:'OBJETO_L01', title:'referência material', renderer:'moon-one', integrity:26, next:['10'], controller:'archive', prerequisites:['08'], discoveries:['vx-04-moon'],
-    mutations:[{id:'analyzer',when:{unlocked:'09'},icons:['analyzer-app']}],
+    mutations:[{id:'analyzer',when:{unlocked:'09'},icons:['analyzer-app'],phaseApp:'analyzer-app',notice:'ANALISADOR.exe INDEXOU A CHAVE LUA'}],
     narrative:'LUA é uma chave de busca. Imagem, log e cache preservam partes diferentes do mesmo scan.', objective:'Cruzar os três resultados e recuperar a marca no canal residual.', interaction:'ajustar contraste, canal e correlação de arquivos', successMeaning:'VX-04 ganha uma origem digital verificável.', solution:{accepted:['vx 04','vx04']}, completion:{message:'CAMADA VX-04 RECUPERADA',effects:['moonFirstFound']}, ui:{inputLabel:'Marca recuperada no scan',placeholder:'identificador',submitLabel:'ANEXAR MARCA',wrongFeedback:'Essa marca não pertence ao canal residual.'} }),
   P({ id:'10', act:2, family:'computer', area:'archive', code:'SOMA_DIVERGENTE', title:'um arquivo conhecido mudou', renderer:'return-event', integrity:31, next:['11'], controller:'archive', prerequisites:['09','02'], discoveries:['shared-event'], archiveEffects:['evento-1010:v2'], fileBehaviors:['event-1010:temporal','event-old:mirror','tmp1:parasite'],
     mutations:[{id:'event-rewrite',when:{unlocked:'10'},wallpaper:'alert'}],
@@ -431,7 +443,7 @@ const PUZZLES = Object.freeze([
   P({ id:'11', act:3, family:'forensic', area:'evidence', code:'OBJETO_NAO_CATALOGADO', title:'objeto não catalogado', renderer:'conflict', integrity:35, next:['12'], controller:'forensic', prerequisites:['10'], discoveries:['object-c'], motionCue:'memory-reconstruction',
     narrative:'Fotografias cortadas, metadata e uma transparência chegaram à mesa com duas distrações.', objective:'Montar uma silhueta incompleta sem receber categorias prontas.', interaction:'mover, girar, sobrepor e testar a composição', successMeaning:'A forma têxtil recorrente surge visualmente; a identidade permanece desconhecida.', ui:{status:(s)=>s.paperEngine.boards['11']?.solved?'SILHUETA ESTABILIZADA':'MESA // COMPOSIÇÃO ABERTA'} }),
   P({ id:'12', act:3, family:'phone', area:'messages', code:'IDENTIDADE_OBJETO_C', title:'uma fotografia antiga', renderer:'phone-memory', integrity:39, next:['13'], controller:'phone', prerequisites:['11'], discoveries:['memory-curitiba'],
-    narrative:'A conversa aponta para um anexo quebrado; o aparelho ainda preserva thumbnail e arquivo de câmera.', objective:'Seguir a origem entre Mensagens, Arquivos e CAM Archive.', interaction:'rastrear referências e recuperar a cópia antes de anexar metadata', successMeaning:'OBJETO C recebe seu nome humano: CURITIBA.', solution:{accepted:[GAME_CONFIG.memoryAnswer,...GAME_CONFIG.memoryAliases]}, completion:{message:'OBJETO C → CURITIBA // METADATA ANEXADA',effects:['curitibaConfirmed']}, ui:{wrongFeedback:'Essa identidade não corresponde ao objeto reconstruído.'} }),
+    narrative:'J. enviou uma fotografia que o chat não consegue abrir; os detalhes do arquivo ainda apontam para uma cópia local.', objective:'Descobrir o nome preservado na fotografia antiga.', interaction:'abrir o anexo, consultar seus detalhes e navegar pelos apps ligados à origem', successMeaning:'OBJETO C recebe seu nome humano: CURITIBA.', solution:{accepted:[GAME_CONFIG.memoryAnswer,...GAME_CONFIG.memoryAliases]}, completion:{message:'OBJETO C → CURITIBA // DETALHES PRESERVADOS',effects:['curitibaConfirmed']}, ui:{wrongFeedback:'Essa identidade não corresponde ao objeto reconstruído.'} }),
   P({ id:'13', act:3, family:'device', area:'receiver', code:'RECEPTOR_VX', title:'imagem residual', renderer:'tv-sequence', integrity:43, next:['14'], controller:'receiver', prerequisites:['12','03'], discoveries:['receiver-afterimage'], motionCue:'tv-afterimage',
     narrative:'O Receiver mudou enquanto estava fora de uso.', objective:'Descobrir o que permanece depois que a portadora some.', interaction:'operar canal e power', successMeaning:'FIM · 01 · COMEÇO fica gravado no fósforo como relação, não senha.', ui:{status:(s)=>s.flags.tvChannel11Primed?'CANAL 11 // PORTADORA AUSENTE':`CAN ${String(s.tv.channel).padStart(2,'0')}`} }),
   P({ id:'14', act:3, family:'computer', area:'images', code:'BOOKSCAN_END01START', title:'captura degradada da estante', renderer:'books', integrity:47, next:['15'], prerequisites:['13'], discoveries:['book-time'], physicalEffect:'books',
@@ -483,6 +495,7 @@ const { escapeHtml, formatDuration, daysSince } = __require("js/utils.js");
 const { evaluateRoom } = __require("js/room-model.js");
 const { clarityFor } = __require("js/puzzles/clarity.js");
 const { renderPaperBoard } = __require("js/paper-engine.js");
+const { documentCommitState } = __require("js/computer-runtime.js");
 const answerForm = (id, placeholderFallback = 'resposta necessária', buttonFallback = 'VERIFICAR') => {
   const contract = clarityFor(id);
   const label = contract.inputLabel || placeholderFallback;
@@ -534,6 +547,11 @@ const yardNodeGate = (state) => `<section class="external-auth external-auth--ya
 function documentScene(state) {
   const selected = state.documentFragments || [];
   const order = ['A DATA', 'ABRE', 'O ARQUIVO'];
+  const guard=documentCommitState(state);
+  if (!guard.hasA || !guard.hasB) {
+    const missing=[!guard.hasA?'A':null,!guard.hasB?'B':null].filter(Boolean).join(' + ');
+    return `<section class="document-puzzle is-source-incomplete"><header class="document-puzzle__intro"><span>REL_1708 // COMPARADOR DE ESTADOS</span><p>O comparador só cruza evidências abertas no filesystem. Ele não pode reconstruir uma cópia ausente.</p></header><div class="document-source-gate"><strong>REFERÊNCIA ${escapeHtml(missing)} AUSENTE</strong><p>Abra REL_1708.A em V:\\ARCHIVE_170491. A referência revelará REL_1708.B em C:\\BACKUP. Depois, abra o comparador novamente.</p><button type="button" class="primary-button" data-action="navigate" data-target="05">VOLTAR À WORKSTATION</button></div></section>`;
+  }
   const revision=state.documentRuntime.revision%3;
   const a=[['o índice reconhece a data','o índice rejeita a data','o índice esqueceu a data'][revision],'A DATA','ABRE','O ARQUIVO',['quando a cópia se move','antes que a cópia responda','depois que a janela retorna'][revision]];
   const b=[['a origem preserva a hora','a origem nega a hora','a origem troca a hora'][revision],'A DATA','ABRE','O ARQUIVO',['enquanto ainda existe nome','quando o nome desaparece','se a leitura for repetida'][revision]];
@@ -544,12 +562,20 @@ function documentScene(state) {
     return `<button type="button" class="document-overlay__region${active?' is-selected':''}" style="--region:${index}" data-action="memory-region" data-row="${index}" ${token?`data-token="${escapeHtml(token)}"`:''} aria-pressed="${Boolean(active)}"><span>${active?'REGIÃO FIXADA':'FIXAR REGIÃO'}</span></button>`;
   }).join('');
   const slots = order.map((token, index) => `<span class="document-extraction__slot${selected.includes(token) ? ' is-filled' : ''}" data-document-slot="${escapeHtml(token)}"><small>0${index + 1}</small>${selected.includes(token) ? escapeHtml(token) : 'TRECHO AUSENTE'}</span>`).join('');
-  const locked = state.signalAnalyzer.locked;
-  return `<section class="document-puzzle ${locked ? 'has-signal-lock' : 'is-degraded'}">
+  const locked = guard.locked;
+  const distance=Math.abs(guard.frequency-170.8);
+  const signalStrength=Math.max(0,Math.min(1,1-(distance/6)));
+  const spectrum=Array.from({ length:37 },(_,index)=>{
+    const peak=Math.max(0,1-(Math.abs(index-18)/8));
+    const noise=((index*19)%77)/100;
+    const amplitude=Math.round(12+(noise*(1-signalStrength)*62)+(peak*signalStrength*82));
+    return `<i style="--amp:${amplitude}%"></i>`;
+  }).join('');
+  return `<section class="document-puzzle ${locked ? 'has-signal-lock' : 'is-degraded'}" style="--signal-strength:${signalStrength}">
     <header class="document-puzzle__intro"><span>REL_1708 // COMPARADOR DE ESTADOS</span><p>As duas cópias continuam mudando. Sobreponha os estados e fixe apenas as regiões que não produzem ghosting.</p></header>
     <section class="signal-analyzer" data-signal-analyzer>
-      <header><span>PORTADORA DERIVADA DOS METADADOS // 17-08</span><strong>${locked ? 'SIGNAL LOCK' : 'SEM SINCRONIA'}</strong></header>
-      <div class="signal-spectrum">${Array.from({ length: 37 }, (_, index) => `<i style="--amp:${18 + ((index * 19) % 77)}%"></i>`).join('')}</div>
+      <header><span>PORTADORA DERIVADA DOS METADADOS // 17-08</span><strong data-signal-status>${locked ? 'SIGNAL LOCK' : 'SEM SINCRONIA'}</strong></header>
+      <div class="signal-spectrum">${spectrum}</div>
       <label>COARSE <input type="range" min="160" max="180" step="1" value="${state.signalAnalyzer.coarse}" data-signal-control="coarse"><output>${state.signalAnalyzer.coarse}</output></label>
       <label>FINE <input type="range" min="0" max="9" step="1" value="${state.signalAnalyzer.fine}" data-signal-control="fine"><output>.${state.signalAnalyzer.fine}</output></label>
       <button type="button" data-action="signal-lock">TESTAR PORTADORA</button>
@@ -558,11 +584,10 @@ function documentScene(state) {
       ${layer('A',a)}${layer('B',b)}<div class="document-overlay__regions">${regions}</div>
     </div>
     <label class="document-overlay__control"><span>TRANSPARÊNCIA A/B</span><input type="range" min="0" max="100" value="${state.documentRuntime.overlay}" data-document-overlay><output data-document-overlay-output>${state.documentRuntime.overlay}%</output></label>
-    <div class="document-snapshot"><span>${state.documentRuntime.snapshots.length?'ESTADO CAPTURADO DISPONÍVEL':'NENHUM ESTADO CAPTURADO'}</span><button type="button" data-action="document-snapshot">CAPTURAR ESTADO ATUAL</button></div>
+    <div class="document-snapshot"><span data-document-snapshot-status>${guard.validSnapshot?'SNAPSHOT VÁLIDO PARA 170.8':'NENHUM SNAPSHOT VÁLIDO'}</span><button type="button" data-action="document-snapshot" ${locked&&guard.notFrozen&&!guard.validSnapshot?'':'disabled'}>CAPTURAR ESTADO ATUAL</button></div>
     <footer class="document-extraction">
       <div class="document-extraction__result"><span>REGIÕES ESTABILIZADAS <strong data-document-count>${selected.length}</strong></span><div class="document-extraction__slots">${slots}</div></div>
-      ${locked&&selected.length===order.length?'<code class="document-carrier-reference">REF EXTERNA // mirror://final</code>':''}
-      <button type="button" class="primary-button document-extraction__commit" data-action="commit-document" ${locked && selected.length === order.length && state.documentRuntime.snapshots.length ? '' : 'disabled'}>CONGELAR SINAL E CONSOLIDAR</button>
+      <button type="button" class="primary-button document-extraction__commit" data-action="commit-document" ${guard.canCommit ? '' : 'disabled'}>CONGELAR SINAL E CONSOLIDAR</button>
     </footer>
     <div class="feedback document-puzzle__feedback" data-feedback data-document-status aria-live="polite">${selected.length === order.length ? 'AS REGIÕES FIXAS FORMAM UMA INSTRUÇÃO' : 'MOVIMENTE A TRANSPARÊNCIA E OBSERVE O DESALINHAMENTO'}</div>
   </section>`;
@@ -591,8 +616,16 @@ function binary() {
 }
 
 function moonDigital(state) {
-  const recovered=Boolean(state.computer.files['webcam-cache']?.recovered);
-  return `<section class="moon-search"><header><span>BUSCA LOCAL // LUA</span><strong>3 RESULTADOS EM ORIGENS DIFERENTES</strong></header><div class="moon-results"><article><span>IMAGEM</span><strong>tecido_scan.bmp</strong><small>CACHE / scanner local / canais danificados</small></article><article><span>LOG</span><strong>SCAN_LUA_04.log</strong><small>realce incompleto · referência VX</small></article><article><span>CACHE</span><strong>webcam-frame-0017.jpg</strong><small>thumbnail sem origem</small></article></div><div class="moon-forensics ${recovered?'is-recovered':''}" data-moon-forensics><figure><img src="./assets/images/moon-scan.svg" alt="Scan degradado de um tecido com lua"><div class="moon-channel-noise"></div></figure><div><label>CONTRASTE <input type="range" min="0" max="100" value="${recovered?78:20}" data-moon-control="contrast"></label><label>CANAL <select data-moon-control="channel"><option>RGB</option><option value="blue">AZUL</option><option value="infra">RESÍDUO</option></select></label><button type="button" data-action="moon-recover">CRUZAR LOG + CACHE + IMAGEM</button></div></div>${recovered?`<div class="moon-recovered-code"><span>MARCA RECUPERADA NO TECIDO</span><strong>VX-04</strong></div>${answerForm('09','marca recuperada')}`:'<p class="system-message">A marca não pertence a nenhum resultado isolado.</p>'}</section>`;
+  const forensic=state.moonForensics || {status:'searching',contrast:20,channel:'rgb',result:null};
+  const recovered=['recovered','committed'].includes(forensic.status) && forensic.result==='VX-04' && Boolean(state.computer.files['webcam-cache']?.recovered);
+  const committed=state.completed.includes('09') || forensic.status==='committed';
+  const ready=!recovered && forensic.contrast>=65 && forensic.channel==='infra';
+  const contrastFilter=Math.round(45+(forensic.contrast*1.15));
+  const brightnessFilter=Math.round(40+(forensic.contrast*.42));
+  const blurFilter=Math.max(0,3-(forensic.contrast*.03)).toFixed(2);
+  const option=(value,label)=>`<option value="${value}" ${forensic.channel===value?'selected':''}>${label}</option>`;
+  const status=recovered?'CORRELAÇÃO CONCLUÍDA':ready?'CRUZAMENTO PRONTO':'FONTE AINDA INSTÁVEL';
+  return `<section class="moon-search"><header><span>BUSCA LOCAL // LUA</span><strong>3 RESULTADOS EM ORIGENS DIFERENTES</strong></header><div class="moon-results"><article><span>01 // IMAGEM</span><strong>tecido_scan.bmp</strong><small>CACHE / scanner local / canais danificados</small></article><article><span>02 // LOG</span><strong>SCAN_LUA_04.log</strong><small>realce incompleto · referência VX</small></article><article><span>03 // CACHE</span><strong>webcam-frame-0017.jpg</strong><small>thumbnail sem origem</small></article></div><div class="moon-forensics ${recovered?'is-recovered':''} ${ready?'is-ready':''}" data-moon-forensics data-moon-status="${escapeHtml(forensic.status)}" data-moon-channel="${escapeHtml(forensic.channel)}" style="--moon-contrast-filter:${contrastFilter}%;--moon-brightness-filter:${brightnessFilter}%;--moon-blur-filter:${blurFilter}px"><figure><img src="./assets/images/moon-scan.svg" alt="Scan degradado de um tecido com lua"><div class="moon-channel-noise"></div><figcaption data-moon-readout>${escapeHtml(status)} // CONTRASTE ${forensic.contrast}% // ${forensic.channel==='infra'?'RESÍDUO':forensic.channel.toUpperCase()}</figcaption></figure><div class="moon-forensics__controls"><header><span>ANÁLISE FORENSE</span><strong data-moon-ready>${escapeHtml(status)}</strong></header><label>CONTRASTE <output data-moon-contrast-output>${forensic.contrast}%</output><input type="range" min="0" max="100" value="${forensic.contrast}" data-moon-control="contrast" ${recovered?'disabled':''}></label><label>CANAL <select data-moon-control="channel" ${recovered?'disabled':''}>${option('rgb','RGB')}${option('blue','AZUL')}${option('infra','RESÍDUO')}</select></label><p>Eleve o contraste até estabilizar a camada e procure o canal que preserva apenas o resíduo.</p><button type="button" data-action="moon-recover" ${recovered?'disabled':''}>${recovered?'FONTES CRUZADAS':ready?'EXECUTAR CRUZAMENTO':'CRUZAR LOG + CACHE + IMAGEM'}</button></div></div>${recovered?`<div class="moon-recovered-code"><span>MARCA RECUPERADA NO TECIDO</span><strong>VX-04</strong><button type="button" class="primary-button" data-action="moon-commit" ${committed?'disabled':''}>${committed?'MARCA ANEXADA':'ANEXAR MARCA AO REGISTRO'}</button></div>`:'<p class="system-message" data-moon-instruction>A marca não pertence a nenhum resultado isolado. Ajuste as duas variáveis antes de cruzar as fontes.</p>'}</section>`;
 }
 
 function booksNode(state) {
@@ -1074,22 +1107,257 @@ exports.evaluatePaperBoard = evaluatePaperBoard;
 exports.bringPaperToFront = bringPaperToFront;
 exports.renderPaperBoard = renderPaperBoard;
 },
+"js/computer-runtime.js": function(module, exports, __require) {
+const FILE_VARIANTS = Object.freeze({
+  'event-1010': Object.freeze({
+    rewritten: Object.freeze({
+      modified:'10/10/2025 10:12', size:'11 KB', origin:'VOLUME EXTERNO / FONTE DUPLA',
+      body:['10:10:00  EVENTO_1010','origem desconhecida','volume correspondente ausente','índice anterior à pasta atual','10:10:00  ASSINATURA REESCRITA','DUAS FONTES PRESENTES NO MESMO EVENTO','CHECKSUM ANTERIOR ≠ CHECKSUM ATUAL']
+    }),
+    stable: Object.freeze({ attributes:'SISTEMA · ISOLADO · SOMENTE LEITURA' })
+  }),
+  tmp1: Object.freeze({ base:Object.freeze({}) }),
+  tmp2: Object.freeze({
+    spawned:Object.freeze({ name:'~$0001_2.tmp', modified:'10/10/2025 10:13', size:'19 KB', origin:'PROCESSO DESCONHECIDO', body:['DADOS TEMPORÁRIOS','MESMA CRIAÇÃO / TAMANHO DIVERGENTE','REFERÊNCIA: OBJETO C'] })
+  }),
+  'event-old': Object.freeze({
+    contaminated:Object.freeze({ modified:'09/10/2025 23:48', size:'3 KB', origin:'BACKUP LOCAL / CHECKSUM DIVERGENTE', body:['VERSÃO ENCERRADA','EVENTO ASSOCIADO: 1010','FONTE B JÁ PRESENTE'] })
+  }),
+  cache: Object.freeze({
+    foreshadow:Object.freeze({ size:'129 KB', body:['CACHE DE VISUALIZAÇÃO','BLOCO 04 / 18','THUMBNAIL: OBJETO_C','BUSCA PRESERVADA: CURITIBA'] })
+  }),
+  'webcam-cache': Object.freeze({
+    temporal:Object.freeze({ modified:'10/10/2025 10:10', size:'7 KB', body:['DISPOSITIVO REAL: NÃO ACESSADO','FRAMES LOCAIS RECUPERADOS','FRAME_0317: 03:17:00','RELÓGIO DA ESTAÇÃO: 10:10:00','CORRESPONDÊNCIA PARCIAL NO TELEFONE'] })
+  }),
+  'object-c-thumb': Object.freeze({
+    damaged:Object.freeze({ name:'OBJETO_C.thumb', size:'18 KB', origin:'CACHE DE MINIATURAS', attributes:'OCULTO · RECUPERÁVEL' }),
+    identified:Object.freeze({ name:'IMG_CURITIBA_PRESENTE.jpg', size:'1,8 MB', origin:'CELULAR / METADATA RECUPERADA', attributes:'ARQUIVO · IDENTIDADE CONFIRMADA' })
+  }),
+  'shell-trace': Object.freeze({
+    recovered:Object.freeze({ name:'SHELL_RECOVERY.LOG', size:'6 KB', origin:'BOOT 02', body:['SHELL.EXE ........ RECUPERADO','MEMORY ........ DUPLICATE','ENTITY_B ........ PRESENT','SOURCE_B ........ ATIVA','1 RELAÇÃO NÃO ANCORADA'] })
+  })
+});
+
+const FILE_BEHAVIORS = Object.freeze({
+  stable:'Conteúdo passivo e confiável.',
+  suspicious:'Metadados fora do padrão.',
+  latent:'Conteúdo futuro preservado sem bloquear progressão.',
+  temporal:'Conteúdo condicionado por relógio ou revisita.',
+  mirror:'Cópia que pode discordar da origem.',
+  carrier:'Arquivo que entrega consequência em outro dispositivo.',
+  parasite:'Arquivo que deixa outro artefato no filesystem.',
+  rupture:'Arquivo capaz de desmontar e reparar a shell fictícia.',
+  recoverable:'Conteúdo danificado que pode ganhar identidade.'
+});
+
+const DOCUMENT_TARGET_FREQUENCY = 170.8;
+
+function documentFrequency(state) {
+  return Number(state.signalAnalyzer.coarse) + (Number(state.signalAnalyzer.fine) / 10);
+}
+
+function documentCommitState(state) {
+  const copies = state.documentRuntime?.copiesSeen || [];
+  const frequency = documentFrequency(state);
+  const hasA = copies.includes('A');
+  const hasB = copies.includes('B');
+  const exactFrequency = frequency === DOCUMENT_TARGET_FREQUENCY;
+  const locked = Boolean(state.signalAnalyzer?.locked) && exactFrequency;
+  const validSnapshot = (state.documentRuntime?.snapshots || []).some((snapshot) => (
+    snapshot.valid === true
+    && snapshot.frequency === DOCUMENT_TARGET_FREQUENCY
+    && snapshot.revision === state.documentRuntime.revision
+    && Number.isFinite(snapshot.capturedAt)
+    && snapshot.copies?.includes('A')
+    && snapshot.copies?.includes('B')
+  ));
+  const required = ['A DATA', 'ABRE', 'O ARQUIVO'];
+  const allInvariants = required.every((token) => (state.documentFragments || []).includes(token));
+  const notFrozen = !state.signalAnalyzer?.frozen;
+  return {
+    hasA, hasB, frequency, exactFrequency, locked, validSnapshot, allInvariants, notFrozen,
+    canCommit: hasA && hasB && exactFrequency && locked && validSnapshot && allInvariants && notFrozen
+  };
+}
+
+function fileRuntime(state,id) {
+  return state.computer?.files?.[id] || null;
+}
+
+function resolveComputerResource(resource,state) {
+  if (!resource) return null;
+  const runtime=fileRuntime(state,resource.id);
+  if (!runtime) return resource;
+  const variant=FILE_VARIANTS[resource.id]?.[runtime.variant] || {};
+  return {
+    ...resource,
+    ...variant,
+    behavior:runtime.behavior || 'stable',
+    openCount:runtime.openCount || 0,
+    quarantined:Boolean(runtime.quarantined),
+    hidden:Boolean(runtime.hidden),
+    recovered:Boolean(runtime.recovered),
+    lastMutation:runtime.lastMutation || null
+  };
+}
+
+function visibleComputerChildren(state,folderId,baseChildren=[]) {
+  let ids=[...baseChildren];
+  if (folderId==='computer' && state.completed.includes('05')) ids.push('archive-170491');
+  if (folderId==='downloads' && !state.vxNet?.downloads?.includes('DUMP_24.bin')) ids=[];
+  if (folderId==='backup' && state.documentRuntime?.copiesSeen?.includes('A')) ids.push('rel-1708-b');
+  if (folderId==='temp' && state.flags.event1010Seen) ids.push('cam-cache');
+  if (folderId==='temp' && !fileRuntime(state,'tmp2')?.hidden) ids.push('tmp2');
+  if (folderId==='cam-cache' && state.flags.eventChanged) ids=['frame-0017','frame-0018','webcam-cache'];
+  if (folderId==='cam-cache' && state.flags.clock0317Triggered) ids=['frame-0017','frame-0018','frame-0317','webcam-cache'];
+  if (folderId==='cam-cache' && state.unlocked.some((id)=>Number(id)>=20)) ids.push('cam-local-app');
+  if (folderId==='images' && (state.completed.includes('08') || state.unlocked.includes('09'))) ids.push('object-c-thumb');
+  if (folderId==='backup' && !fileRuntime(state,'shell-trace')?.hidden) ids.push('found-000');
+  if (folderId==='found-000' && !fileRuntime(state,'shell-trace')?.hidden) ids=['shell-trace'];
+  if (folderId==='quarantine') ids=[...(state.computer?.quarantine || [])];
+  return [...new Set(ids)].filter((id)=>!fileRuntime(state,id)?.hidden);
+}
+
+function sortComputerResources(resources,sortBy='name') {
+  const list=[...resources];
+  const key=sortBy==='modified'?'modified':sortBy==='size'?'size':'name';
+  return list.sort((a,b)=>String(a?.[key]||'').localeCompare(String(b?.[key]||''),'pt-BR',{numeric:true}));
+}
+
+function noteNavigation(state,resourceId) {
+  const nav=state.computer.navigation;
+  const current=nav.history[nav.index];
+  if (current===resourceId) return;
+  nav.history=nav.history.slice(0,nav.index+1);
+  nav.history.push(resourceId);
+  nav.index=nav.history.length-1;
+}
+
+function moveNavigation(state,direction) {
+  const nav=state.computer.navigation;
+  const next=Math.max(0,Math.min(nav.history.length-1,nav.index+direction));
+  if (next===nav.index) return null;
+  nav.index=next;
+  return nav.history[next] || null;
+}
+
+function recordFileOpen(state,id) {
+  const runtime=fileRuntime(state,id);
+  if (!runtime) return null;
+  runtime.openCount=(runtime.openCount||0)+1;
+  if (id==='rel-1708-a' || id==='rel-1708-b') {
+    const copy=id.endsWith('-a')?'A':'B';
+    state.documentRuntime.copiesSeen=[...new Set([...state.documentRuntime.copiesSeen,copy])];
+    if (runtime.openCount>1) state.documentRuntime.revision=(state.documentRuntime.revision+1)%3;
+    runtime.lastMutation=runtime.openCount>1?'window-reopened':null;
+  }
+  if (id==='event-1010' && state.unlocked.includes('10') && runtime.variant!=='rewritten') {
+    runtime.variant='rewritten'; runtime.lastMutation='event-rewrite';
+    return 'carrier:event-rewrite';
+  }
+  if (id==='tmp1' && state.completed.includes('10') && fileRuntime(state,'tmp2')?.hidden) return 'parasite:temp-duplicate';
+  if (id==='event-old' && state.flags.eventChanged && runtime.variant!=='contaminated') {
+    runtime.variant='contaminated'; runtime.lastMutation='backup-contaminated';
+    return 'mirror:backup-contaminated';
+  }
+  if (id==='cache' && state.unlocked.includes('11') && runtime.variant!=='foreshadow') {
+    runtime.variant='foreshadow'; runtime.lastMutation='object-c-foreshadow';
+    state.computer.navigation.rememberedQuery='CURITIBA';
+    return 'latent:object-c';
+  }
+  if (id==='webcam-cache' && state.flags.clock0317Triggered && runtime.variant!=='temporal') {
+    runtime.variant='temporal'; runtime.lastMutation='clock-conflict';
+    return 'temporal:clock-conflict';
+  }
+  return null;
+}
+
+function quarantineFile(state,id) {
+  const runtime=fileRuntime(state,id);
+  if (!runtime || runtime.quarantined) return false;
+  runtime.quarantined=true;
+  runtime.lastMutation='quarantined';
+  state.computer.quarantine=[...new Set([...state.computer.quarantine,id])];
+  return true;
+}
+
+function markTempDuplicate(state) {
+  const original=fileRuntime(state,'tmp1');
+  const duplicate=fileRuntime(state,'tmp2');
+  if (!original || !duplicate) return;
+  original.hidden=true;
+  original.lastMutation='replaced-by-duplicate';
+  duplicate.hidden=false;
+  duplicate.recovered=true;
+}
+
+function beginSimulatedReboot(state,reason='INTEGRIDADE_99') {
+  state.computer.boot.status='crashing';
+  state.computer.boot.lastCrashReason=reason;
+  state.computer.corruption.activePayload='rupture:integrity';
+  state.computer.corruption.shellIntegrity=1;
+  state.computer.processes.shell='stopped';
+  state.computer.processes.indexer='stopped';
+  state.computer.processes.sourceB='visible';
+  state.computer.corruption.history=[...state.computer.corruption.history,{type:'rupture',reason,at:Date.now()}].slice(-24);
+}
+
+function finishSimulatedReboot(state) {
+  state.computer.boot.count+=1;
+  state.computer.boot.status='recovered';
+  state.computer.boot.safeBoot=true;
+  state.computer.boot.recoveredProcesses=['SHELL.EXE','ARCHIVE.EXE','VXDRV.SYS'];
+  state.computer.corruption.activePayload=null;
+  state.computer.corruption.shellIntegrity=84;
+  state.computer.processes.shell='recovered';
+  state.computer.processes.archive='running';
+  state.computer.processes.indexer='running';
+  const trace=fileRuntime(state,'shell-trace');
+  if (trace) { trace.hidden=false; trace.recovered=true; trace.lastMutation='boot-02'; }
+}
+
+function stabilizeComputer(state) {
+  state.computer.boot.status='ready';
+  state.computer.corruption.activePayload=null;
+  state.computer.corruption.shellIntegrity=100;
+  state.computer.processes.shell='running';
+  state.computer.processes.sourceB='stable';
+}
+
+exports.FILE_BEHAVIORS = FILE_BEHAVIORS;
+exports.DOCUMENT_TARGET_FREQUENCY = DOCUMENT_TARGET_FREQUENCY;
+exports.documentFrequency = documentFrequency;
+exports.documentCommitState = documentCommitState;
+exports.fileRuntime = fileRuntime;
+exports.resolveComputerResource = resolveComputerResource;
+exports.visibleComputerChildren = visibleComputerChildren;
+exports.sortComputerResources = sortComputerResources;
+exports.noteNavigation = noteNavigation;
+exports.moveNavigation = moveNavigation;
+exports.recordFileOpen = recordFileOpen;
+exports.quarantineFile = quarantineFile;
+exports.markTempDuplicate = markTempDuplicate;
+exports.beginSimulatedReboot = beginSimulatedReboot;
+exports.finishSimulatedReboot = finishSimulatedReboot;
+exports.stabilizeComputer = stabilizeComputer;
+},
 "js/view.js": function(module, exports, __require) {
 const { formatDuration } = __require("js/utils.js");
 const { deriveExperience, applyExperienceToDocument } = __require("js/experience.js");
 const { renderExperienceScene, sceneFamilyFor, worldFor } = __require("js/scenes/registry.js");
-const { renderPhoneDock } = __require("js/phone.js");
+const { renderPhoneDock } = __require("js/phone/render.js");
 const { escapeHtml } = __require("js/utils.js");
 const { renderTransitionOffer } = __require("js/transition-director.js");
 const { renderRoomStage } = __require("js/room-stage.js");
 function renderIntent(puzzle,state) {
-  const firstVisit = (state.pagesVisited[puzzle.id] || 0) <= 1;
-  return `<div class="phase-intent ${firstVisit?'is-entering':''}" data-phase-intent ${firstVisit?'':'hidden'}><span>${String(puzzle.id).padStart(2,'0')} // ${escapeHtml(puzzle.world.toUpperCase())}</span><strong>${escapeHtml(puzzle.cue || puzzle.intent)}</strong><small>${escapeHtml(puzzle.intent)}</small></div>`;
+  const pending=state.ui?.phaseIntent?.id===puzzle.id&&state.ui.phaseIntent.status==='pending';
+  if(!pending)return '';
+  return `<div class="phase-intent is-entering" data-phase-intent><span>${String(puzzle.id).padStart(2,'0')} // ${escapeHtml(puzzle.world.toUpperCase())}</span><strong>${escapeHtml(puzzle.cue || puzzle.intent)}</strong><small>${escapeHtml(puzzle.intent)}</small></div>`;
 }
 
 function renderTitleReveal(puzzle,state) {
-  if (state.ui?.titleReveal?.id !== puzzle.id || !state.completed.includes(puzzle.id)) return '';
-  return `<aside class="title-reveal" data-title-reveal role="status"><span>REGISTRO ${escapeHtml(puzzle.id)} RECUPERADO</span><strong>${escapeHtml(puzzle.revealTitle)}</strong><i aria-hidden="true"></i></aside>`;
+  if (state.ui?.titleReveal?.id !== puzzle.id || (state.ui.titleReveal.status || 'pending') !== 'pending' || !state.completed.includes(puzzle.id)) return '';
+  return `<aside class="title-reveal" data-title-reveal role="status"><span>REGISTRO ${escapeHtml(puzzle.id)} RECUPERADO</span><strong>${escapeHtml(puzzle.revealTitle)}</strong>${state.ui.titleReveal.message?`<small>${escapeHtml(state.ui.titleReveal.message)}</small>`:''}<i aria-hidden="true"></i></aside>`;
 }
 
 function renderShell({ puzzle, puzzles, state, content, animate = true }) {
@@ -1329,7 +1597,7 @@ const createInitialState = () => ({
   events: [],
   motionEvents: {},
   worldEvents: { scheduled:[], delivered:[] },
-  ui: { activePanel: null, archiveView: null, archiveQuery: '', focusReturn: null, titleReveal: null },
+  ui: { activePanel: null, archiveView: null, archiveQuery: '', focusReturn: null, titleReveal: null, phaseIntent: null },
   desktopOs: {
     selectedIcon: null,
     windows: [],
@@ -1359,18 +1627,32 @@ const createInitialState = () => ({
     corruption: { shellIntegrity:100, activePayload:null, history:[] }
   },
   phone: {
-    open:false, locked:true, app:'home', thread:null, unread:0, battery:73,
-    clock:{ hour:10, minute:12, synchronized:false },
-    delivered:[], events:[], eventLedger:{}, calls:[], notifications:[], galleryItem:null,
-    notes:[], artifacts:[], gallery:[], memoryTrail:[], phantom:null, lastOpenedAt:null, lastIgnoredAt:null, interactionState:'resting', foregroundPlayback:null
+    open:false,
+    locked:true,
+    route:{ app:'home', view:'root', id:null },
+    battery:78,
+    clock:{ hour:10, minute:10, offset:0, restoreAt:0 },
+    entries:{},
+    order:[],
+    scheduler:{
+      queue:[], cooldowns:{}, counts:{}, locks:{}, decisions:[],
+      seed:(Date.now() ^ 0x50484f4e) >>> 0, cursor:0, budget:{},
+      silenceUntil:0, lastTickAt:0
+    },
+    activity:{
+      level:0, session:null, sessions:[], apps:{}, items:{}, actions:[],
+      ignored:0, rejected:0, returned:0, quickCloses:0, receiverUses:0,
+      pcStartedAt:Date.now(), pcDuration:0
+    },
+    ui:{ wakeUntil:0, arrivalKind:null, playback:null }
   },
   director: {
-    seed: (Date.now() ^ 0x10101704) >>> 0, cursor:0, actBudget:{}, eventCounts:{}, cooldowns:{}, delivered:[],
-    metrics:{ wrongFolderStreak:0, emptySearches:0, repeatedFileOpens:0, consecutiveWrong:0, receiverInteractions:0, ignoredNotifications:0, quarantineActions:0, lastActionAt:Date.now(), lastPhoneOpenAt:0 }
+    metrics:{ wrongFolderStreak:0, emptySearches:0, repeatedFileOpens:0, consecutiveWrong:0, receiverInteractions:0, quarantineActions:0, lastActionAt:Date.now() }
   },
   capture: { status:'idle', requestedAt:null, capturedAt:null, delivered:false, error:null },
   documentRuntime: { copiesSeen:[], snapshots:[], revision:0, overlay:52, stableRegions:[] },
   signalAnalyzer: { coarse:170, fine:0, locked:false, frozen:false },
+  moonForensics: { status:'searching', contrast:20, channel:'rgb', result:null },
   vxNet: { url:'vx://home', history:['vx://home'], index:0, snapshots:{}, downloads:[], query:'', recoveredLink:false },
   paperEngine: { zCounter:20, activeBoard:null, boards:{} },
   archive: { reads: {}, searches: [] },
@@ -1428,18 +1710,25 @@ const ARRAY_FIELDS = Object.freeze(['unlocked','discovered','completed','discove
 
 function normalizeState(state) {
   ARRAY_FIELDS.forEach((key) => { if (!Array.isArray(state[key])) state[key] = []; });
-  if (!state.ui || typeof state.ui !== 'object') state.ui = { activePanel: null, archiveView: null, archiveQuery: '', focusReturn: null };
+  if (!state.ui || typeof state.ui !== 'object') state.ui = { activePanel: null, archiveView: null, archiveQuery: '', focusReturn: null, titleReveal:null, phaseIntent:null };
   if (!state.room || typeof state.room !== 'object') state.room = {};
   if (!state.roomPlacement || typeof state.roomPlacement !== 'object') state.roomPlacement = { selectedObject: null, selectedAnchor: null };
   if (!state.flags || typeof state.flags !== 'object') state.flags = createInitialState().flags;
   if (!state.archive || typeof state.archive !== 'object') state.archive = { reads: {}, searches: [] };
   if (!state.phone || typeof state.phone !== 'object') state.phone = createInitialState().phone;
-  if (!state.phone.clock || typeof state.phone.clock !== 'object') state.phone.clock = { hour:10, minute:12, synchronized:false };
-  if (!state.phone.eventLedger || typeof state.phone.eventLedger !== 'object') state.phone.eventLedger = {};
-  ['delivered','events','calls','notifications','notes','artifacts','gallery','memoryTrail'].forEach((key) => { if (!Array.isArray(state.phone[key])) state.phone[key] = []; });
+  if (!state.phone.route || typeof state.phone.route !== 'object') state.phone.route = createInitialState().phone.route;
+  if (!state.phone.clock || typeof state.phone.clock !== 'object') state.phone.clock = createInitialState().phone.clock;
+  if (!state.phone.entries || typeof state.phone.entries !== 'object') state.phone.entries = {};
+  if (!Array.isArray(state.phone.order)) state.phone.order = [];
+  if (!state.phone.scheduler || typeof state.phone.scheduler !== 'object') state.phone.scheduler=createInitialState().phone.scheduler;
+  if (!state.phone.activity || typeof state.phone.activity !== 'object') state.phone.activity=createInitialState().phone.activity;
+  if (!state.phone.ui || typeof state.phone.ui !== 'object') state.phone.ui=createInitialState().phone.ui;
+  ['queue','decisions'].forEach((key)=>{if(!Array.isArray(state.phone.scheduler[key]))state.phone.scheduler[key]=[];});
+  ['sessions','actions'].forEach((key)=>{if(!Array.isArray(state.phone.activity[key]))state.phone.activity[key]=[];});
+  ['cooldowns','counts','locks','budget'].forEach((key)=>{if(!state.phone.scheduler[key]||typeof state.phone.scheduler[key]!=='object')state.phone.scheduler[key]={};});
+  ['apps','items'].forEach((key)=>{if(!state.phone.activity[key]||typeof state.phone.activity[key]!=='object')state.phone.activity[key]={};});
   if (!state.director || typeof state.director !== 'object') state.director = createInitialState().director;
   if (!state.director.metrics || typeof state.director.metrics !== 'object') state.director.metrics = createInitialState().director.metrics;
-  ['delivered'].forEach((key)=>{if(!Array.isArray(state.director[key])) state.director[key]=[];});
   if (!state.capture || typeof state.capture !== 'object') state.capture = createInitialState().capture;
   if (!state.documentRuntime || typeof state.documentRuntime !== 'object') state.documentRuntime = createInitialState().documentRuntime;
   ['copiesSeen','snapshots','stableRegions'].forEach((key)=>{if(!Array.isArray(state.documentRuntime[key])) state.documentRuntime[key]=[];});
@@ -1456,6 +1745,16 @@ function normalizeState(state) {
   if (!Array.isArray(state.computer.corruption.history)) state.computer.corruption.history = [];
   if (!state.roomCamera || typeof state.roomCamera !== 'object') state.roomCamera = createInitialState().roomCamera;
   if (!state.signalAnalyzer || typeof state.signalAnalyzer !== 'object') state.signalAnalyzer = createInitialState().signalAnalyzer;
+  if (!state.moonForensics || typeof state.moonForensics !== 'object') state.moonForensics = createInitialState().moonForensics;
+  state.moonForensics.contrast = Math.max(0,Math.min(100,Number(state.moonForensics.contrast)||20));
+  if (!['rgb','blue','infra'].includes(state.moonForensics.channel)) state.moonForensics.channel='rgb';
+  if (!['searching','forensics','recovered','committed'].includes(state.moonForensics.status)) state.moonForensics.status='searching';
+  if (state.moonForensics.result!=='VX-04') state.moonForensics.result=null;
+  if (state.computer?.files?.['webcam-cache']?.recovered && state.moonForensics.status==='searching') Object.assign(state.moonForensics,{status:'recovered',contrast:78,channel:'infra',result:'VX-04'});
+  if (state.completed.includes('09')) {
+    Object.assign(state.moonForensics,{status:'committed',contrast:Math.max(65,state.moonForensics.contrast),channel:'infra',result:'VX-04'});
+    state.computer.files['webcam-cache'].recovered=true;
+  }
   if (!state.vxNet || typeof state.vxNet !== 'object') state.vxNet = createInitialState().vxNet;
   if (!Array.isArray(state.vxNet.history)) state.vxNet.history = ['vx://home'];
   if (!Array.isArray(state.vxNet.downloads)) state.vxNet.downloads = [];
@@ -1467,9 +1766,13 @@ function normalizeState(state) {
 }
 
 function sealSchema(state) {
-  ['ui','desktopOs','computer','phone','flags','tv','physicalNodes','stats','settings','archive','roomPlacement','worldEvents','director','capture','documentRuntime','roomCamera','signalAnalyzer','vxNet','paperEngine'].forEach((key) => Object.seal(state[key]));
+  ['ui','desktopOs','computer','phone','flags','tv','physicalNodes','stats','settings','archive','roomPlacement','worldEvents','director','capture','documentRuntime','roomCamera','signalAnalyzer','moonForensics','vxNet','paperEngine'].forEach((key) => Object.seal(state[key]));
   ['navigation','processes','boot','corruption'].forEach((key) => Object.seal(state.computer[key]));
   Object.seal(state.phone.clock);
+  Object.seal(state.phone.route);
+  Object.seal(state.phone.scheduler);
+  Object.seal(state.phone.activity);
+  Object.seal(state.phone.ui);
   Object.seal(state.director.metrics);
   return Object.seal(state);
 }
@@ -1490,13 +1793,13 @@ function updateState(mutator, { progress = false } = {}) {
   return gameState;
 }
 
-function completePuzzle(id, next = []) {
+function completePuzzle(id, next = [], message = '') {
   updateState((state) => {
     state.completed = unique([...state.completed, id]);
     state.discovered = unique([...state.discovered, id]);
     state.unlocked = unique([...state.unlocked, ...next]);
     state.currentPuzzle = id;
-    state.ui.titleReveal = { id, at:Date.now() };
+    state.ui.titleReveal = { id, message, status:'pending', at:Date.now() };
   }, { progress: true });
 }
 
@@ -1514,6 +1817,7 @@ function recordVisit(id) {
   updateState((state) => {
     const visits = state.pagesVisited[id] || 0;
     state.pagesVisited[id] = visits + 1;
+    if (visits===0) state.ui.phaseIntent={id,status:'pending',createdAt:Date.now()};
     if (visits > 0) state.stats.returns += 1;
     state.currentPuzzle = id;
     if (state.unlocked.includes(id)) state.discovered = unique([...state.discovered,id]);
@@ -1804,7 +2108,7 @@ const RESOURCE_LIST = [
   { id:'notes', name:'NOTAS.txt', type:'text', parent:'desktop', created:'09/10/2025 21:02', modified:'09/10/2025 21:06', size:'1 KB', origin:'C:\\DOCUMENTOS', body:['devolver o adaptador','comprar pilhas','não mexer no relógio do sistema'] },
   { id:'trash', name:'Lixeira', type:'trash', parent:'desktop', path:'LIXEIRA', children:['old-image','draft'] },
   { id:'receiver-app', name:'RECEPTOR.exe', type:'program', parent:'desktop', created:'10/10/2025 10:10', modified:'10/10/2025 10:10', size:'31 KB', origin:'REGISTRO ISOLADO', target:'03' },
-  { id:'analyzer-app', name:'ANALISADOR.exe', type:'program', parent:'desktop', created:'10/10/2025 10:11', modified:'10/10/2025 10:11', size:'82 KB', origin:'PACOTE RECUPERADO', target:'09' },
+  { id:'analyzer-app', name:'ANALISADOR.exe', type:'program', parent:'desktop', created:'10/10/2025 10:11', modified:'10/10/2025 10:11', size:'82 KB', origin:'PACOTE RECUPERADO', target:'09', phaseApp:true },
   { id:'recovery-app', name:'RECUPERAR.exe', type:'program', parent:'desktop', created:'10/10/2025 14:25', modified:'10/10/2025 14:25', size:'101 KB', origin:'MODELO RELACIONAL', target:'20' },
   { id:'bookscan-app', name:'BOOKSCAN.exe', type:'program', parent:'desktop', created:'10/10/2025 13:14', modified:'10/10/2025 13:14', size:'67 KB', origin:'IMAGEM RESIDUAL', target:'14' },
   { id:'truth-app', name:'INTEGRIDADE.exe', type:'program', parent:'desktop', created:'10/10/2025 23:10', modified:'10/10/2025 23:10', size:'131 KB', origin:'SISTEMA', target:'21' },
@@ -2063,211 +2367,12 @@ function computerWorldAt(state, phaseId = state.currentPuzzle) {
 
 exports.computerWorldAt = computerWorldAt;
 },
-"js/computer-runtime.js": function(module, exports, __require) {
-const FILE_VARIANTS = Object.freeze({
-  'event-1010': Object.freeze({
-    rewritten: Object.freeze({
-      modified:'10/10/2025 10:12', size:'11 KB', origin:'VOLUME EXTERNO / FONTE DUPLA',
-      body:['10:10:00  EVENTO_1010','origem desconhecida','volume correspondente ausente','índice anterior à pasta atual','10:10:00  ASSINATURA REESCRITA','DUAS FONTES PRESENTES NO MESMO EVENTO','CHECKSUM ANTERIOR ≠ CHECKSUM ATUAL']
-    }),
-    stable: Object.freeze({ attributes:'SISTEMA · ISOLADO · SOMENTE LEITURA' })
-  }),
-  tmp1: Object.freeze({ base:Object.freeze({}) }),
-  tmp2: Object.freeze({
-    spawned:Object.freeze({ name:'~$0001_2.tmp', modified:'10/10/2025 10:13', size:'19 KB', origin:'PROCESSO DESCONHECIDO', body:['DADOS TEMPORÁRIOS','MESMA CRIAÇÃO / TAMANHO DIVERGENTE','REFERÊNCIA: OBJETO C'] })
-  }),
-  'event-old': Object.freeze({
-    contaminated:Object.freeze({ modified:'09/10/2025 23:48', size:'3 KB', origin:'BACKUP LOCAL / CHECKSUM DIVERGENTE', body:['VERSÃO ENCERRADA','EVENTO ASSOCIADO: 1010','FONTE B JÁ PRESENTE'] })
-  }),
-  cache: Object.freeze({
-    foreshadow:Object.freeze({ size:'129 KB', body:['CACHE DE VISUALIZAÇÃO','BLOCO 04 / 18','THUMBNAIL: OBJETO_C','BUSCA PRESERVADA: CURITIBA'] })
-  }),
-  'webcam-cache': Object.freeze({
-    temporal:Object.freeze({ modified:'10/10/2025 10:10', size:'7 KB', body:['DISPOSITIVO REAL: NÃO ACESSADO','FRAMES LOCAIS RECUPERADOS','FRAME_0317: 03:17:00','RELÓGIO DA ESTAÇÃO: 10:10:00','CORRESPONDÊNCIA PARCIAL NO TELEFONE'] })
-  }),
-  'object-c-thumb': Object.freeze({
-    damaged:Object.freeze({ name:'OBJETO_C.thumb', size:'18 KB', origin:'CACHE DE MINIATURAS', attributes:'OCULTO · RECUPERÁVEL' }),
-    identified:Object.freeze({ name:'IMG_CURITIBA_PRESENTE.jpg', size:'1,8 MB', origin:'CELULAR / METADATA RECUPERADA', attributes:'ARQUIVO · IDENTIDADE CONFIRMADA' })
-  }),
-  'shell-trace': Object.freeze({
-    recovered:Object.freeze({ name:'SHELL_RECOVERY.LOG', size:'6 KB', origin:'BOOT 02', body:['SHELL.EXE ........ RECUPERADO','MEMORY ........ DUPLICATE','ENTITY_B ........ PRESENT','SOURCE_B ........ ATIVA','1 RELAÇÃO NÃO ANCORADA'] })
-  })
-});
-
-const FILE_BEHAVIORS = Object.freeze({
-  stable:'Conteúdo passivo e confiável.',
-  suspicious:'Metadados fora do padrão.',
-  latent:'Conteúdo futuro preservado sem bloquear progressão.',
-  temporal:'Conteúdo condicionado por relógio ou revisita.',
-  mirror:'Cópia que pode discordar da origem.',
-  carrier:'Arquivo que entrega consequência em outro dispositivo.',
-  parasite:'Arquivo que deixa outro artefato no filesystem.',
-  rupture:'Arquivo capaz de desmontar e reparar a shell fictícia.',
-  recoverable:'Conteúdo danificado que pode ganhar identidade.'
-});
-
-function fileRuntime(state,id) {
-  return state.computer?.files?.[id] || null;
-}
-
-function resolveComputerResource(resource,state) {
-  if (!resource) return null;
-  const runtime=fileRuntime(state,resource.id);
-  if (!runtime) return resource;
-  const variant=FILE_VARIANTS[resource.id]?.[runtime.variant] || {};
-  return {
-    ...resource,
-    ...variant,
-    behavior:runtime.behavior || 'stable',
-    openCount:runtime.openCount || 0,
-    quarantined:Boolean(runtime.quarantined),
-    hidden:Boolean(runtime.hidden),
-    recovered:Boolean(runtime.recovered),
-    lastMutation:runtime.lastMutation || null
-  };
-}
-
-function visibleComputerChildren(state,folderId,baseChildren=[]) {
-  let ids=[...baseChildren];
-  if (folderId==='computer' && state.completed.includes('05')) ids.push('archive-170491');
-  if (folderId==='downloads' && !state.vxNet?.downloads?.includes('DUMP_24.bin')) ids=[];
-  if (folderId==='backup' && state.documentRuntime?.copiesSeen?.includes('A')) ids.push('rel-1708-b');
-  if (folderId==='temp' && state.flags.event1010Seen) ids.push('cam-cache');
-  if (folderId==='temp' && !fileRuntime(state,'tmp2')?.hidden) ids.push('tmp2');
-  if (folderId==='cam-cache' && state.flags.eventChanged) ids=['frame-0017','frame-0018','webcam-cache'];
-  if (folderId==='cam-cache' && state.flags.clock0317Triggered) ids=['frame-0017','frame-0018','frame-0317','webcam-cache'];
-  if (folderId==='cam-cache' && state.unlocked.some((id)=>Number(id)>=20)) ids.push('cam-local-app');
-  if (folderId==='images' && (state.completed.includes('08') || state.unlocked.includes('09'))) ids.push('object-c-thumb');
-  if (folderId==='backup' && !fileRuntime(state,'shell-trace')?.hidden) ids.push('found-000');
-  if (folderId==='found-000' && !fileRuntime(state,'shell-trace')?.hidden) ids=['shell-trace'];
-  if (folderId==='quarantine') ids=[...(state.computer?.quarantine || [])];
-  return [...new Set(ids)].filter((id)=>!fileRuntime(state,id)?.hidden);
-}
-
-function sortComputerResources(resources,sortBy='name') {
-  const list=[...resources];
-  const key=sortBy==='modified'?'modified':sortBy==='size'?'size':'name';
-  return list.sort((a,b)=>String(a?.[key]||'').localeCompare(String(b?.[key]||''),'pt-BR',{numeric:true}));
-}
-
-function noteNavigation(state,resourceId) {
-  const nav=state.computer.navigation;
-  const current=nav.history[nav.index];
-  if (current===resourceId) return;
-  nav.history=nav.history.slice(0,nav.index+1);
-  nav.history.push(resourceId);
-  nav.index=nav.history.length-1;
-}
-
-function moveNavigation(state,direction) {
-  const nav=state.computer.navigation;
-  const next=Math.max(0,Math.min(nav.history.length-1,nav.index+direction));
-  if (next===nav.index) return null;
-  nav.index=next;
-  return nav.history[next] || null;
-}
-
-function recordFileOpen(state,id) {
-  const runtime=fileRuntime(state,id);
-  if (!runtime) return null;
-  runtime.openCount=(runtime.openCount||0)+1;
-  if (id==='rel-1708-a' || id==='rel-1708-b') {
-    const copy=id.endsWith('-a')?'A':'B';
-    state.documentRuntime.copiesSeen=[...new Set([...state.documentRuntime.copiesSeen,copy])];
-    if (runtime.openCount>1) state.documentRuntime.revision=(state.documentRuntime.revision+1)%3;
-    runtime.lastMutation=runtime.openCount>1?'window-reopened':null;
-  }
-  if (id==='event-1010' && state.unlocked.includes('10') && runtime.variant!=='rewritten') {
-    runtime.variant='rewritten'; runtime.lastMutation='event-rewrite';
-    return 'carrier:event-rewrite';
-  }
-  if (id==='tmp1' && state.completed.includes('10') && fileRuntime(state,'tmp2')?.hidden) return 'parasite:temp-duplicate';
-  if (id==='event-old' && state.flags.eventChanged && runtime.variant!=='contaminated') {
-    runtime.variant='contaminated'; runtime.lastMutation='backup-contaminated';
-    return 'mirror:backup-contaminated';
-  }
-  if (id==='cache' && state.unlocked.includes('11') && runtime.variant!=='foreshadow') {
-    runtime.variant='foreshadow'; runtime.lastMutation='object-c-foreshadow';
-    state.computer.navigation.rememberedQuery='CURITIBA';
-    return 'latent:object-c';
-  }
-  if (id==='webcam-cache' && state.flags.clock0317Triggered && runtime.variant!=='temporal') {
-    runtime.variant='temporal'; runtime.lastMutation='clock-conflict';
-    return 'temporal:clock-conflict';
-  }
-  return null;
-}
-
-function quarantineFile(state,id) {
-  const runtime=fileRuntime(state,id);
-  if (!runtime || runtime.quarantined) return false;
-  runtime.quarantined=true;
-  runtime.lastMutation='quarantined';
-  state.computer.quarantine=[...new Set([...state.computer.quarantine,id])];
-  return true;
-}
-
-function markTempDuplicate(state) {
-  const original=fileRuntime(state,'tmp1');
-  const duplicate=fileRuntime(state,'tmp2');
-  if (!original || !duplicate) return;
-  original.hidden=true;
-  original.lastMutation='replaced-by-duplicate';
-  duplicate.hidden=false;
-  duplicate.recovered=true;
-}
-
-function beginSimulatedReboot(state,reason='INTEGRIDADE_99') {
-  state.computer.boot.status='crashing';
-  state.computer.boot.lastCrashReason=reason;
-  state.computer.corruption.activePayload='rupture:integrity';
-  state.computer.corruption.shellIntegrity=1;
-  state.computer.processes.shell='stopped';
-  state.computer.processes.indexer='stopped';
-  state.computer.processes.sourceB='visible';
-  state.computer.corruption.history=[...state.computer.corruption.history,{type:'rupture',reason,at:Date.now()}].slice(-24);
-}
-
-function finishSimulatedReboot(state) {
-  state.computer.boot.count+=1;
-  state.computer.boot.status='recovered';
-  state.computer.boot.safeBoot=true;
-  state.computer.boot.recoveredProcesses=['SHELL.EXE','ARCHIVE.EXE','VXDRV.SYS'];
-  state.computer.corruption.activePayload=null;
-  state.computer.corruption.shellIntegrity=84;
-  state.computer.processes.shell='recovered';
-  state.computer.processes.archive='running';
-  state.computer.processes.indexer='running';
-  const trace=fileRuntime(state,'shell-trace');
-  if (trace) { trace.hidden=false; trace.recovered=true; trace.lastMutation='boot-02'; }
-}
-
-function stabilizeComputer(state) {
-  state.computer.boot.status='ready';
-  state.computer.corruption.activePayload=null;
-  state.computer.corruption.shellIntegrity=100;
-  state.computer.processes.shell='running';
-  state.computer.processes.sourceB='stable';
-}
-
-exports.FILE_BEHAVIORS = FILE_BEHAVIORS;
-exports.fileRuntime = fileRuntime;
-exports.resolveComputerResource = resolveComputerResource;
-exports.visibleComputerChildren = visibleComputerChildren;
-exports.sortComputerResources = sortComputerResources;
-exports.noteNavigation = noteNavigation;
-exports.moveNavigation = moveNavigation;
-exports.recordFileOpen = recordFileOpen;
-exports.quarantineFile = quarantineFile;
-exports.markTempDuplicate = markTempDuplicate;
-exports.beginSimulatedReboot = beginSimulatedReboot;
-exports.finishSimulatedReboot = finishSimulatedReboot;
-exports.stabilizeComputer = stabilizeComputer;
-},
 "js/scenes/shared.js": function(module, exports, __require) {
 const { GAME_CONFIG } = __require("js/config.js");
 const { clarityFor } = __require("js/puzzles/clarity.js");
 const { escapeHtml } = __require("js/utils.js");
+const { PHONE_EVENT_CATALOG } = __require("js/phone/catalog.js");
+const { phoneDebugSummary } = __require("js/phone/selectors.js");
 function renderPuzzleBrief(puzzle, state, { compact = false, floating = false } = {}) {
   const contract = clarityFor(puzzle.id);
   const status = contract.status(state);
@@ -2314,15 +2419,13 @@ function renderReturnControl(puzzle, state, label = 'VOLTAR AO SISTEMA') {
 function renderDevPanel(state) {
   const dev = GAME_CONFIG.devMode || new URLSearchParams(location.search).get('dev') === '1';
   if (!dev) return '';
+  const phone=phoneDebugSummary(state);
+  const eventOptions=PHONE_EVENT_CATALOG.map((event)=>`<option value="${escapeHtml(event.definition)}">${escapeHtml(event.definition)}</option>`).join('');
   return `<details class="dev-panel scene-dev-panel"><summary>console de manutenção</summary><div class="dev-actions">
     <button type="button" class="micro-button" data-action="dev-next">liberar próximo</button>
-    <button type="button" class="micro-button" data-action="dev-event" data-event="same-file-four">simular repetição</button>
-    <button type="button" class="micro-button" data-action="dev-event" data-event="wrong-answer-chain">simular erro</button>
-    <button type="button" class="micro-button" data-action="dev-event" data-event="phone-ignored">simular abandono</button>
-    <button type="button" class="micro-button" data-action="dev-event" data-event="receiver-obsession">simular receiver</button>
     <button type="button" class="micro-button" data-action="dev-clear-transition">limpar transição</button>
     <button type="button" class="danger-button" data-action="dev-reset">reiniciar</button>
-  </div><p>SEED ${state.director.seed} · CURSOR ${state.director.cursor} · EVENTOS ${state.director.delivered.length}</p><pre class="dev-state">${JSON.stringify(state, null, 2)}</pre></details>`;
+  </div><div class="dev-phone-console"><strong>PHONE // NÍVEL ${phone.level}</strong><label>FORÇAR <select data-dev-phone-event>${eventOptions}</select><button type="button" class="micro-button" data-action="dev-force-phone">executar</button></label><p>SEED ${phone.seed} · CURSOR ${phone.cursor} · PENDENTES ${phone.pending.length} · LOCKS ${phone.locks.length}</p><pre>${escapeHtml(JSON.stringify({eligible:phone.eligible,pending:phone.pending,lastDecision:phone.lastDecision,totals:phone.totals,recent:phone.recent},null,2))}</pre></div></details>`;
 }
 
 exports.renderPuzzleBrief = renderPuzzleBrief;
@@ -2330,6 +2433,152 @@ exports.renderSceneTools = renderSceneTools;
 exports.renderNarrativeLoader = renderNarrativeLoader;
 exports.renderReturnControl = renderReturnControl;
 exports.renderDevPanel = renderDevPanel;
+},
+"js/phone/catalog.js": function(module, exports, __require) {
+const freeze = (value) => Object.freeze(value);
+
+const PHONE_APPS = freeze([
+  ['messages','✉','Mensagens'], ['calls','☎','Telefone'], ['gallery','▧','Galeria'],
+  ['files','▤','Arquivos'], ['camera','◉','CAM Archive'], ['recorder','≋','Gravador'],
+  ['notes','▱','Notas'], ['calendar','□','Calendário'], ['contacts','◎','Contatos']
+]);
+
+const PHONE_SEED_ENTRIES = freeze([
+  freeze({ id:'seed:message:j', definition:'NORMAL_MESSAGE_J', kind:'message', source:'device', status:'visible',
+    payload:{ thread:'j', sender:'J.', side:'in', text:'você ainda está com meu adaptador?', timestamp:'09:42', notify:false } }),
+  freeze({ id:'seed:message:mother', definition:'NORMAL_MESSAGE_J', kind:'message', source:'device', status:'visible',
+    payload:{ thread:'mae', sender:'Mãe', side:'in', text:'deixei as pilhas na segunda gaveta.', timestamp:'08:16', notify:false } }),
+  freeze({ id:'seed:note:home', definition:'NORMAL_NOTE', kind:'note', source:'device', status:'visible',
+    payload:{ title:'Casa', text:'comprar pilhas\ndevolver o adaptador\nregar a planta', timestamp:'ontem' } }),
+  freeze({ id:'seed:battery', definition:'NORMAL_BATTERY', kind:'battery', source:'device', status:'visible',
+    payload:{ value:78 } }),
+  freeze({ id:'seed:call:j', definition:'NORMAL_CALL_HISTORY', kind:'call', source:'device', status:'visible',
+    payload:{ person:'J.', number:'local-01', callState:'answered', duration:'00:18', timestamp:'ontem, 18:04', signal:'normal' } }),
+  freeze({ id:'seed:gallery:plant', definition:'NORMAL_GALLERY', kind:'gallery', source:'device', status:'visible',
+    payload:{ name:'IMG_1007.jpg', label:'Planta da janela', meta:'07/10/2025 · 16:21', src:'./assets/images/camera-01.svg' } }),
+  freeze({ id:'seed:gallery:shelf', definition:'NORMAL_GALLERY', kind:'gallery', source:'device', status:'visible',
+    payload:{ name:'IMG_1008.jpg', label:'Estante', meta:'08/10/2025 · 19:03', src:'./assets/evidence/books/shelf-cam-01.jpg' } }),
+  freeze({ id:'seed:file:receipt', definition:'NORMAL_NOTE', kind:'file', source:'device', status:'visible',
+    payload:{ name:'comprovante.pdf', fileType:'PDF', size:'84 KB', location:'Downloads', detail:'arquivo recebido · 08/10' } }),
+  freeze({ id:'seed:recording', definition:'NORMAL_CALL_HISTORY', kind:'recording', source:'device', status:'visible',
+    payload:{ name:'lembrete_02.m4a', duration:'00:04', signal:'normal' } }),
+  freeze({ id:'seed:calendar', definition:'NORMAL_NOTE', kind:'calendar', source:'device', status:'visible',
+    payload:{ day:'10', time:'10:10', title:'devolver adaptador' } })
+]);
+
+const event = (definition, level, options) => freeze({ definition, level, max:1, cooldown:180000, delay:[2400,6200], weight:1, ...options });
+
+const PHONE_EVENT_CATALOG = freeze([
+  event('NORMAL_MESSAGE_J',0,{ group:'message', weight:3, max:1, payload:{ kind:'message', thread:'j', sender:'J.', side:'in', text:'depois me avisa se achou o cabo.', notify:true } }),
+  event('NORMAL_NOTE',0,{ group:'background', weight:1, payload:{ kind:'note', title:'sem título', text:'não esquecer a janela.', notify:false } }),
+  event('NORMAL_BATTERY',0,{ group:'system', weight:1, payload:{ kind:'battery', value:72, notify:false } }),
+  event('NORMAL_CALL_HISTORY',0,{ group:'call', weight:1, payload:{ kind:'call', person:'Assistência', callState:'missed', duration:'00:00', timestamp:'agora', notify:true } }),
+  event('NORMAL_GALLERY',0,{ group:'background', weight:1, payload:{ kind:'gallery', name:'IMG_1010.jpg', label:'Mesa', meta:'10/10/2025 · 10:01', src:'./assets/images/camera-03.svg', notify:false } }),
+
+  event('ODD_PHANTOM_NOTIFICATION',1,{ group:'notification', cooldown:230000, payload:{ kind:'phantom', label:'Mensagens', preview:'1 nova mensagem', notify:true, expiresAfter:7000 } }),
+  event('ODD_TYPING',1,{ group:'presence', max:2, payload:{ kind:'typing', thread:'unknown', duration:4800, notify:false } }),
+  event('ODD_CLOCK_OFFSET',1,{ group:'time', cooldown:260000, payload:{ kind:'clock', offset:-3, duration:18000, notify:false } }),
+  event('ODD_LATE_NOTIFICATION',1,{ group:'message', payload:{ kind:'message', thread:'unknown', sender:'Número não salvo', side:'in', text:'isso já tinha chegado.', timestamp:'há 4 min', notify:true } }),
+
+  event('REACT_IGNORED_PHONE',2,{ group:'message', condition:(s)=>s.phone.activity.ignored>=1, payload:{ kind:'message', thread:'unknown', sender:'Número não salvo', side:'in', text:'você viu.', notify:true } }),
+  event('REACT_REPEATED_PHOTO',2,{ group:'gallery', condition:(s)=>(s.phone.activity.items['gallery:seed:gallery:shelf']||0)>=3, payload:{ kind:'gallery', name:'IMG_1008_2.jpg', label:'Estante', meta:'08/10/2025 · 19:03 · cópia', src:'./assets/evidence/books/shelf-cam-01.jpg', notify:true } }),
+  event('REACT_FAST_OPEN_CLOSE',2,{ group:'message', condition:(s)=>s.phone.activity.quickCloses>=2, payload:{ kind:'message', thread:'unknown', sender:'Número não salvo', side:'in', text:'não precisava fechar tão rápido.', notify:true } }),
+  event('REACT_LONG_PC_SESSION',2,{ group:'message', condition:(s)=>s.phone.activity.pcDuration>=120000, payload:{ kind:'message', thread:'unknown', sender:'Número não salvo', side:'in', text:'a tela continua acesa.', notify:true } }),
+  event('REACT_RECEIVER_OBSESSION',2,{ group:'call', condition:(s)=>s.phone.activity.receiverUses>=7, payload:{ kind:'call', person:'Número não salvo', callState:'ringing', duration:'00:00', signal:'source.03', notify:true, expiresAfter:18000 } }),
+  event('REACT_REJECTED_CALL',2,{ group:'message', condition:(s)=>s.phone.activity.rejected>=1, payload:{ kind:'message', thread:'unknown', sender:'Número não salvo', side:'in', text:'recusar não interrompe o sinal.', notify:true } }),
+  event('REACT_RETURNED_CALL',2,{ group:'message', condition:(s)=>s.phone.activity.returned>=1, payload:{ kind:'message', thread:'unknown', sender:'Número não salvo', side:'in', text:'agora você ligou para quem?', notify:true } }),
+
+  event('IMPOSSIBLE_MESSAGE_EDIT',3,{ group:'mutation', cooldown:320000, payload:{ kind:'mutation', operation:'edit-message', targetDefinition:'CANON_PC_FILE', text:'eu disse para não abrir.', notify:false } }),
+  event('IMPOSSIBLE_MESSAGE_REMOVE',3,{ group:'mutation', cooldown:320000, payload:{ kind:'mutation', operation:'remove-message', targetDefinition:'CANON_PC_FILE', notify:false } }),
+  event('IMPOSSIBLE_MISSING_CALL',3,{ group:'call', payload:{ kind:'call', person:'Sem número', callState:'ringing', duration:'00:00', signal:'silence', notify:true, expiresAfter:16000, vanish:true } }),
+  event('IMPOSSIBLE_TEMP_CONTACT',3,{ group:'contact', payload:{ kind:'contact', name:'VOCÊ', number:'agora', notify:true, expiresAfter:42000 } }),
+  event('IMPOSSIBLE_GALLERY_CHANGE',3,{ group:'gallery', payload:{ kind:'gallery', name:'IMG_1008_3.jpg', label:'Estante', meta:'amanhã · 03:17', src:'./assets/evidence/books/shelf-cam-01.jpg', variant:true, notify:true } }),
+  event('IMPOSSIBLE_OLD_TIMESTAMP',3,{ group:'time', payload:{ kind:'message', thread:'unknown', sender:'Número não salvo', side:'in', text:'você ainda não tinha aberto.', timestamp:'ontem', notify:true } })
+]);
+
+const PHONE_CANONICAL = freeze({
+  'computer.event.isolated':{ definition:'CANON_PC_FILE', payload:{ kind:'message', thread:'unknown', sender:'Número não salvo', side:'in', text:'você abriu justamente esse.', notify:true } },
+  'tv.channel.04.locked':{ definition:'CANON_RECEIVER_SIGNAL', payload:{ kind:'call', person:'Número não salvo', callState:'ringing', duration:'00:00', signal:'source.03', notify:true, expiresAfter:18000 } },
+  'computer.event.rewritten':{ definition:'CANON_FILE_CHANGED', payload:{ kind:'message', thread:'unknown', sender:'Número não salvo', side:'in', text:'você demorou para perceber que mudou.', notify:true } },
+  'computer.clock.0317':{ definition:'CANON_CLOCK_0317', payload:{ kind:'message', thread:'unknown', sender:'Número não salvo', side:'in', text:'você já viu esse horário.', timestamp:'03:17', notify:true } },
+  'room.node.validated':{ definition:'CANON_LOCAL', payload:{ kind:'message', thread:'unknown', sender:'Número não salvo', side:'in', text:'local não significa seu.', notify:true } },
+  'computer.integrity.ruptured':{ definition:'CANON_STATION', payload:{ kind:'message', thread:'unknown', sender:'Número não salvo', side:'in', text:'a estação ainda está respondendo.', notify:true } },
+  'computer.reboot.completed':{ definition:'CANON_REBOOT', payload:{ kind:'message', thread:'unknown', sender:'Número não salvo', side:'in', text:'você chamou isso de reiniciar.', notify:true } }
+});
+
+const PHASE12_ENTRIES = freeze([
+  freeze({ id:'phase12:j:01', definition:'PHASE12_J', kind:'message', source:'canonical', status:'visible', payload:{ thread:'j', sender:'J.', side:'in', text:'achei outra cópia daquela foto.', timestamp:'10:06', notify:false, visibleFrom:'12' } }),
+  freeze({ id:'phase12:j:02', definition:'PHASE12_J', kind:'message', source:'canonical', status:'visible', payload:{ thread:'j', sender:'J.', side:'in', text:'o anexo não abre aqui. vê os detalhes dele.', timestamp:'10:07', notify:true, visibleFrom:'12', attachment:{ name:'IMG_1010.jpg', state:'corrupt', reference:'OBJETO_C.thumb' } } }),
+  freeze({ id:'phase12:file', definition:'PHASE12_FILE', kind:'file', source:'canonical', status:'visible', payload:{ name:'OBJETO_C.thumb', fileType:'IMG', size:'18 KB', location:'CAM Archive', detail:'cache parcial · origem FRAME_0317.BMP', visibleFrom:'12' } }),
+  freeze({ id:'phase12:frame', definition:'PHASE12_FRAME', kind:'gallery', source:'canonical', status:'visible', payload:{ name:'FRAME_0317.BMP', label:'Cópia preservada', meta:'17/04/2019 · objeto: CURITIBA', src:'./assets/images/camera-02.svg', archive:true, visibleFrom:'12' } })
+]);
+
+exports.PHONE_APPS = PHONE_APPS;
+exports.PHONE_SEED_ENTRIES = PHONE_SEED_ENTRIES;
+exports.PHONE_EVENT_CATALOG = PHONE_EVENT_CATALOG;
+exports.PHONE_CANONICAL = PHONE_CANONICAL;
+exports.PHASE12_ENTRIES = PHASE12_ENTRIES;
+},
+"js/phone/selectors.js": function(module, exports, __require) {
+const { PHONE_EVENT_CATALOG } = __require("js/phone/catalog.js");
+const visibleByProgress = (state,entry) => !entry.payload?.visibleFrom || state.unlocked.includes(entry.payload.visibleFrom) || state.completed.includes(entry.payload.visibleFrom);
+
+function selectPhoneEntries(state) {
+  return state.phone.order.map((id)=>state.phone.entries[id]).filter((entry)=>entry && visibleByProgress(state,entry) && !['removed','expired'].includes(entry.status));
+}
+
+const selectPhoneKind = (state,kind) => selectPhoneEntries(state).filter((entry)=>entry.kind===kind && entry.status!=='scheduled');
+const selectThread = (state,thread) => selectPhoneKind(state,'message').filter((entry)=>(entry.payload.thread||'unknown')===thread);
+const selectTyping = (state,thread,now=Date.now()) => selectPhoneKind(state,'typing').some((entry)=>entry.payload.thread===thread && Number(entry.expiresAt||0)>now);
+const selectRingingCall = (state,now=Date.now()) => selectPhoneKind(state,'call').find((entry)=>entry.payload.callState==='ringing' && Number(entry.expiresAt||Infinity)>now) || null;
+
+function selectNotifications(state) {
+  return selectPhoneEntries(state).filter((entry)=>entry.payload?.notify && entry.status!=='scheduled' && !entry.openedAt && (!entry.expiresAt || entry.expiresAt>Date.now())).map((entry)=>({
+    id:entry.id, kind:entry.kind, at:entry.visibleAt||entry.createdAt,
+    label:entry.kind==='call'?(entry.payload.person||'Telefone'):entry.kind==='phantom'?'Mensagens':entry.kind==='gallery'?'Galeria':entry.kind==='contact'?'Contatos':entry.kind==='file'?'Arquivos':'Mensagens',
+    preview:entry.kind==='call'?'Chamada recebida':entry.payload.preview||entry.payload.text||entry.payload.label||entry.payload.name||'Nova atividade'
+  })).sort((a,b)=>a.at-b.at);
+}
+
+const selectUnreadCount = (state) => selectPhoneKind(state,'message').filter((entry)=>!entry.seenAt).length;
+
+function phoneClock(state,now=Date.now()) {
+  const clock=state.phone.clock;
+  const offset=clock.restoreAt>now?clock.offset:0;
+  const total=((clock.hour*60)+clock.minute+offset+1440)%1440;
+  return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
+}
+
+function phoneDebugSummary(state) {
+  const entries=selectPhoneEntries(state);
+  const now=Date.now();const level=state.phone.activity.level;
+  const eligible=PHONE_EVENT_CATALOG.filter((event)=>event.level<=level&&event.level>=Math.max(0,level-1))
+    .filter((event)=>(state.phone.scheduler.counts[event.definition]||0)<event.max)
+    .filter((event)=>(state.phone.scheduler.cooldowns[event.definition]||0)<=now)
+    .filter((event)=>!state.phone.scheduler.locks[event.group])
+    .filter((event)=>!event.condition||event.condition(state)).map((event)=>event.definition);
+  return {
+    level:state.phone.activity.level,
+    seed:state.phone.scheduler.seed,
+    cursor:state.phone.scheduler.cursor,
+    pending:state.phone.scheduler.queue.map((id)=>({id,dueAt:state.phone.entries[id]?.dueAt||null})),
+    eligible,
+    locks:Object.keys(state.phone.scheduler.locks),
+    lastDecision:state.phone.scheduler.decisions.at(-1)||null,
+    totals:Object.fromEntries(['scheduled','visible','seen','answered','rejected','returned','expired','removed'].map((status)=>[status,Object.values(state.phone.entries).filter((entry)=>entry.status===status).length])),
+    recent:entries.slice(-6).map(({id,definition,kind,status})=>({id,definition,kind,status}))
+  };
+}
+
+exports.selectPhoneKind = selectPhoneKind;
+exports.selectThread = selectThread;
+exports.selectTyping = selectTyping;
+exports.selectRingingCall = selectRingingCall;
+exports.selectUnreadCount = selectUnreadCount;
+exports.selectPhoneEntries = selectPhoneEntries;
+exports.selectNotifications = selectNotifications;
+exports.phoneClock = phoneClock;
+exports.phoneDebugSummary = phoneDebugSummary;
 },
 "js/scenes/receiver-scene.js": function(module, exports, __require) {
 const { renderHintPanel } = __require("js/hints.js");
@@ -2409,7 +2658,7 @@ exports.renderOverrideScene = renderOverrideScene;
 },
 "js/scenes/phone-scene.js": function(module, exports, __require) {
 const { renderHintPanel } = __require("js/hints.js");
-const { renderPhoneDevice } = __require("js/phone.js");
+const { renderPhoneDevice } = __require("js/phone/render.js");
 const { renderDevPanel, renderNarrativeLoader, renderPuzzleBrief, renderReturnControl, renderSceneTools } = __require("js/scenes/shared.js");
 function renderPhoneScene({ puzzle, state, animate }) {
   return `<section class="phone-scene${animate?' scene-enter is-entering':''}" data-scene-family="phone" data-motion-scope="scene"><div class="phone-scene__room" aria-hidden="true"></div><header>${renderReturnControl(puzzle,state,'ABAIXAR CELULAR')}${renderSceneTools(state,{compact:true})}</header>${renderPuzzleBrief(puzzle,state,{floating:true})}<main>${renderPhoneDevice(state,{embedded:true})}</main><aside>${renderHintPanel(puzzle.id)}</aside>${renderNarrativeLoader()}${renderDevPanel(state)}</section>`;
@@ -2417,215 +2666,89 @@ function renderPhoneScene({ puzzle, state, animate }) {
 
 exports.renderPhoneScene = renderPhoneScene;
 },
-"js/phone.js": function(module, exports, __require) {
+"js/phone/render.js": function(module, exports, __require) {
 const { escapeHtml } = __require("js/utils.js");
 const { getLocalCaptureUrl } = __require("js/local-capture.js");
-const UNKNOWN_MESSAGES = Object.freeze([
-  ['message:first-file','você abriu justamente esse.'],
-  ['message:not-first','você demorou pra perceber que mudou.'],
-  ['message:first-time','você já viu esse horário.'],
-  ['message:local-not-yours','local não significa seu.'],
-  ['message:shell-lost','a estação ainda está respondendo.'],
-  ['message:boot-02','você chamou isso de reiniciar.']
-]);
+const { PHONE_APPS } = __require("js/phone/catalog.js");
+const { phoneClock, selectNotifications, selectPhoneKind, selectRingingCall, selectThread, selectTyping, selectUnreadCount } = __require("js/phone/selectors.js");
+const stateLabel={ringing:'chamando',answered:'atendida',rejected:'recusada',missed:'perdida',returned:'retorno sem resposta'};
+const hasPhase=(state,id)=>state.unlocked.includes(id)||state.completed.includes(id);
 
-const GALLERY = Object.freeze([
-  { id:'cam-room', src:'./assets/images/camera-01.svg', label:'CAM_0001', meta:'10/10/2025 · cache local · quadro parcial' },
-  { id:'curitiba', src:'./assets/images/camera-02.svg', label:'OBJETO_C', meta:'17/04/2019 · cache doméstico · identidade parcial' },
-  { id:'moon', src:'./assets/images/moon-scan.svg', label:'SCAN_LUA', meta:'10/10/2025 · scanner local · exposição plana' },
-  { id:'shelf', src:'./assets/evidence/books/shelf-cam-01.jpg', label:'ESTANTE_01', meta:'17/09/2025 · câmera doméstica · cópia comprimida', optional:true }
-]);
-
-const hasPhase = (state,id) => state.unlocked.includes(id) || state.completed.includes(id);
-const wasDelivered = (state,id) => state.phone.delivered.includes(id);
-const phoneTime = (state) => `${String(state.phone.clock.hour).padStart(2,'0')}:${String(state.phone.clock.minute).padStart(2,'0')}`;
-
-function renderPhoneStatus(state) {
-  return `<time>${phoneTime(state)}</time><span aria-label="sinal local">▮▮▮</span><span>${state.phone.battery}%</span>`;
+function appHeader(title,back='phone-home') {
+  return `<header class="phone-appbar"><button type="button" data-action="${back}" aria-label="Voltar">‹</button><strong>${escapeHtml(title)}</strong><i></i></header>`;
 }
 
 function lockScreen(state) {
-  const latest = state.phone.notifications.at(-1);
-  return `<section class="phone-lock"><time>${phoneTime(state)}</time><span>10 de outubro</span>${latest ? `<button type="button" class="phone-lock__notification" data-action="phone-unlock"><i>${escapeHtml(latest.label)}</i><strong>${escapeHtml(latest.preview)}</strong><small>toque para consultar</small></button>` : ''}<button type="button" class="phone-unlock" data-action="phone-unlock">DESBLOQUEAR</button></section>`;
+  const notifications=selectNotifications(state).slice(-3).reverse();
+  return `<section class="phone-lockscreen"><div><time>${phoneClock(state)}</time><span>sexta-feira, 10 de outubro</span></div><div class="phone-lock-notifications">${notifications.map((item)=>`<button type="button" data-action="phone-open-notification" data-entry="${escapeHtml(item.id)}"><i>${escapeHtml(item.label)}</i><strong>${escapeHtml(item.preview)}</strong><small>agora</small></button>`).join('')}</div><button type="button" class="phone-swipe" data-action="phone-unlock"><i></i><span>deslize para desbloquear</span></button></section>`;
 }
 
 function home(state) {
-  const apps = [
-    ['messages','▣','Mensagens',true],
-    ['calls','◖','Chamadas',true],
-    ['gallery','▧','Galeria',hasPhase(state,'08')],
-    ['recorder','≋','Gravador',hasPhase(state,'13')],
-    ['notes','▤','Notas',true],
-    ['calendar','□','Calendário',hasPhase(state,'18')],
-    ['files','⌑','Arquivos',true],
-    ['camera','◉','CAM Archive',state.flags.clock0317Triggered]
-  ];
-  return `<section class="phone-home"><div class="phone-app-grid">${apps.filter(([, , ,available])=>available).map(([app,icon,label])=>`<button type="button" data-action="phone-app" data-phone-app="${app}"><i>${icon}</i><span>${label}</span>${app==='messages'&&state.phone.unread?`<b>${state.phone.unread}</b>`:''}</button>`).join('')}</div><p>dispositivo local · sem rede</p></section>`;
+  const unread=selectUnreadCount(state);
+  return `<section class="phone-home-screen"><div class="phone-widget"><time>${phoneClock(state)}</time><span>10 OUT · sem rede</span></div><div class="phone-app-grid">${PHONE_APPS.map(([app,icon,label])=>`<button type="button" data-action="phone-app" data-phone-app="${app}"><i>${icon}</i><span>${label}</span>${app==='messages'&&unread?`<b>${unread}</b>`:''}</button>`).join('')}</div><div class="phone-dock-row"><button type="button" data-action="phone-app" data-phone-app="calls">☎</button><button type="button" data-action="phone-app" data-phone-app="messages">✉</button><button type="button" data-action="phone-app" data-phone-app="camera">◉</button></div></section>`;
+}
+
+function threadList(state) {
+  const threads=[['j','J.'],['mae','Mãe'],['unknown','Número não salvo']];
+  return `<section class="phone-app phone-messages">${appHeader('Mensagens')}${threads.map(([id,name])=>{const messages=selectThread(state,id);if(!messages.length)return '';const latest=messages.at(-1);const unread=messages.some((entry)=>!entry.seenAt);return `<button type="button" class="phone-list-row" data-action="phone-thread" data-thread="${id}"><i>${escapeHtml(name.slice(0,1))}</i><span><strong>${escapeHtml(name)}</strong><small>${escapeHtml(latest.payload.text)}</small></span><time>${escapeHtml(latest.payload.timestamp||'agora')}</time>${unread?'<b></b>':''}</button>`;}).join('')}</section>`;
+}
+
+function attachmentDetail(state,entry) {
+  const attachment=entry?.payload?.attachment;
+  if(!attachment)return threadList(state);
+  return `<section class="phone-app phone-attachment-detail">${appHeader(attachment.name,'phone-back-thread')}<div class="phone-corrupt-preview"><i></i><span>Não foi possível abrir a imagem</span></div><dl><div><dt>Nome</dt><dd>${escapeHtml(attachment.name)}</dd></div><div><dt>Estado</dt><dd>dados incompletos</dd></div><div><dt>Referência local</dt><dd>${escapeHtml(attachment.reference)}</dd></div></dl><button type="button" class="phone-system-action" data-action="phone-related-file" data-entry="phase12:file">Abrir em Arquivos</button></section>`;
 }
 
 function messages(state) {
-  if (state.phone.thread) {
-    const known = UNKNOWN_MESSAGES.filter(([id]) => wasDelivered(state,id)).map(([id,text]) => ({ id,text }));
-    const reactive = (state.phone.events || []).filter((item)=>item.type==='message' && !known.some((entry)=>entry.id===item.id)).map((item)=>({id:item.id,text:item.text}));
-    const unknown = [...known,...reactive].map(({text}) => ['in',text]);
-    const isJ = state.phone.thread === 'j';
-    const chat = isJ ? [
-      ['in','eu achei a foto em outra cópia.'],
-      ['out','o objeto c?'],
-      ['in','o anexo quebrou. o thumbnail ainda deve estar em Arquivos.']
-    ] : unknown;
-    return `<section class="phone-app phone-thread"><header><button type="button" data-action="phone-app" data-phone-app="messages" aria-label="Voltar">‹</button><strong>${isJ?'J.':'NÚMERO NÃO SALVO'}</strong></header><div class="phone-chat" data-phone-chat>${chat.map(([side,text])=>`<p class="is-${side}">${escapeHtml(text)}</p>`).join('')}${isJ?`<article class="phone-attachment is-broken"><div class="broken-image">DADOS AUSENTES</div><strong>IMG_1010.jpg</strong><small>original removido · referência: OBJETO_C.thumb</small><button type="button" data-action="phone-trace-memory" data-step="message">LOCALIZAR THUMBNAIL</button></article>`:''}</div></section>`;
-  }
-  const unknownPreview = state.phone.events?.at(-1)?.text || UNKNOWN_MESSAGES.filter(([id])=>wasDelivered(state,id)).at(-1)?.[1] || 'nenhuma mensagem entregue';
-  return `<section class="phone-app phone-messages"><header><button type="button" data-action="phone-home" aria-label="Início">‹</button><strong>MENSAGENS</strong></header><button type="button" data-action="phone-thread" data-thread="unknown"><i>N</i><span><strong>NÚMERO NÃO SALVO</strong><small>${escapeHtml(unknownPreview)}</small></span>${state.phone.unread?'<b></b>':''}</button>${hasPhase(state,'12')?`<button type="button" data-action="phone-thread" data-thread="j"><i>J</i><span><strong>J.</strong><small>eu sabia que você ia achar essa foto</small></span></button>`:''}</section>`;
+  const route=state.phone.route;
+  if(route.view==='attachment')return attachmentDetail(state,state.phone.entries[route.id]);
+  if(route.view!=='thread')return threadList(state);
+  const items=selectThread(state,route.id);const name=route.id==='j'?'J.':route.id==='mae'?'Mãe':'Número não salvo';
+  return `<section class="phone-app phone-thread">${appHeader(name,'phone-back-messages')}<div class="phone-chat">${items.map((entry)=>`<article class="is-${entry.payload.side||'in'}${entry.editedAt?' is-edited':''}"><p>${escapeHtml(entry.payload.text)}</p>${entry.payload.attachment?`<button type="button" class="phone-chat-attachment" data-action="phone-attachment" data-entry="${escapeHtml(entry.id)}"><span class="phone-broken-thumb">×</span><span><strong>${escapeHtml(entry.payload.attachment.name)}</strong><small>imagem indisponível · toque para ver detalhes</small></span></button>`:''}<time>${escapeHtml(entry.payload.timestamp||'agora')}${entry.editedAt?' · editada':''}</time></article>`).join('')}${selectTyping(state,route.id)?'<div class="phone-typing"><i></i><i></i><i></i></div>':''}</div></section>`;
 }
 
 function calls(state) {
-  const playing=state.phone.foregroundPlayback;
-  return `<section class="phone-app phone-calls"><header><button type="button" data-action="phone-home" aria-label="Início">‹</button><strong>CHAMADAS</strong></header><div class="phone-call-list">${state.phone.calls.length ? state.phone.calls.map((call)=>`<article><i>↙</i><span><strong>${escapeHtml(call.from)}</strong><small>${escapeHtml(call.duration)} · ${escapeHtml(call.status)}</small></span><button type="button" data-action="phone-call-audio" data-signal="${escapeHtml(call.signal)}" ${playing?'disabled':''}>${playing?'REPRODUZINDO':'OUVIR'}</button></article>`).join('') : '<p>Nenhuma chamada registrada.</p>'}</div><div class="phone-call-caption ${playing?'is-playing':''}" data-phone-call-caption>${playing?'estática · impacto 01 · impacto 02 · impacto 03 · silêncio':'O histórico permanece neste dispositivo.'}</div></section>`;
+  const calls=selectPhoneKind(state,'call').slice().reverse();
+  return `<section class="phone-app phone-calls">${appHeader('Telefone')}<nav><button class="is-active">Recentes</button><button>Contatos</button></nav>${calls.map((entry)=>`<article class="phone-list-row"><i>${entry.payload.callState==='missed'?'↙':'↗'}</i><span><strong>${escapeHtml(entry.payload.person)}</strong><small>${escapeHtml(stateLabel[entry.payload.callState]||entry.payload.callState)} · ${escapeHtml(entry.payload.duration||'00:00')}</small></span><time>${escapeHtml(entry.payload.timestamp||'agora')}</time>${entry.payload.callState==='missed'?`<button type="button" data-action="phone-call-return" data-entry="${escapeHtml(entry.id)}" aria-label="Retornar chamada">☎</button>`:''}${entry.payload.signal&&entry.payload.signal!=='normal'&&entry.payload.callState!=='ringing'?`<button type="button" data-action="phone-play-audio" data-signal="${escapeHtml(entry.payload.signal)}">ouvir</button>`:''}</article>`).join('')}</section>`;
 }
 
-function gallery(state) {
-  const dynamic=(state.phone.gallery||[]).map((item)=>({id:item.id,src:item.capture?(getLocalCaptureUrl()||'./assets/images/camera-03.svg'):'./assets/images/camera-03.svg',label:item.label||item.id,meta:item.meta||'origem local desconhecida',volatile:Boolean(item.capture)}));
-  const items=[...GALLERY,...dynamic];
-  const selected = items.find((item)=>item.id===state.phone.galleryItem);
-  if (selected) return `<section class="phone-app phone-gallery-detail"><header><button type="button" data-action="phone-gallery-close" aria-label="Voltar">‹</button><strong>${escapeHtml(selected.label)}</strong></header><div class="phone-gallery-image"><img src="${selected.src}" alt="${escapeHtml(selected.label)}"></div><dl><dt>METADATA</dt><dd>${escapeHtml(selected.meta)}</dd></dl><button type="button" data-action="phone-share-evidence" data-gallery="${selected.id}">ANEXAR À INVESTIGAÇÃO LOCAL</button></section>`;
-  return `<section class="phone-app phone-gallery"><header><button type="button" data-action="phone-home" aria-label="Início">‹</button><strong>GALERIA</strong></header><div>${items.map((item)=>`<button type="button" data-action="phone-gallery-open" data-gallery="${item.id}" ${item.optional?'data-evidence-frame':''}><img src="${item.src}" alt=""><span>${escapeHtml(item.label)}</span>${item.volatile?'<i>MEMÓRIA VOLÁTIL</i>':item.optional?'<i class="phone-gallery-missing">CAPTURA AUSENTE</i>':''}</button>`).join('')}</div><p>As cópias possuem origens e compressões diferentes.</p></section>`;
-}
-
-function recorder(state) {
-  const playing=state.phone.foregroundPlayback;
-  return `<section class="phone-app phone-recorder ${playing?'is-playing':''}"><header><button type="button" data-action="phone-home">‹</button><strong>GRAVADOR</strong></header><div class="phone-wave" aria-label="Forma de onda de sete segundos">${Array.from({length:31},(_,i)=>`<i style="--h:${18+((i*17)%68)}%"></i>`).join('')}</div><strong>fonte_03.m4a</strong><span>${playing?'REPRODUZINDO 00:07':'00:07 · três impactos · ruído de sala'}</span><button type="button" data-action="phone-audio" ${playing?'disabled':''}>${playing?'REPRODUZINDO':'REPRODUZIR'}</button><i class="phone-playback-progress" aria-hidden="true"></i></section>`;
-}
-
-function notes(state) {
-  return `<section class="phone-app phone-notes"><header><button type="button" data-action="phone-home">‹</button><strong>NOTAS</strong></header><p>comprar pilhas.</p><p>devolver o adaptador.</p>${(state.phone.notes||[]).map((note)=>`<p class="is-reactive">${escapeHtml(note.text)}</p>`).join('')}${hasPhase(state,'15')?'<p>não é a primeira leitura.</p>':''}${hasPhase(state,'23')?'<p>devolver o relógio para onde tudo começou.</p>':''}</section>`;
-}
-
-function calendar() {
-  return `<section class="phone-app phone-calendar"><header><button type="button" data-action="phone-home">‹</button><strong>CALENDÁRIO</strong></header><time>10</time><span>OUTUBRO · 2025</span><article><strong>10:10</strong><p>nenhum título</p><small>criado antes da instalação deste dispositivo</small></article></section>`;
+function gallery(state,archive=false) {
+  const route=state.phone.route;const items=selectPhoneKind(state,'gallery').filter((entry)=>archive?entry.payload.archive:!entry.payload.archive);
+  const selected=route.view==='detail'?state.phone.entries[route.id]:null;
+  const imageFor=(entry)=>entry.payload.capture?(getLocalCaptureUrl()||'./assets/images/camera-03.svg'):(entry.payload.src||'./assets/images/camera-03.svg');
+  if(selected)return `<section class="phone-app phone-gallery-detail">${appHeader(archive?'CAM Archive':'Galeria',archive?'phone-back-camera':'phone-back-gallery')}<img src="${escapeHtml(imageFor(selected))}" alt="${escapeHtml(selected.payload.label)}"><div><strong>${escapeHtml(selected.payload.name)}</strong><small>${escapeHtml(selected.payload.meta)}</small></div>${selected.id==='phase12:frame'&&!state.flags.curitibaConfirmed?'<button type="button" class="phone-system-action" data-action="phone-save-metadata" data-entry="phase12:frame">Salvar nos detalhes</button>':''}</section>`;
+  return `<section class="phone-app phone-gallery">${appHeader(archive?'CAM Archive':'Galeria')}<div>${items.map((entry)=>`<button type="button" data-action="phone-gallery-item" data-entry="${escapeHtml(entry.id)}"><img src="${escapeHtml(imageFor(entry))}" alt=""><span>${escapeHtml(entry.payload.label)}</span><small>${escapeHtml(entry.payload.name)}</small></button>`).join('')}</div>${archive?'<p>Cópias locais recuperadas automaticamente.</p>':''}</section>`;
 }
 
 function files(state) {
-  return `<section class="phone-app phone-files"><header><button type="button" data-action="phone-home">‹</button><strong>ARQUIVOS</strong></header>${hasPhase(state,'08')?`<article><i>IMG</i><span><strong>${state.flags.curitibaConfirmed?'IMG_CURITIBA_PRESENTE.jpg':'OBJETO_C.thumb'}</strong><small>${state.flags.curitibaConfirmed?'1,8 MB · metadata recuperada':'18 KB · cache parcial · ponte: CAM Archive'}</small></span>${hasPhase(state,'12')&&!state.flags.curitibaConfirmed?'<button type="button" data-action="phone-trace-memory" data-step="files">SEGUIR ORIGEM</button>':''}</article>`:'<p>Nenhum arquivo recente.</p>'}${(state.phone.artifacts||[]).map((item)=>`<article class="is-new"><i>${escapeHtml(item.kind||'DAT')}</i><span><strong>${escapeHtml(item.name||item.id)}</strong><small>${escapeHtml(item.meta||'origem local desconhecida')}</small></span></article>`).join('')}${hasPhase(state,'13')?'<article><i>REC</i><span><strong>fonte_03.m4a</strong><small>00:07 · local</small></span></article>':''}${state.flags.clock0317Triggered?'<article class="is-new"><i>DAT</i><span><strong>FRAME_0317.BMP</strong><small>metadata alterada</small></span></article>':''}</section>`;
+  const route=state.phone.route;const selected=route.view==='detail'?state.phone.entries[route.id]:null;
+  if(selected)return `<section class="phone-app phone-file-detail">${appHeader(selected.payload.name,'phone-back-files')}<div class="phone-file-icon">${escapeHtml(selected.payload.fileType||'DAT')}</div><dl><div><dt>Tamanho</dt><dd>${escapeHtml(selected.payload.size||'—')}</dd></div><div><dt>Local</dt><dd>${escapeHtml(selected.payload.location||'Armazenamento interno')}</dd></div><div><dt>Detalhes</dt><dd>${escapeHtml(selected.payload.detail||'arquivo local')}</dd></div></dl>${selected.id==='phase12:file'?'<button type="button" class="phone-system-action" data-action="phone-open-archive">Abrir CAM Archive</button>':''}</section>`;
+  return `<section class="phone-app phone-files">${appHeader('Arquivos')}<h2>Recentes</h2>${selectPhoneKind(state,'file').slice().reverse().map((entry)=>`<button type="button" class="phone-list-row" data-action="phone-file-item" data-entry="${escapeHtml(entry.id)}"><i>${escapeHtml(entry.payload.fileType||'DAT')}</i><span><strong>${escapeHtml(entry.payload.name)}</strong><small>${escapeHtml(entry.payload.size||'')} · ${escapeHtml(entry.payload.location||'interno')}</small></span></button>`).join('')}</section>`;
 }
 
-function cameraArchive(state) {
-  const frames = [
-    ['./assets/images/camera-01.svg','FRAME_0017.JPG','03:12:44 · origem não catalogada'],
-    ['./assets/images/camera-03.svg','FRAME_0018.JPG','03:14:09 · perda de dados: 18%'],
-    ['./assets/images/camera-02.svg','FRAME_0317.BMP',state.phone.clock.synchronized?'03:17:00 · timestamp incompatível':'timestamp ilegível']
-  ];
-  const canRecover=state.phone.memoryTrail.includes('files');
-  return `<section class="phone-app phone-camera-archive"><header><button type="button" data-action="phone-home">‹</button><strong>CAM ARCHIVE</strong></header>${frames.map(([src,label,meta],index)=>`<article class="${index===2&&canRecover?'is-memory-source':''}"><img src="${src}" alt="Captura simulada recuperada"><span><strong>${label}</strong><small>${meta}</small></span>${index===2&&canRecover?'<button type="button" data-action="phone-trace-memory" data-step="archive">RECUPERAR CÓPIA</button>':''}</article>`).join('')}${state.phone.memoryTrail.includes('archive')?`<article class="phone-memory-recovered"><img src="./assets/images/camera-02.svg" alt="Objeto têxtil recuperado"><span><strong>IMG_CURITIBA_PRESENTE.jpg</strong><small>OBJETO C · nome preservado: CURITIBA</small></span><button type="button" data-action="phone-confirm-memory">ANEXAR METADATA AO ARQUIVO</button></article>`:''}<p>CAPTURAS RECUPERADAS · câmera real não utilizada.</p></section>`;
+function notes(state) {return `<section class="phone-app phone-notes">${appHeader('Notas')}${selectPhoneKind(state,'note').map((entry)=>`<article><strong>${escapeHtml(entry.payload.title)}</strong><p>${escapeHtml(entry.payload.text).replaceAll('\n','<br>')}</p><small>${escapeHtml(entry.payload.timestamp||'')}</small></article>`).join('')}</section>`;}
+function contacts(state) {const additions=selectPhoneKind(state,'contact');const contacts=[{id:'j',name:'J.',number:'local-01'},{id:'mae',name:'Mãe',number:'(41) 9••••-0101'},{id:'assist',name:'Assistência',number:'ramal 04'},...additions.map((entry)=>({id:entry.id,...entry.payload}))];return `<section class="phone-app phone-contacts">${appHeader('Contatos')}${contacts.map((item)=>`<article class="phone-list-row"><i>${escapeHtml(item.name.slice(0,1))}</i><span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.number)}</small></span></article>`).join('')}</section>`;}
+function calendar(state) {const items=selectPhoneKind(state,'calendar');return `<section class="phone-app phone-calendar">${appHeader('Calendário')}<time>10</time><span>OUTUBRO · 2025</span>${items.map((entry)=>`<article><strong>${escapeHtml(entry.payload.time)}</strong><p>${escapeHtml(entry.payload.title)}</p></article>`).join('')}</section>`;}
+function recorder(state) {const playing=state.phone.ui.playback;return `<section class="phone-app phone-recorder">${appHeader('Gravador')}<div class="phone-wave">${Array.from({length:34},(_,i)=>`<i style="--h:${20+((i*23)%64)}%"></i>`).join('')}</div><strong>lembrete_02.m4a</strong><span>${playing?'reproduzindo':'00:04 · gravação local'}</span><button type="button" data-action="phone-play-audio" data-signal="normal" ${playing?'disabled':''}>${playing?'reproduzindo':'reproduzir'}</button></section>`;}
+
+function screen(state) {
+  if(state.phone.locked)return lockScreen(state);
+  const app=state.phone.route.app;
+  if(app==='messages')return messages(state);if(app==='calls')return calls(state);if(app==='gallery')return gallery(state);if(app==='files')return files(state);if(app==='camera')return gallery(state,true);if(app==='notes')return notes(state);if(app==='contacts')return contacts(state);if(app==='calendar')return calendar(state);if(app==='recorder')return recorder(state);return home(state);
 }
 
-function renderPhoneScreen(state) {
-  if (state.phone.locked) return lockScreen(state);
-  if (state.phone.app === 'messages') return messages(state);
-  if (state.phone.app === 'calls') return calls(state);
-  if (state.phone.app === 'gallery') return gallery(state);
-  if (state.phone.app === 'recorder') return recorder(state);
-  if (state.phone.app === 'notes') return notes(state);
-  if (state.phone.app === 'calendar') return calendar();
-  if (state.phone.app === 'files') return files(state);
-  if (state.phone.app === 'camera') return cameraArchive(state);
-  return home(state);
+function renderPhoneDevice(state,{embedded=false}={}) {
+  const ringing=selectRingingCall(state);const waking=state.phone.ui.wakeUntil>Date.now();
+  return `<div class="phone-device${embedded?' is-embedded':''}${waking?' is-waking':''}" data-phone-device><div class="phone-hardware"><i></i><span></span></div><div class="phone-display"><header class="phone-statusbar"><time>${phoneClock(state)}</time><span>▮▮▮ · 4G</span><b>${state.phone.battery}%</b></header><main>${screen(state)}</main>${ringing?`<aside class="phone-call-screen"><small>CHAMADA RECEBIDA</small><div class="phone-caller">${escapeHtml((ringing.payload.person||'?').slice(0,1))}</div><strong>${escapeHtml(ringing.payload.person||'Sem número')}</strong><span>${ringing.payload.signal==='silence'?'áudio indisponível':'celular'}</span><div><button type="button" data-action="phone-call-reject" data-entry="${escapeHtml(ringing.id)}"><i>×</i>recusar</button><button type="button" data-action="phone-call-answer" data-entry="${escapeHtml(ringing.id)}"><i>☎</i>atender</button></div></aside>`:''}</div><footer class="phone-navbar"><button type="button" data-action="phone-back">△</button><button type="button" data-action="phone-home">○</button><button type="button" data-action="phone-overview">□</button></footer></div>`;
 }
 
-function renderPhoneDevice(state, { embedded = false } = {}) {
-  return `<div class="phone-device ${embedded ? 'is-embedded' : ''}" data-phone-device data-motion-scope="device"><header class="phone-status" data-phone-status>${renderPhoneStatus(state)}</header><main data-phone-screen>${renderPhoneScreen(state)}</main>${state.phone.phantom?`<aside class="phone-phantom">${escapeHtml(state.phone.phantom.text)}</aside>`:''}<footer><button type="button" data-action="${embedded?'phone-home':'phone-toggle'}" aria-label="${embedded?'Tela inicial':'Abaixar celular'}"></button></footer></div>`;
+function renderPhoneDock(state,puzzle) {
+  if(!state.unlocked.some((id)=>Number(id)>=3)||puzzle.id==='25'||puzzle.world==='phone')return '';
+  const latest=selectNotifications(state).at(-1);const waking=state.phone.ui.wakeUntil>Date.now();
+  return `<aside class="phone-presence${state.phone.open?' is-focused':''}${waking?' is-waking':''}" data-phone-presence><button type="button" class="phone-room-prop" data-action="${latest?'phone-open-notification':'phone-toggle'}" ${latest?`data-entry="${escapeHtml(latest.id)}"`:''} aria-label="${latest?`${escapeHtml(latest.label)}: ${escapeHtml(latest.preview)}. Pegar celular.`:'Pegar celular'}"><span class="phone-room-screen"><time>${phoneClock(state)}</time>${latest?`<i><strong>${escapeHtml(latest.label)}</strong><small>${escapeHtml(latest.preview)}</small></i>`:'<i></i>'}</span><b></b></button><div class="phone-focus-backdrop" data-action="phone-toggle" aria-hidden="true"></div><div class="phone-focus-camera">${state.phone.open?renderPhoneDevice(state):''}<button type="button" class="phone-lower" data-action="phone-toggle">abaixar celular <kbd>ESC</kbd></button></div></aside>`;
 }
 
-function patchPhoneDevices(state, { screen = false, status = false, badges = false } = {}) {
-  document.querySelectorAll('[data-phone-device]').forEach((device) => {
-    if (status) {
-      const bar = device.querySelector('[data-phone-status]');
-      if (bar) bar.innerHTML = renderPhoneStatus(state);
-    }
-    if (screen) {
-      const target = device.querySelector('[data-phone-screen]');
-      if (target) {
-        const scrollTop = target.scrollTop;
-        target.innerHTML = renderPhoneScreen(state);
-        target.scrollTop = scrollTop;
-        target.querySelectorAll('[data-evidence-source]').forEach((image)=>{
-          const frame=image.closest('[data-evidence-frame]');
-          const update=()=>frame?.classList.toggle('has-source',image.complete&&image.naturalWidth>0);
-          image.addEventListener('load',update,{once:true});image.addEventListener('error',update,{once:true});update();
-        });
-      }
-    }
-  });
-  if (badges) {
-    document.querySelectorAll('.phone-prop').forEach((toggle) => {
-      toggle.querySelector('b')?.remove();
-      if (state.phone.unread) toggle.insertAdjacentHTML('beforeend',`<b>${state.phone.unread}</b>`);
-    });
-  }
-}
-
-function patchPhoneDelivery(state, { type, payload }) {
-  document.querySelectorAll('[data-phone-device]').forEach((device)=>{
-    const screen=device.querySelector('[data-phone-screen]');
-    if (!screen) return;
-    const chat=screen.querySelector('[data-phone-chat]');
-    if (type==='message' && state.phone.app==='messages' && state.phone.thread==='unknown' && chat) {
-      const message=document.createElement('p');
-      message.className='is-in';
-      message.textContent=payload.text;
-      chat.append(message);
-      chat.scrollTop=chat.scrollHeight;
-      return;
-    }
-    if ((type==='message' && screen.querySelector('.phone-messages')) || (type==='call' && screen.querySelector('.phone-calls'))) {
-      const scrollTop=screen.scrollTop;
-      screen.innerHTML=renderPhoneScreen(state);
-      screen.scrollTop=scrollTop;
-    }
-  });
-}
-
-function showPhoneNotification(notification) {
-  if (!notification) return;
-  document.querySelectorAll('[data-phone-dock]').forEach((dock) => {
-    dock.classList.remove('is-waking','has-preview');
-    dock.classList.add('has-notification','is-waking');
-    const prop=dock.querySelector('[data-phone-prop]');
-    if (prop) {
-      prop.dataset.action='phone-open-notification';
-      prop.dataset.kind=notification.kind;
-      prop.dataset.notification=notification.id;
-      prop.setAttribute('aria-label',`${notification.label}: ${notification.preview}. Pegar celular.`);
-    }
-    const alert=dock.querySelector('[data-phone-prop-alert]');
-    if (alert) alert.innerHTML=`<strong>${escapeHtml(notification.label)}</strong><span>${escapeHtml(notification.preview)}</span>`;
-    const held=dock.querySelector('[data-phone-device]');
-    held?.classList.add('has-live-arrival');
-    setTimeout(()=>held?.classList.remove('has-live-arrival'),900);
-    requestAnimationFrame(()=>setTimeout(()=>{if(dock.classList.contains('has-notification')) dock.classList.add('has-preview');},220));
-  });
-}
-
-function renderPhoneDock(state, puzzle) {
-  const available = state.unlocked.some((id)=>Number(id)>=3);
-  if (!available || puzzle.id === '25' || puzzle.world === 'phone') return '';
-  const latest=(state.phone.notifications||[]).filter((item)=>item.status!=='read').at(-1);
-  const action=latest?'phone-open-notification':'phone-toggle';
-  return `<aside class="phone-dock ${state.phone.open ? 'is-open' : ''}${latest?' has-notification has-preview':''}" data-phone-dock aria-label="Celular da investigação">
-    <button type="button" class="phone-prop" data-phone-prop data-action="${action}" ${latest?`data-kind="${escapeHtml(latest.kind)}" data-notification="${escapeHtml(latest.id)}"`:''} aria-expanded="${state.phone.open}" aria-label="${latest?`${escapeHtml(latest.label)}: ${escapeHtml(latest.preview)}. Pegar celular.`:'Pegar celular'}">
-      <i class="phone-prop__speaker"></i><span class="phone-prop__screen"><time>${phoneTime(state)}</time><em data-phone-prop-alert>${latest?`<strong>${escapeHtml(latest.label)}</strong><span>${escapeHtml(latest.preview)}</span>`:'<small>SEM ATIVIDADE</small>'}</em></span>${state.phone.unread?`<b>${state.phone.unread}</b>`:''}
-    </button>
-    <div class="phone-dock__backdrop" aria-hidden="true"></div><div class="phone-dock__device" ${state.phone.open?'':'hidden'}>${renderPhoneDevice(state)}</div>
-  </aside>`;
-}
-
-exports.renderPhoneStatus = renderPhoneStatus;
-exports.renderPhoneScreen = renderPhoneScreen;
 exports.renderPhoneDevice = renderPhoneDevice;
-exports.patchPhoneDevices = patchPhoneDevices;
-exports.patchPhoneDelivery = patchPhoneDelivery;
-exports.showPhoneNotification = showPhoneNotification;
 exports.renderPhoneDock = renderPhoneDock;
 },
 "js/local-capture.js": function(module, exports, __require) {
@@ -2716,14 +2839,17 @@ function offerPhaseTransition(fromId,{delay=null}={}) {
     fromWorld:worldOf(puzzle),toWorld:worldOf(target),fromTarget:cameraTargetFor(puzzle),toTarget:cameraTargetFor(target),status:'preparing',createdAt:Date.now()
   };
   updateState((state)=>{state.pendingTransition=plan;if(state.ui.titleReveal?.id===fromId) state.ui.titleReveal.transitionId=instanceId;});
-  const wait=Motion.reduced?350:Math.max(1500,Number(delay)||2200);
-  Motion.schedule('transition-offer',()=>{
+  const wait=Motion.reduced?180:Math.max(650,Number(delay)||1000);
+  Motion.schedule(`transition-offer:${instanceId}`,()=>{
     const current=getState().pendingTransition;
     if (!current || current.instanceId!==instanceId || current.status!=='preparing') return;
-    updateState((state)=>{state.pendingTransition={...state.pendingTransition,status:'offered'};});
+    updateState((state)=>{
+      if (state.ui.titleReveal?.id===fromId) state.ui.titleReveal={...state.ui.titleReveal,status:'consumed',consumedAt:Date.now()};
+      state.pendingTransition={...state.pendingTransition,status:'offered'};
+    });
     refreshView();
     requestAnimationFrame(()=>document.querySelector('[data-action="accept-transition"]')?.focus({preventScroll:true}));
-    if (contract.mode==='AUTO_CONTINUE' || contract.mode==='FINAL') Motion.schedule('transition-auto-accept',acceptPendingTransition,Motion.reduced?180:520);
+    if (contract.mode==='AUTO_CONTINUE' || contract.mode==='FINAL') Motion.schedule(`transition-auto-accept:${instanceId}`,()=>acceptPendingTransition(instanceId),Motion.reduced?180:520);
   },wait);
   return plan;
 }
@@ -2745,9 +2871,9 @@ function ensureOverlay(plan) {
   return overlay;
 }
 
-function acceptPendingTransition() {
+function acceptPendingTransition(expectedInstanceId = null) {
   const plan=getState().pendingTransition;
-  if (!plan || !['preparing','offered'].includes(plan.status)) return false;
+  if (!plan || (expectedInstanceId && plan.instanceId!==expectedInstanceId) || !['preparing','offered'].includes(plan.status)) return false;
   const sameTarget=plan.fromTarget===plan.toTarget;
   updateState((state)=>{state.pendingTransition={...state.pendingTransition,status:'moving'};setRoomCamera(state,plan.toTarget,plan.motion);});
   if (sameTarget) {
@@ -2763,15 +2889,17 @@ function acceptPendingTransition() {
   const bedside=plan.toTarget==='BEDSIDE'||plan.fromTarget==='BEDSIDE';
   const swapAt=Motion.reduced?80:(bedside?820:sameSurface?360:620);
   const finishAt=Motion.reduced?180:(bedside?1780:sameSurface?820:1380);
-  Motion.schedule('transition-world-swap',()=>{
+  Motion.schedule(`transition-world-swap:${plan.instanceId}`,()=>{
+    if (getState().pendingTransition?.instanceId!==plan.instanceId) return;
     discoverPuzzle(plan.to,`handoff:${plan.from}`);
     updateState((state)=>{if(state.pendingTransition?.instanceId===plan.instanceId)state.pendingTransition={...state.pendingTransition,status:'arrived'};});
     navigateTo(plan.to);
   },swapAt);
-  Motion.schedule('transition-world-finish',()=>{
+  Motion.schedule(`transition-world-finish:${plan.instanceId}`,()=>{
+    if (getState().pendingTransition?.instanceId!==plan.instanceId) { overlay.remove(); return; }
     overlay.classList.add('is-arrived');
     updateState((state)=>{if(state.pendingTransition?.instanceId===plan.instanceId)state.pendingTransition=null;state.roomCamera.locked=false;state.roomCamera.transition=null;});
-    Motion.schedule('transition-world-remove',()=>overlay.remove(),Motion.reduced?20:260);
+    Motion.schedule(`transition-world-remove:${plan.instanceId}`,()=>overlay.remove(),Motion.reduced?20:260);
   },finishAt);
   return true;
 }
@@ -2784,8 +2912,10 @@ function renderTransitionOffer(state) {
 }
 
 function clearPendingTransition() {
-  Motion.cancel('transition-offer');
-  Motion.cancel('transition-auto-accept');
+  const instanceId=getState().pendingTransition?.instanceId;
+  if (instanceId) {
+    ['transition-offer','transition-auto-accept','transition-same-target','transition-world-swap','transition-world-finish','transition-world-remove'].forEach((key)=>Motion.cancel(`${key}:${instanceId}`));
+  }
   updateState((state)=>{state.pendingTransition=null;});
   document.querySelector('[data-world-handoff]')?.remove();
   refreshView();
@@ -3858,8 +3988,12 @@ const AUDIO_MANIFEST = Object.freeze({
   'phone.unlock': { generator: 'tone', bus: 'device', volume: .16, duration: .14, frequency: 620, endFrequency: 820, type: 'sine' },
   'phone.tap': { generator: 'click', bus: 'ui', volume: .055, duration: .025, frequency: 690 },
   'phone.message': { generator: 'tone', bus: 'device', volume: .2, duration: .22, frequency: 880, endFrequency: 660, type: 'triangle' },
-  'phone.incoming': { generator: 'tone', bus: 'device', volume: .2, duration: .55, frequency: 520, endFrequency: 610, type: 'triangle' },
-  'phone.vibration': { generator: 'noise', bus: 'device', volume: .17, duration: .3, filterType: 'lowpass', filter: 220, q: 1.2 },
+  'phone.message.normal': { generator: 'tone', bus: 'device', volume: .34, duration: .24, frequency: 880, endFrequency: 660, type: 'triangle' },
+  'phone.message.odd': { generator: 'tone', bus: 'device', volume: .32, duration: .3, frequency: 840, endFrequency: 590, type: 'triangle', filter: 1120 },
+  'phone.incoming': { generator: 'tone', bus: 'device', volume: .42, duration: .72, frequency: 520, endFrequency: 610, type: 'triangle' },
+  'phone.vibration': { generator: 'noise', bus: 'device', volume: .36, duration: .42, filterType: 'lowpass', filter: 220, q: 1.2 },
+  'phone.recording': { generator: 'noise', bus: 'device', volume: .32, duration: 3.5, filterType: 'bandpass', filter: 720, q: .8 },
+  'phone.call.silence': { generator: 'noise', bus: 'device', volume: .08, duration: 2.4, filterType: 'lowpass', filter: 180, q: 1.3 },
   'source.03': { generator: 'impact', bus: 'signal', volume: .24, duration: .9, frequency: 92, endFrequency: 52 },
   'source.signature': { generator: 'impact', bus: 'narrative', volume: .18, duration: .16, frequency: 118, endFrequency: 68 },
   'chair.release': { generator: 'noise', bus: 'device', volume: .16, duration: .34, filterType: 'bandpass', filter: 360, q: .7 },
@@ -3874,6 +4008,8 @@ const AUDIO_MANIFEST = Object.freeze({
   'phone.app.calls': { generator: 'tone', bus: 'ui', volume: .04, duration: .08, frequency: 440, endFrequency: 490, type: 'sine' },
   'phone.app.calendar': { generator: 'click', bus: 'ui', volume: .035, duration: .028, frequency: 820 },
   'phone.app.camera': { generator: 'noise', bus: 'ui', volume: .026, duration: .08, filterType: 'bandpass', filter: 1680, q: 2.1 },
+  'phone.app.notes': { generator: 'click', bus: 'ui', volume: .06, duration: .035, frequency: 730 },
+  'phone.app.contacts': { generator: 'tone', bus: 'ui', volume: .055, duration: .07, frequency: 500, endFrequency: 540, type: 'sine' },
   'room.zero.contact': { generator: 'impact', bus: 'ambience', volume: .024, duration: .11, frequency: 76, endFrequency: 58, panVariation: .55 },
   'final.swell': { generator: 'tone', bus: 'narrative', volume: .08, duration: 2.2, frequency: 55, endFrequency: 110, type: 'sine', filter: 360 },
   'final.contact': { generator: 'relay', bus: 'narrative', volume: .065, duration: .18, frequency: 164 },
@@ -3998,9 +4134,16 @@ function currentRoute() {
 function navigate(id, { replace = false } = {}) {
   if (getState().unlocked.includes(id)) discoverPuzzle(id,'navigation');
   const hash = `#/record/${id}`;
-  if (replace) history.replaceState(null, '', hash);
-  else location.hash = hash;
-  if (location.hash === hash) route();
+  if (replace) {
+    history.replaceState(null, '', hash);
+    route();
+    return;
+  }
+  if (location.hash === hash) {
+    route();
+    return;
+  }
+  location.hash = hash;
 }
 
 function route() {
@@ -4188,18 +4331,19 @@ const { syncIdentityRelations, syncRoomState } = __require("js/dom-sync.js");
 const { handleComputerClick, handleComputerKeydown, returnComputerToTask } = __require("js/events/computer.js");
 const { handleReconstructionClick } = __require("js/events/reconstruction.js");
 const { handleDesktopBackgroundClick, handleDesktopChange, handleDesktopClick, handleDesktopContextMenu, handleDesktopDoubleClick, handleDesktopKeydown, handleDesktopPointerDown, handleDesktopPointerMove, handleDesktopPointerUp, handleDesktopSubmit } = __require("js/events/desktop-os.js");
-const { handlePhoneClick } = __require("js/events/phone.js");
+const { handlePhoneClick, lowerPhoneFromKeyboard } = __require("js/events/phone.js");
 const { handleReceiverClick } = __require("js/events/receiver.js");
 const { handleClockClick } = __require("js/events/clock.js");
 const { handleBookscanClick } = __require("js/events/bookscan.js");
 const { handleNavigationClick } = __require("js/events/navigation.js");
 const { handlePuzzleClick } = __require("js/events/puzzle-actions.js");
 const { emitWorldEvent } = __require("js/worlds/world-events.js");
-const { beginSimulatedReboot } = __require("js/computer-runtime.js");
+const { beginSimulatedReboot, documentFrequency } = __require("js/computer-runtime.js");
 const { signalBehavior } = __require("js/behavior-director.js");
 const { offerPhaseTransition } = __require("js/transition-director.js");
 const { evaluatePaperBoard, ensurePaperBoard } = __require("js/paper-engine.js");
 const { handlePaperClick, handlePaperPointerDown, handlePaperPointerMove, handlePaperPointerUp } = __require("js/events/paper.js");
+const { setPhoneSilence } = __require("js/phone/runtime.js");
 let refresh = () => {};
 let go = () => {};
 let current = () => '01';
@@ -4212,7 +4356,8 @@ function feedback(message, kind = '') {
 
 function progress(id, next, message = 'REGISTRO ACEITO', { delay = null } = {}) {
   if (getState().completed.includes(id)) return;
-  const narrativeMilestones = new Set(['05', '09', '12', '19']);
+  const phoneQuiet=['21','24','25'].includes(id)?8000:2400;
+  setPhoneSilence(Motion.reduced?300:phoneQuiet,`phase:${id}:reveal`);
   const loadingLabels = {
     '11': 'COMPARANDO ENTIDADES',
     '12': 'RESOLVENDO CONFLITO',
@@ -4220,13 +4365,12 @@ function progress(id, next, message = 'REGISTRO ACEITO', { delay = null } = {}) 
     '20': 'VALIDANDO MODELO DO QUARTO',
     '24': 'FUNDINDO RELAÇÕES'
   };
-  completePuzzle(id, next);
+  completePuzzle(id, next, message);
   signalBehavior('progress',{id});
   addEvent('puzzle-complete', id);
-  uiFeedback.success(message, { impact: narrativeMilestones.has(id) ? 'dramatic' : false });
   Motion.play('narrative-loading', { target: document.querySelector('[data-narrative-loader]'), label: loadingLabels[id] || 'INDEXANDO BLOCOS DE MEMÓRIA' });
   go(id);
-  uiFeedback.schedule('title-reveal-clear',()=>updateState((state)=>{if(state.ui.titleReveal?.id===id) state.ui.titleReveal=null;}),Motion.reduced?800:2600);
+  uiFeedback.schedule(`title-reveal-consume:${id}`,()=>updateState((state)=>{if(state.ui.titleReveal?.id===id&&state.ui.titleReveal.status!=='consumed')state.ui.titleReveal={...state.ui.titleReveal,status:'consumed',consumedAt:Date.now()};}),Motion.reduced?800:2600);
   offerPhaseTransition(id,{delay});
 }
 
@@ -4354,13 +4498,13 @@ function handleClick(event) {
   if (handleDesktopClick(action, button, event)) return;
   if (handleComputerClick(action, button)) return;
   if (handleReconstructionClick(action, button)) return;
-  if (handlePhoneClick(action,button,{ current, feedback, correctAnswer, navigate:go })) return;
+  if (handlePhoneClick(action,button,{ current, feedback, correctAnswer, navigate:go, refresh })) return;
   if (handleReceiverClick(action,button,{ current, feedback, progress, toast:(message)=>uiFeedback.toast(message,{kind:'discovery'}) })) return;
   if (handleClockClick(action,{ current, feedback, wrong, progress })) return;
   if (handleBookscanClick(action,button,{ feedback, wrong })) return;
   if (handlePaperClick(action,button)) return refresh();
   if (handlePuzzleClick(action,button,{ feedback, wrong, progress, correctAnswer })) return;
-  if (handleNavigationClick(action,button,{ go, current, last })) return;
+  if (handleNavigationClick(action,button,{ go, current, last, refresh })) return;
   if (action === 'boot-fragment') return initializeSystem(button);
   if (action === 'signal-lock') {
     const state=getState();const exact=state.signalAnalyzer.coarse===170&&state.signalAnalyzer.fine===8;
@@ -4378,9 +4522,18 @@ function handleClick(event) {
     updateState((state)=>{if(action==='vx-page'){const url=button.dataset.url;state.vxNet.history=state.vxNet.history.slice(0,state.vxNet.index+1);state.vxNet.history.push(url);state.vxNet.index=state.vxNet.history.length-1;state.vxNet.url=url;}if(action==='vx-back')state.vxNet.index=Math.max(0,state.vxNet.index-1);if(action==='vx-forward')state.vxNet.index=Math.min(state.vxNet.history.length-1,state.vxNet.index+1);state.vxNet.url=state.vxNet.history[state.vxNet.index];});return refresh();
   }
   if (action === 'moon-recover') {
-    const root=button.closest('[data-moon-forensics]');const contrast=Number(root?.querySelector('[data-moon-control="contrast"]')?.value||0);const channel=root?.querySelector('[data-moon-control="channel"]')?.value;
-    if(contrast<65||channel!=='infra')return feedback('CRUZAMENTO INSUFICIENTE // O RESÍDUO NÃO ESTÁ NO CANAL VISÍVEL','warn');
-    updateState((state)=>{state.computer.files['webcam-cache'].recovered=true;},{progress:true});return refresh();
+    const state=getState();
+    if(current()!=='09')return feedback('MÓDULO FORENSE FORA DO CONTEXTO DA FASE 09','warn');
+    if(state.moonForensics.contrast<65||state.moonForensics.channel!=='infra')return feedback('CRUZAMENTO INSUFICIENTE // O RESÍDUO NÃO ESTÁ NO CANAL VISÍVEL','warn');
+    updateState((draft)=>{draft.computer.files['webcam-cache'].recovered=true;Object.assign(draft.moonForensics,{status:'recovered',result:'VX-04'});},{progress:true});return refresh();
+  }
+  if (action === 'moon-commit') {
+    const state=getState();
+    if(state.completed.includes('09'))return true;
+    const valid=current()==='09'&&state.computer.files['webcam-cache'].recovered===true&&state.moonForensics.channel==='infra'&&state.moonForensics.status==='recovered'&&state.moonForensics.result==='VX-04';
+    if(!valid)return feedback('MARCA AINDA NÃO RECUPERADA PELO CRUZAMENTO FORENSE','warn');
+    updateState((draft)=>{draft.moonForensics.status='committed';},{progress:true});
+    return correctAnswer('09','vx04');
   }
   if (action === 'paper-validate') {
     const boardId=button.dataset.board;const evaluation=evaluatePaperBoard(getState(),boardId);
@@ -4551,6 +4704,37 @@ function handleSubmit(event) {
 
 function handleInput(event) {
   if (handleDesktopChange(event)) return;
+  if (event.target.matches('[data-moon-control]')) {
+    const key=event.target.dataset.moonControl;
+    if(!['contrast','channel'].includes(key))return;
+    const value=key==='contrast'?Math.max(0,Math.min(100,Number(event.target.value)||0)):event.target.value;
+    if(key==='channel'&&!['rgb','blue','infra'].includes(value))return;
+    updateState((state)=>{
+      if(state.moonForensics.status==='committed')return;
+      state.moonForensics[key]=value;
+      const stillRecovered=state.moonForensics.contrast>=65&&state.moonForensics.channel==='infra'&&state.moonForensics.result==='VX-04';
+      if(!stillRecovered){state.moonForensics.status='forensics';state.moonForensics.result=null;state.computer.files['webcam-cache'].recovered=false;}
+      else if(state.moonForensics.status==='searching')state.moonForensics.status='forensics';
+    },{progress:true});
+    const state=getState();
+    const panel=event.target.closest('[data-moon-forensics]');
+    const ready=state.moonForensics.contrast>=65&&state.moonForensics.channel==='infra';
+    const channelLabel=state.moonForensics.channel==='infra'?'RESÍDUO':state.moonForensics.channel.toUpperCase();
+    panel?.classList.toggle('is-ready',ready);
+    if(panel)panel.dataset.moonChannel=state.moonForensics.channel;
+    panel?.style.setProperty('--moon-contrast-filter',`${Math.round(45+(state.moonForensics.contrast*1.15))}%`);
+    panel?.style.setProperty('--moon-brightness-filter',`${Math.round(40+(state.moonForensics.contrast*.42))}%`);
+    panel?.style.setProperty('--moon-blur-filter',`${Math.max(0,3-(state.moonForensics.contrast*.03)).toFixed(2)}px`);
+    const output=panel?.querySelector('[data-moon-contrast-output]');
+    if(output)output.textContent=`${state.moonForensics.contrast}%`;
+    const status=panel?.querySelector('[data-moon-ready]');
+    if(status)status.textContent=ready?'CRUZAMENTO PRONTO':'FONTE AINDA INSTÁVEL';
+    const readout=panel?.querySelector('[data-moon-readout]');
+    if(readout)readout.textContent=`${ready?'CRUZAMENTO PRONTO':'FONTE AINDA INSTÁVEL'} // CONTRASTE ${state.moonForensics.contrast}% // ${channelLabel}`;
+    const recover=panel?.querySelector('[data-action="moon-recover"]');
+    if(recover)recover.textContent=ready?'EXECUTAR CRUZAMENTO':'CRUZAR LOG + CACHE + IMAGEM';
+    return;
+  }
   if (event.target.matches('[data-document-overlay]')) {
     const value=Math.max(0,Math.min(100,Number(event.target.value)||0));
     updateState((state)=>{state.documentRuntime.overlay=value;});
@@ -4561,8 +4745,28 @@ function handleInput(event) {
   }
   if (event.target.matches('[data-signal-control]')) {
     const key=event.target.dataset.signalControl;const value=Number(event.target.value);
-    updateState((state)=>{state.signalAnalyzer[key]=value;state.signalAnalyzer.locked=false;});
+    updateState((state)=>{
+      state.signalAnalyzer[key]=value;
+      state.signalAnalyzer.locked=false;
+      state.documentFragments=[];
+      state.documentRuntime.snapshots=state.documentRuntime.snapshots.map((snapshot)=>snapshot.valid?{...snapshot,valid:false,invalidatedAt:Date.now()}:snapshot);
+    });
     const output=event.target.closest('label')?.querySelector('output');if(output)output.textContent=key==='fine'?`.${value}`:String(value);
+    const state=getState();
+    const distance=Math.abs(documentFrequency(state)-170.8);
+    const strength=Math.max(0,Math.min(1,1-(distance/6)));
+    const puzzle=event.target.closest('.document-puzzle');
+    puzzle?.classList.remove('has-signal-lock');
+    puzzle?.classList.add('is-degraded');
+    puzzle?.style.setProperty('--signal-strength',String(strength));
+    puzzle?.querySelectorAll('.signal-spectrum i').forEach((bar,index)=>{
+      const peak=Math.max(0,1-(Math.abs(index-18)/8));
+      const noise=((index*19)%77)/100;
+      bar.style.setProperty('--amp',`${Math.round(12+(noise*(1-strength)*62)+(peak*strength*82))}%`);
+    });
+    const lockLabel=puzzle?.querySelector('[data-signal-status]');if(lockLabel)lockLabel.textContent='SEM SINCRONIA';
+    const snapshot=puzzle?.querySelector('[data-action="document-snapshot"]');if(snapshot)snapshot.disabled=true;
+    syncDocumentExtraction(state);
     return;
   }
   if (event.target.matches('.answer-input')) uiFeedback.clearFieldState(event.target);
@@ -4652,6 +4856,7 @@ function handleKeydown(event) {
   if (handleDesktopKeydown(event)) return;
   if (handleComputerKeydown(event)) return;
   if (event.key !== 'Escape') return;
+  if (lowerPhoneFromKeyboard({refresh})) return;
   if (getState().ui?.archiveView) {
     document.querySelector('[data-action="close-archive-record"]')?.click();
     return;
@@ -4763,6 +4968,7 @@ const { LOCATION_FRAGMENTS } = __require("data/records.js");
 const { clarityFor } = __require("js/puzzles/clarity.js");
 const { evaluateRoom } = __require("js/room-model.js");
 const { tvPresentation } = __require("js/tv.js");
+const { documentCommitState } = __require("js/computer-runtime.js");
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 function svgElement(name, attributes) {
@@ -4794,9 +5000,16 @@ function syncDocumentExtraction(state) {
   const count = document.querySelector('[data-document-count]');
   if (count) count.textContent = `${selected.length} / ${order.length}`;
   const commit = document.querySelector('[data-action="commit-document"]');
-  if (commit) commit.disabled = selected.length !== order.length || !(state.documentRuntime?.snapshots?.length);
+  const guard=documentCommitState(state);
+  if (commit) commit.disabled = !guard.canCommit;
+  const snapshot = document.querySelector('[data-action="document-snapshot"]');
+  if (snapshot) snapshot.disabled = !guard.locked || !guard.hasA || !guard.hasB || !guard.notFrozen || guard.validSnapshot;
+  const snapshotStatus = document.querySelector('[data-document-snapshot-status]');
+  if (snapshotStatus) snapshotStatus.textContent = guard.validSnapshot ? 'SNAPSHOT VÁLIDO PARA 170.8' : 'NENHUM SNAPSHOT VÁLIDO';
   const status = document.querySelector('[data-document-status]');
-  if (status) status.textContent = selected.length === order.length
+  if (status) status.textContent = !guard.validSnapshot
+    ? 'CAPTURE UM SNAPSHOT VÁLIDO EM 170.8 ANTES DE FIXAR REGIÕES'
+    : selected.length === order.length
     ? 'INSTRUÇÃO RECONSTRUÍDA // PRONTA PARA EXTRAÇÃO'
     : selected.length
       ? `${selected.length} TRECHO${selected.length > 1 ? 'S' : ''} PRESERVADO${selected.length > 1 ? 'S' : ''} // CONTINUE COMPARANDO`
@@ -5268,7 +5481,9 @@ function handleDesktopClick(action, button) {
     setSelected(id);
     document.querySelector('[data-os-context-menu]')?.setAttribute('hidden','');
     play('ui.contact', { volume: .04 });
-    if (matchMedia('(max-width: 760px), (pointer: coarse)').matches) openResource(id,button.closest('[data-resource="quarantine"]')?'quarantine':'resource');
+    const resource=desktopResource(id,getState());
+    const currentPhaseApp=resource?.type==='program'&&resource.target===getState().currentPuzzle;
+    if (currentPhaseApp || matchMedia('(max-width: 760px), (pointer: coarse)').matches) openResource(id,button.closest('[data-resource="quarantine"]')?'quarantine':'resource');
     return true;
   }
   if (action === 'os-open-resource') return openResource(button.dataset.resource);
@@ -5522,472 +5737,452 @@ exports.handleDesktopSubmit = handleDesktopSubmit;
 exports.handleDesktopChange = handleDesktopChange;
 },
 "js/behavior-director.js": function(module, exports, __require) {
-const { PUZZLE_BY_ID } = __require("js/puzzles/index.js");
-const { getState, updateState } = __require("js/state.js");
-const { scheduleWorldAction } = __require("js/worlds/world-events.js");
-const FOLDERS = new Set(['my-computer','system','registry','documents','backup','temp','cam-cache','quarantine']);
-const COOLDOWN = 75_000;
-
-const E = (definition) => Object.freeze(definition);
-const REACTIVE_EVENTS = Object.freeze([
-  E({ id:'same-file-four', acts:[1,2,3,4], priority:9, weight:4, strength:1, max:1,
-    eligible:(s)=>s.director.metrics.repeatedFileOpens>=4 || Object.values(s.computer.files).some((file)=>file.openCount>=4),
-    effect:{type:'message',payload:{id:'reactive:same-file-four',text:'não mudou na quinta vez.',notification:'você abriu o mesmo arquivo outra vez'}},
-    followup:[{delay:11000,type:'note',payload:{id:'reactive:same-file-note',text:'ela ainda espera a sexta leitura.',notification:'nota editada agora'}}] }),
-  E({ id:'wrong-folders', acts:[1,2,3,4], priority:8, weight:5, strength:1, max:2,
-    eligible:(s)=>s.director.metrics.wrongFolderStreak>=6,
-    effect:{type:'message',payload:{id:'reactive:wrong-folders',text:'você fechou antes da última linha.',notification:'a pasta já tinha sido aberta'}} }),
-  E({ id:'empty-searches', acts:[1,2,3,4], priority:7, weight:3, strength:1, max:1,
-    eligible:(s)=>s.director.metrics.emptySearches>=3,
-    effect:{type:'note',payload:{id:'reactive:search-note',text:'o resultado vazio também foi indexado.',notification:'nota criada sem interação'}} }),
-  E({ id:'wrong-answer-chain', acts:[2,3,4,5], priority:10, weight:5, strength:1, max:2,
-    eligible:(s)=>s.director.metrics.consecutiveWrong>=3,
-    effect:{type:'message',payload:{id:'reactive:wrong-answer',text:'você está olhando para o que mudou.',notification:'NÚMERO NÃO SALVO'}} }),
-  E({ id:'wrong-answer-invariant', acts:[2], phases:['06'], priority:11, weight:8, strength:1, max:1,
-    eligible:(s)=>s.director.metrics.consecutiveWrong>=5,
-    effect:{type:'message',payload:{id:'reactive:invariant',text:'procura o que ficou parado.',notification:'NÚMERO NÃO SALVO'}} }),
-  E({ id:'receiver-obsession', acts:[1,3,4], priority:8, weight:4, strength:2, max:1,
-    eligible:(s)=>s.director.metrics.receiverInteractions>=30,
-    effect:{type:'call',payload:{id:'reactive:receiver-call',from:'SOURCE.03',duration:'00:03',status:'PERDIDA',signal:'source.03'}},
-    followup:[{delay:14500,type:'artifact',payload:{id:'reactive:receiver-audio',kind:'REC',name:'canal_atual_03.m4a',meta:'00:03 · criado depois da sintonia',notification:'o Receiver deixou um arquivo'}}] }),
-  E({ id:'quarantine-watched', acts:[1,2,3,4], priority:8, weight:4, strength:1, max:1,
-    eligible:(s)=>s.director.metrics.quarantineActions>=2,
-    effect:{type:'message',payload:{id:'reactive:quarantine',text:'isolar não é apagar.',notification:'atividade na quarentena'}},
-    followup:[{delay:12500,type:'artifact',payload:{id:'reactive:quarantine-copy',kind:'DAT',name:'fora_da_quarentena.tmp',meta:'criado após o isolamento',notification:'uma cópia apareceu no telefone'}}] }),
-  E({ id:'phone-ignored', acts:[1,2,3,4,5], priority:9, weight:5, strength:2, max:2,
-    eligible:(s)=>s.director.metrics.ignoredNotifications>=2,
-    effect:{type:'call',payload:{id:'reactive:ignored-call',from:'NÚMERO NÃO SALVO',duration:'00:10',status:'PERDIDA',signal:'source.03'}},
-    followup:[{delay:9000,type:'note',payload:{id:'reactive:ignored-note',text:'você ouviu.',notification:'nota criada sem interação'}}] }),
-  E({ id:'object-c-leak', acts:[3,4], priority:9, weight:3, strength:2, max:1,
-    eligible:(s)=>s.computer.files['object-c-thumb']?.openCount>=2,
-    effect:{type:'artifact',payload:{id:'reactive:object-c-file',kind:'IMG',name:'OBJETO_C_outra_copia.thumb',meta:'18 KB · criado durante esta sessão',notification:'arquivo repetido detectado'}} }),
-  E({ id:'stalled-session', acts:[2,3,4], priority:6, weight:2, strength:1, max:1,
-    eligible:(s)=>Date.now()-s.lastProgressAt>180_000 && s.stats.returns>=4,
-    effect:{type:'note',payload:{id:'reactive:stalled',text:'não foi aqui que você parou.',notification:'nota alterada'}} }),
-  E({ id:'early-99', acts:[3], priority:4, weight:1, strength:2, max:1,
-    eligible:(s)=>s.completed.length>=13,
-    effect:{type:'phantom',payload:{id:'reactive:99',text:'INTEGRIDADE 99%',duration:1200}} })
-]);
-
-function currentAct(state) { return PUZZLE_BY_ID[state.currentPuzzle]?.act || 1; }
-
-function randomUnit(state) {
-  let value = 0;
-  updateState((draft)=>{
-    draft.director.cursor += 1;
-    let x = (draft.director.seed + Math.imul(draft.director.cursor,0x6D2B79F5)) >>> 0;
-    x = Math.imul(x ^ (x >>> 15),x | 1);
-    x ^= x + Math.imul(x ^ (x >>> 7),x | 61);
-    value = ((x ^ (x >>> 14)) >>> 0) / 4294967296;
-  });
-  return value;
-}
-
-function choose(candidates,state) {
-  const best = Math.max(...candidates.map((event)=>event.priority));
-  const pool = candidates.filter((event)=>event.priority===best);
-  const total = pool.reduce((sum,event)=>sum+event.weight,0);
-  let cursor = randomUnit(state)*total;
-  return pool.find((event)=>(cursor-=event.weight)<=0) || pool.at(-1);
-}
-
-function budgetAllows(state,event,act,bypass) {
-  if (bypass) return true;
-  const spent = state.director.actBudget[act] || 0;
-  if (spent + event.strength > 4) return false;
-  if ((state.director.eventCounts[event.id] || 0) >= event.max) return false;
-  const cooldown = state.director.cooldowns[event.id] || 0;
-  return Date.now() >= cooldown && Date.now() >= (state.director.cooldowns.global || 0);
-}
-
-function evaluateBehaviorDirector({ force = null } = {}) {
-  const state = getState();
-  if (state.flags.finalRecovered) return null;
-  const act = currentAct(state);
-  const candidates = REACTIVE_EVENTS.filter((event)=>
-    (!force || event.id===force) && event.acts.includes(act) && (!event.phases || event.phases.includes(state.currentPuzzle)) &&
-    budgetAllows(state,event,act,Boolean(force)) && (force || event.eligible(state))
-  );
-  if (!candidates.length) return null;
-  const selected = force ? candidates[0] : choose(candidates,state);
-  const occurrence = (state.director.eventCounts[selected.id] || 0) + 1;
-  updateState((draft)=>{
-    draft.director.eventCounts[selected.id]=occurrence;
-    draft.director.actBudget[act]=(draft.director.actBudget[act]||0)+selected.strength;
-    draft.director.cooldowns[selected.id]=Date.now()+COOLDOWN*2;
-    draft.director.cooldowns.global=Date.now()+COOLDOWN;
-    draft.director.delivered=[...draft.director.delivered,{id:selected.id,at:Date.now(),act,phase:draft.currentPuzzle}].slice(-40);
-    if (selected.id==='wrong-folders') draft.director.metrics.wrongFolderStreak=0;
-    if (selected.id==='wrong-answer-chain' || selected.id==='wrong-answer-invariant') draft.director.metrics.consecutiveWrong=0;
-    if (selected.id==='phone-ignored') draft.director.metrics.ignoredNotifications=0;
-  });
-  scheduleWorldAction(`director:${selected.id}:${occurrence}`,{domain:'phone',type:selected.effect.type,delay:force?0:900+Math.floor(randomUnit(getState())*1800),payload:{...selected.effect.payload,id:`${selected.effect.payload.id}:${occurrence}`}});
-  (selected.followup||[]).forEach((step,index)=>scheduleWorldAction(`director:${selected.id}:${occurrence}:followup:${index}`,{domain:'phone',type:step.type,delay:force?Math.min(900,step.delay):step.delay,payload:{...step.payload,id:`${step.payload.id}:${occurrence}`}}));
-  document.dispatchEvent(new CustomEvent('director:event',{detail:{id:selected.id,act,phase:state.currentPuzzle}}));
-  return selected.id;
-}
+const { updateState } = __require("js/state.js");
+const FOLDERS=new Set(['documents','pictures','downloads','temporary']);
 
 function signalBehavior(type,payload={}) {
   updateState((state)=>{
-    const metrics=state.director.metrics;
-    metrics.lastActionAt=Date.now();
-    if (type==='wrong-answer') metrics.consecutiveWrong+=1;
-    if (type==='progress') metrics.consecutiveWrong=0;
-    if (type==='receiver') metrics.receiverInteractions+=1;
-    if (type==='quarantine') metrics.quarantineActions+=1;
-    if (type==='empty-search') metrics.emptySearches+=1;
-    if (type==='phone-open') { metrics.lastPhoneOpenAt=Date.now(); metrics.ignoredNotifications=0; }
-    if (type==='notification-ignored') metrics.ignoredNotifications+=1;
-    if (type==='resource') {
-      const id=payload.id || '';
-      if (FOLDERS.has(id)) metrics.wrongFolderStreak+=1;
-      else metrics.wrongFolderStreak=0;
-      const openCount=state.computer.files[id]?.openCount || 0;
-      metrics.repeatedFileOpens=Math.max(metrics.repeatedFileOpens,openCount);
+    const metrics=state.director.metrics;metrics.lastActionAt=Date.now();
+    if(type==='wrong-answer')metrics.consecutiveWrong+=1;
+    if(type==='progress')metrics.consecutiveWrong=0;
+    if(type==='receiver')metrics.receiverInteractions+=1;
+    if(type==='quarantine')metrics.quarantineActions+=1;
+    if(type==='empty-search')metrics.emptySearches+=1;
+    if(type==='resource'){
+      const id=payload.id||'';metrics.wrongFolderStreak=FOLDERS.has(id)?metrics.wrongFolderStreak+1:0;
+      metrics.repeatedFileOpens=Math.max(metrics.repeatedFileOpens,state.computer.files[id]?.openCount||0);
     }
   });
-  queueMicrotask(()=>evaluateBehaviorDirector());
+  document.dispatchEvent(new CustomEvent('behavior:signal',{detail:{type,payload}}));
 }
 
-function tickBehaviorDirector() {
-  const state=getState();
-  const unreadAge=state.phone.notifications.length && !state.phone.open ? Date.now()-(state.phone.lastOpenedAt||state.startedAt||Date.now()) : 0;
-  if (state.phone.unread && unreadAge>60_000 && Date.now()-(state.phone.lastIgnoredAt||0)>60_000) {
-    updateState((draft)=>{draft.phone.lastIgnoredAt=Date.now();});
-    signalBehavior('notification-ignored');
-    return;
-  }
-  evaluateBehaviorDirector();
-}
-
-exports.REACTIVE_EVENTS = REACTIVE_EVENTS;
-exports.evaluateBehaviorDirector = evaluateBehaviorDirector;
 exports.signalBehavior = signalBehavior;
-exports.tickBehaviorDirector = tickBehaviorDirector;
 },
 "js/worlds/world-events.js": function(module, exports, __require) {
 const { audioManager } = __require("js/audio.js");
 const { Motion } = __require("js/motion-engine.js");
 const { getState, updateState } = __require("js/state.js");
-const { patchPhoneDelivery, patchPhoneDevices, showPhoneNotification } = __require("js/phone.js");
-const effect = (domain, type, delay, payload = {}) => Object.freeze({ domain, type, delay, payload });
+const { reconcilePhone, scheduleCanonicalPhoneEvent, schedulePhoneOccurrence } = __require("js/phone/runtime.js");
+const effect=(domain,type,delay,payload={})=>Object.freeze({domain,type,delay,payload});
 
-const WORLD_EVENTS = Object.freeze({
-  'computer.event.isolated': [
-    effect('phone','message',2200,{ id:'message:first-file', text:'você abriu justamente esse.', notification:'1 nova mensagem' })
-  ],
-  'tv.channel.04.locked': [
-    effect('phone','call',1800,{ id:'call:three-tones', from:'NÚMERO NÃO SALVO', duration:'00:07', status:'PERDIDA', signal:'source.03' }),
-    effect('computer','trace',0,{ id:'trace:receiver-04' })
-  ],
-  'computer.event.rewritten': [
-    effect('phone','message',2600,{ id:'message:not-first', text:'você demorou pra perceber que mudou.', notification:'1 nova mensagem' })
-  ],
-  'phone.curitiba.attached': [
-    effect('tv','carrier',900,{ id:'carrier:curitiba-metadata', channel:11 }),
-    effect('computer','trace',1700,{ id:'trace:object-c-identified' })
-  ],
-  'tv.afterimage.recovered': [
-    effect('computer','trace',1200,{ id:'trace:afterimage-f01c' })
-  ],
-  'computer.clock.0317': [
-    effect('phone','message',1400,{ id:'message:first-time', text:'você já viu esse horário.', notification:'1 nova mensagem' }),
-    effect('phone','clock',3400,{ id:'clock:0317', hour:3, minute:17 })
-  ],
-  'room.node.validated': [
-    effect('computer','trace',500,{ id:'trace:room-node' }),
-    effect('phone','message',1900,{ id:'message:local-not-yours', text:'local não significa seu.', notification:'NÚMERO NÃO SALVO' })
-  ],
-  'reconstruction.identity.linked': [
-    effect('tv','carrier',700,{ id:'carrier:memory-return', channel:11 })
-  ],
-  'computer.integrity.ruptured': [
-    effect('tv','carrier',600,{ id:'carrier:shell-loss', channel:11 }),
-    effect('phone','message',2100,{ id:'message:shell-lost', text:'a estação ainda está respondendo.', notification:'atividade do sistema' })
-  ],
-  'computer.reboot.completed': [
-    effect('computer','trace',400,{ id:'trace:boot-02' }),
-    effect('phone','message',2600,{ id:'message:boot-02', text:'você chamou isso de reiniciar.', notification:'BOOT 02' })
-  ]
+const WORLD_EVENTS=Object.freeze({
+  'computer.event.isolated':[effect('phone','canonical',2200)],
+  'tv.channel.04.locked':[effect('phone','canonical',1800),effect('computer','trace',0,{id:'trace:receiver-04'})],
+  'computer.event.rewritten':[effect('phone','canonical',2600)],
+  'phone.curitiba.attached':[effect('tv','carrier',900,{id:'carrier:curitiba-metadata',channel:11}),effect('computer','trace',1700,{id:'trace:object-c-identified'})],
+  'tv.afterimage.recovered':[effect('computer','trace',1200,{id:'trace:afterimage-f01c'})],
+  'computer.clock.0317':[effect('phone','canonical',1400)],
+  'room.node.validated':[effect('computer','trace',500,{id:'trace:room-node'}),effect('phone','canonical',1900)],
+  'reconstruction.identity.linked':[effect('tv','carrier',700,{id:'carrier:memory-return',channel:11})],
+  'computer.integrity.ruptured':[effect('tv','carrier',600,{id:'carrier:shell-loss',channel:11}),effect('phone','canonical',2100)],
+  'computer.reboot.completed':[effect('computer','trace',400,{id:'trace:boot-02'}),effect('phone','canonical',2600)]
 });
 
-const actionKey = (eventName, action) => `${eventName}:${action.domain}:${action.payload.id || action.type}`;
-
-function deliverPhone(action) {
-  const payload = action.payload;
-  const notification = action.type === 'message'
-    ? { id:payload.id, kind:'message', label:'NÚMERO NÃO SALVO', preview:payload.notification || '1 nova mensagem' }
-    : action.type === 'call'
-      ? { id:payload.id, kind:'call', label:payload.from, preview:`chamada ${payload.status.toLowerCase()} · ${payload.duration}` }
-      : action.type === 'note'
-        ? { id:payload.id, kind:'notes', label:'NOTAS', preview:payload.notification || 'nota alterada' }
-        : action.type === 'artifact' || action.type === 'gallery'
-          ? { id:payload.id, kind:action.type === 'gallery' ? 'gallery' : 'files', label:action.type === 'gallery' ? 'GALERIA' : 'ARQUIVOS', preview:payload.notification || 'novo item local' }
-      : null;
-  if (notification) Object.assign(notification,{status:'arrived',arrivedAt:Date.now(),openedAt:null});
-  if (action.type === 'call') {
-    audioManager.duck(['ambience'],{depth:.3,attack:.03,hold:.5,release:.7});
-    audioManager.playEvent('phone.incoming',{volume:.22});
-    audioManager.playEvent('phone.vibration',{when:.06,volume:.19,duration:.58});
-  } else if (action.type === 'message') {
-    audioManager.playEvent('phone.vibration',{volume:.17});
-    audioManager.playEvent('phone.message',{when:.18,volume:.18});
-  } else if (action.type === 'clock') {
-    audioManager.playEvent('source.03',{volume:.045,duration:.22});
-  }
-  if (notification) showPhoneNotification(notification);
-  updateState((state) => {
-    const eventId=payload.eventId||payload.id;
-    const previous=state.phone.eventLedger[eventId];
-    state.phone.eventLedger[eventId]={...(previous||{}),...payload,eventId,type:action.type,status:'delivered',arrivedAt:previous?.arrivedAt||Date.now()};
-    const upsertNotification=(candidate)=>{
-      if(!candidate)return;
-      state.phone.notifications=[...state.phone.notifications.filter((item)=>item.eventId!==eventId&&item.id!==candidate.id),{...candidate,eventId}].slice(-8);
-    };
-    if (action.type === 'message') {
-      state.phone.delivered = [...new Set([...state.phone.delivered,payload.id])];
-      state.phone.events = [...state.phone.events.filter((item)=>item.id!==payload.id),{...payload,type:'message',at:Date.now()}].slice(-24);
-      upsertNotification(notification);
-    }
-    if (action.type === 'call') {
-      state.phone.delivered = [...new Set([...state.phone.delivered,payload.id])];
-      state.phone.calls = [{ ...payload, at:Date.now() }, ...state.phone.calls.filter((call) => call.id !== payload.id)].slice(0,12);
-      upsertNotification(notification);
-    }
-    if (action.type === 'clock') {
-      state.phone.clock.hour = payload.hour;
-      state.phone.clock.minute = payload.minute;
-      state.phone.clock.synchronized = true;
-    }
-    if (action.type === 'note') {
-      state.phone.notes = [...state.phone.notes.filter((item)=>item.id!==payload.id),{...payload,at:Date.now()}].slice(-12);
-      upsertNotification(notification);
-    }
-    if (action.type === 'artifact') {
-      state.phone.artifacts = [...state.phone.artifacts.filter((item)=>item.id!==payload.id),{...payload,at:Date.now()}].slice(-12);
-      upsertNotification(notification);
-    }
-    if (action.type === 'gallery') {
-      state.phone.gallery = [...state.phone.gallery.filter((item)=>item.id!==payload.id),{...payload,at:Date.now()}].slice(-12);
-      upsertNotification(notification);
-      if (payload.capture) state.capture.delivered = true;
-    }
-    if (action.type === 'battery') state.phone.battery = Math.max(1,Math.min(100,Number(payload.value)||state.phone.battery));
-    if (action.type === 'phantom') state.phone.phantom = {...payload,at:Date.now()};
-    state.phone.unread=state.phone.notifications.filter((item)=>item.status!=='read').length;
-  });
-  const refreshScreen=['clock','note','artifact','gallery','battery','phantom'].includes(action.type) || (['message','call'].includes(action.type) && getState().phone.locked);
-  patchPhoneDevices(getState(), { screen:refreshScreen, status:true, badges:true });
-  if (action.type === 'message' || action.type === 'call') patchPhoneDelivery(getState(),action);
-  if (action.type === 'phantom') Motion.schedule(`phone-phantom:${payload.id}`,()=>{
-    updateState((state)=>{if(state.phone.phantom?.id===payload.id) state.phone.phantom=null;});
-    patchPhoneDevices(getState(),{screen:true,status:false,badges:false});
-  },Math.max(600,payload.duration||1200));
-}
+const actionKey=(eventName,action)=>`${eventName}:${action.domain}:${action.payload.id||action.type}`;
 
 function deliverComputer(action) {
-  updateState((state) => { state.discoveries = [...new Set([...state.discoveries, action.payload.id])]; });
+  updateState((state)=>{state.discoveries=[...new Set([...state.discoveries,action.payload.id])];});
   document.querySelector('[data-retro-desktop]')?.classList.add('has-remote-trace');
-  audioManager.playEvent('system.disk',{volume:.055});
+  audioManager.playEvent('system.disk',{volume:.1});
 }
 
 function deliverTv(action) {
-  updateState((state) => {
-    state.discoveries = [...new Set([...state.discoveries, action.payload.id])];
-    if (action.type==='carrier' && action.payload.channel) {
-      state.tv.channel=action.payload.channel;
-      state.tv.unlocked=true;
-      state.tv.externalMutation=action.payload.id;
-      state.tv.lastTransmission=`CANAL ${String(action.payload.channel).padStart(2,'0')} // ALTERAÇÃO EXTERNA`;
-    }
+  updateState((state)=>{
+    state.discoveries=[...new Set([...state.discoveries,action.payload.id])];
+    if(action.type==='carrier'&&action.payload.channel){state.tv.channel=action.payload.channel;state.tv.unlocked=true;state.tv.externalMutation=action.payload.id;state.tv.lastTransmission=`CANAL ${String(action.payload.channel).padStart(2,'0')} // ALTERAÇÃO EXTERNA`;}
   });
-  audioManager.playEvent('receiver.interference',{volume:.04,duration:.14});
+  audioManager.playEvent('receiver.interference',{volume:.08,duration:.14});
 }
 
-function deliver(eventName, action, key) {
-  if (action.domain === 'phone') deliverPhone(action);
-  if (action.domain === 'computer') deliverComputer(action);
-  if (action.domain === 'tv') deliverTv(action);
-  updateState((state) => {
-    state.worldEvents.scheduled = state.worldEvents.scheduled.filter((id) => id !== key);
-    state.worldEvents.delivered = [...new Set([...state.worldEvents.delivered,key])];
-  });
-  document.dispatchEvent(new CustomEvent('world:delivered',{ detail:{ event:eventName, action } }));
+function completeWorldAction(eventName,action,key) {
+  if(action.domain==='computer')deliverComputer(action);
+  if(action.domain==='tv')deliverTv(action);
+  updateState((state)=>{state.worldEvents.scheduled=state.worldEvents.scheduled.filter((id)=>id!==key);state.worldEvents.delivered=[...new Set([...state.worldEvents.delivered,key])];});
+  document.dispatchEvent(new CustomEvent('world:delivered',{detail:{event:eventName,action}}));
 }
 
-function emitWorldEvent(eventName) {
-  (WORLD_EVENTS[eventName] || []).forEach((action) => {
-    const key = actionKey(eventName,action);
-    const state = getState();
-    if (state.worldEvents.scheduled.includes(key) || state.worldEvents.delivered.includes(key)) return;
-    updateState((draft) => { draft.worldEvents.scheduled = [...draft.worldEvents.scheduled,key]; });
-    document.dispatchEvent(new CustomEvent('world:scheduled',{ detail:{ event:eventName, action } }));
-    Motion.schedule(`world-event:${key}`,() => deliver(eventName,action,key),action.delay);
-  });
-}
-
-function scheduleWorldAction(eventName, action) {
-  const normalized = effect(action.domain || 'phone',action.type,Math.max(0,action.delay || 0),action.payload || {});
-  const key = actionKey(eventName,normalized);
-  const state = getState();
-  if (state.worldEvents.scheduled.includes(key) || state.worldEvents.delivered.includes(key)) return false;
+function scheduleAction(eventName,action,forced=false) {
+  const normalized=effect(action.domain||'phone',action.type,Math.max(0,action.delay||0),action.payload||{});
+  const key=actionKey(eventName,normalized);const state=getState();
+  if(state.worldEvents.scheduled.includes(key)||state.worldEvents.delivered.includes(key))return false;
   updateState((draft)=>{draft.worldEvents.scheduled=[...draft.worldEvents.scheduled,key];});
   document.dispatchEvent(new CustomEvent('world:scheduled',{detail:{event:eventName,action:normalized}}));
-  Motion.schedule(`world-event:${key}`,()=>deliver(eventName,normalized,key),normalized.delay);
+  if(normalized.domain==='phone'){
+    const scheduled=normalized.type==='canonical'
+      ?scheduleCanonicalPhoneEvent(eventName,{delay:normalized.delay,worldKey:key})
+      :Boolean(schedulePhoneOccurrence(`CANON_${eventName.toUpperCase().replaceAll(/[^A-Z0-9]+/g,'_')}`,{kind:normalized.type,...normalized.payload,notify:normalized.payload.notification!==false},{delay:normalized.delay,source:eventName,forced,worldKey:key}));
+    if(!scheduled)completeWorldAction(eventName,normalized,key);
+  } else Motion.schedule(`world-event:${key}`,()=>completeWorldAction(eventName,normalized,key),normalized.delay);
   return true;
 }
+
+function emitWorldEvent(eventName){(WORLD_EVENTS[eventName]||[]).forEach((action)=>scheduleAction(eventName,action));}
+function scheduleWorldAction(eventName,action){return scheduleAction(eventName,action,Boolean(action.forced));}
+function reconcileWorldEvents(now=Date.now()){return reconcilePhone(now);}
 
 exports.WORLD_EVENTS = WORLD_EVENTS;
 exports.emitWorldEvent = emitWorldEvent;
 exports.scheduleWorldAction = scheduleWorldAction;
+exports.reconcileWorldEvents = reconcileWorldEvents;
+},
+"js/phone/runtime.js": function(module, exports, __require) {
+const { audioManager } = __require("js/audio.js");
+const { getState, updateState } = __require("js/state.js");
+const { PHONE_CANONICAL, PHONE_EVENT_CATALOG, PHONE_SEED_ENTRIES, PHASE12_ENTRIES } = __require("js/phone/catalog.js");
+const ENTRY_LIMIT=180;
+const ACTION_LIMIT=80;
+let refreshView=()=>{};
+let wakeTimer=null;
+let refreshFrame=null;
+let initialized=false;
+
+const cloneEntry = (entry,now) => ({
+  ...entry, payload:{...(entry.payload||{})}, createdAt:entry.createdAt||now,
+  visibleAt:entry.status==='visible'?(entry.visibleAt||now):null, openedAt:null, seenAt:null,
+  expiresAt:entry.payload?.expiresAfter?now+entry.payload.expiresAfter:null,
+  forced:Boolean(entry.forced)
+});
+
+function addEntry(state,entry,now=Date.now()) {
+  if(state.phone.entries[entry.id])return false;
+  state.phone.entries[entry.id]=cloneEntry(entry,now);
+  state.phone.order=[...state.phone.order,entry.id].slice(-ENTRY_LIMIT);
+  return true;
+}
+
+function anomalyLevel(state) {
+  if(state.flags.finalRecovered||state.completed.includes('24'))return 4;
+  if(state.flags.fakeFinalSeen||state.completed.includes('20'))return 3;
+  if(state.flags.curitibaConfirmed||state.completed.includes('12'))return 2;
+  if(state.completed.includes('04')||state.flags.moonFirstFound)return 1;
+  return 0;
+}
+
+function nextRandom(state) {
+  state.phone.scheduler.cursor+=1;
+  let x=(state.phone.scheduler.seed+Math.imul(state.phone.scheduler.cursor,0x6D2B79F5))>>>0;
+  x=Math.imul(x^(x>>>15),x|1);x^=x+Math.imul(x^(x>>>7),x|61);
+  return ((x^(x>>>14))>>>0)/4294967296;
+}
+
+function dispatchChange(reason,entry=null) {
+  document.dispatchEvent(new CustomEvent('phone:changed',{detail:{reason,entry}}));
+}
+
+function requestPhoneRefresh() {
+  if(refreshFrame!==null)return;
+  refreshFrame=requestAnimationFrame(()=>{refreshFrame=null;refreshView();});
+}
+
+function armScheduler() {
+  clearTimeout(wakeTimer);
+  const state=getState();const now=Date.now();const silence=Number(state.phone.scheduler.silenceUntil)||0;
+  const scheduled=state.phone.scheduler.queue.map((id)=>state.phone.entries[id]?.dueAt).filter(Number.isFinite).map((due)=>Math.max(due,silence));
+  const expirations=Object.values(state.phone.entries).filter((entry)=>entry.expiresAt&&!['expired','removed'].includes(entry.status)).map((entry)=>entry.expiresAt);
+  const clockRestore=state.phone.clock.restoreAt?[state.phone.clock.restoreAt]:[];
+  const wakeAt=[...scheduled,...expirations,...clockRestore].filter(Number.isFinite).sort((a,b)=>a-b)[0];
+  if(!wakeAt)return;
+  wakeTimer=setTimeout(()=>reconcilePhone(Date.now()),Math.max(0,wakeAt-now));
+}
+
+function applyOccurrence(state,entry,now) {
+  const payload=entry.payload;
+  if(entry.kind==='battery')state.phone.battery=Math.max(1,Math.min(100,Number(payload.value)||state.phone.battery));
+  if(entry.kind==='clock')Object.assign(state.phone.clock,{offset:Number(payload.offset)||0,restoreAt:now+(Number(payload.duration)||15000)});
+  if(entry.kind==='mutation'){
+    const target=state.phone.entries[payload.target]||Object.values(state.phone.entries).find((item)=>item.definition===payload.targetDefinition);
+    if(target&&payload.operation==='edit-message'){target.payload={...target.payload,text:payload.text};target.editedAt=now;}
+    if(target&&payload.operation==='remove-message')target.status='removed';
+    entry.status='seen';entry.seenAt=now;
+  }
+  state.phone.ui.wakeUntil=now+1200;
+  state.phone.ui.arrivalKind=entry.kind;
+}
+
+function bootstrapPhone(now=Date.now()) {
+  updateState((state)=>{
+    PHONE_SEED_ENTRIES.forEach((entry)=>addEntry(state,entry,now));
+    PHASE12_ENTRIES.forEach((entry)=>addEntry(state,entry,now));
+    state.phone.activity.level=anomalyLevel(state);
+  });
+}
+
+function schedulePhoneOccurrence(definition,payload,{ delay=0, source='director', forced=false, worldKey=null }={}) {
+  const now=Date.now();
+  let id=null;
+  updateState((state)=>{
+    const serial=Object.values(state.phone.entries).filter((entry)=>entry.definition===definition&&entry.source===source).length+1;
+    id=`${source}:${definition}:${serial}`;
+    if(state.phone.entries[id])return;
+    const dueAt=now+Math.max(0,delay);
+    addEntry(state,{id,definition,kind:payload.kind,source,status:'scheduled',payload:{...payload},dueAt,worldKey,forced},now);
+    state.phone.scheduler.queue=[...state.phone.scheduler.queue,id];
+  });
+  armScheduler();
+  return id;
+}
+
+function scheduleCanonicalPhoneEvent(worldEvent,{delay=0,worldKey=null}={}) {
+  const canonical=PHONE_CANONICAL[worldEvent];
+  if(!canonical)return false;
+  const already=Object.values(getState().phone.entries).some((entry)=>entry.definition===canonical.definition&&entry.source===worldEvent);
+  if(already)return false;
+  schedulePhoneOccurrence(canonical.definition,canonical.payload,{delay,source:worldEvent,worldKey});
+  return true;
+}
+
+function reconcilePhone(now=Date.now()) {
+  const arrivals=[];
+  let changed=false;
+  updateState((state)=>{
+    state.phone.activity.level=anomalyLevel(state);
+    const quiet=now<state.phone.scheduler.silenceUntil;
+    state.phone.scheduler.queue=[...new Set(state.phone.scheduler.queue)].filter((id)=>{
+      const entry=state.phone.entries[id];
+      if(!entry||entry.status!=='scheduled')return false;
+      if(entry.dueAt>now||quiet)return true;
+      entry.status='visible';entry.visibleAt=now;
+      if(entry.payload.expiresAfter)entry.expiresAt=now+entry.payload.expiresAfter;
+      applyOccurrence(state,entry,now);arrivals.push({...entry,payload:{...entry.payload}});changed=true;
+      if(entry.worldKey){state.worldEvents.scheduled=state.worldEvents.scheduled.filter((key)=>key!==entry.worldKey);state.worldEvents.delivered=[...new Set([...state.worldEvents.delivered,entry.worldKey])];}
+      return false;
+    });
+    Object.values(state.phone.entries).forEach((entry)=>{
+      if(entry.payload?.notify&&!entry.openedAt&&!entry.ignoredAt&&entry.visibleAt&&now-entry.visibleAt>=60000){entry.ignoredAt=now;state.phone.activity.ignored+=1;changed=true;}
+      if(!entry.expiresAt||entry.expiresAt>now||['expired','removed'].includes(entry.status))return;
+      if(entry.kind==='call'&&entry.payload.callState==='ringing'&&!entry.payload.vanish){entry.payload.callState='missed';entry.status='visible';entry.expiresAt=null;changed=true;return;}
+      entry.status=entry.payload.vanish?'removed':'expired';changed=true;
+    });
+    Object.entries(state.phone.scheduler.locks).forEach(([group,until])=>{if(until<=now)delete state.phone.scheduler.locks[group];});
+    if(state.phone.clock.restoreAt&&state.phone.clock.restoreAt<=now){state.phone.clock.offset=0;state.phone.clock.restoreAt=0;changed=true;}
+    state.phone.scheduler.lastTickAt=now;
+  });
+  arrivals.forEach((entry)=>document.dispatchEvent(new CustomEvent('phone:arrival',{detail:{entry}})));
+  if(changed)dispatchChange('reconcile');
+  armScheduler();
+  return arrivals;
+}
+
+function eligibleDefinitions(state,now) {
+  const level=state.phone.activity.level;
+  if((state.phone.scheduler.cooldowns.global||0)>now)return [];
+  return PHONE_EVENT_CATALOG.filter((event)=>event.level<=level&&event.level>=Math.max(0,level-1))
+    .filter((event)=>(state.phone.scheduler.counts[event.definition]||0)<event.max)
+    .filter((event)=>(state.phone.scheduler.cooldowns[event.definition]||0)<=now)
+    .filter((event)=>!state.phone.scheduler.locks[event.group])
+    .filter((event)=>!event.condition||event.condition(state));
+}
+
+function runPhoneDirector({force=null}={}) {
+  if(getState().flags.finalRecovered&&!force)return null;
+  const now=Date.now();let selected=null;let delay=0;
+  updateState((state)=>{
+    state.phone.activity.level=anomalyLevel(state);
+    if(force){selected=PHONE_EVENT_CATALOG.find((event)=>event.definition===force)||null;delay=0;}
+    else{
+      if(now<state.phone.scheduler.silenceUntil)return;
+      const level=state.phone.activity.level;
+      if((state.phone.scheduler.budget[level]||0)>=2)return;
+      const candidates=eligibleDefinitions(state,now);if(!candidates.length)return;
+      const total=candidates.reduce((sum,event)=>sum+event.weight,0);let cursor=nextRandom(state)*total;
+      selected=candidates.find((event)=>(cursor-=event.weight)<=0)||candidates.at(-1);
+      delay=selected.delay[0]+Math.floor(nextRandom(state)*(selected.delay[1]-selected.delay[0]));
+      state.phone.scheduler.counts[selected.definition]=(state.phone.scheduler.counts[selected.definition]||0)+1;
+      state.phone.scheduler.budget[level]=(state.phone.scheduler.budget[level]||0)+1;
+      state.phone.scheduler.cooldowns[selected.definition]=now+selected.cooldown;
+      state.phone.scheduler.cooldowns.global=now+90000;
+      state.phone.scheduler.locks[selected.group]=now+Math.max(selected.cooldown*.35,45000);
+    }
+    state.phone.scheduler.decisions=[...state.phone.scheduler.decisions,{at:now,definition:selected?.definition||null,forced:Boolean(force),level:state.phone.activity.level,delay}].slice(-24);
+  });
+  if(!selected)return null;
+  const id=schedulePhoneOccurrence(selected.definition,selected.payload,{delay,forced:Boolean(force),source:force?'debug':'director'});
+  return id;
+}
+
+function recordPhoneAction(type,detail={}) {
+  const now=Date.now();
+  updateState((state)=>{
+    const activity=state.phone.activity;
+    activity.actions=[...activity.actions,{type,at:now,...detail}].slice(-ACTION_LIMIT);
+    if(type==='open')activity.session={openedAt:now,entry:detail.entry||'manual'};
+    if(type==='close'&&activity.session){const duration=now-activity.session.openedAt;if(duration<2200)activity.quickCloses+=1;activity.sessions=[...activity.sessions,{...activity.session,closedAt:now,duration}].slice(-20);activity.session=null;}
+    if(type==='app'){activity.apps[detail.app]=(activity.apps[detail.app]||0)+1;}
+    if(type==='item'){const key=`${detail.kind}:${detail.id}`;activity.items[key]=(activity.items[key]||0)+1;}
+    if(type==='notification-ignored')activity.ignored+=1;
+    if(type==='call-rejected')activity.rejected+=1;
+    if(type==='call-returned')activity.returned+=1;
+    if(type==='receiver')activity.receiverUses+=1;
+    if(type==='pc-action'){activity.pcDuration=Math.max(activity.pcDuration,now-activity.pcStartedAt);}
+    activity.level=anomalyLevel(state);
+  });
+}
+
+function openPhoneEntry(id) {
+  updateState((state)=>{const entry=state.phone.entries[id];if(!entry)return;entry.openedAt??=Date.now();if(entry.kind==='phantom'){entry.status='expired';return;}if(entry.kind==='message')entry.seenAt??=Date.now();});
+}
+
+function markPhoneThreadSeen(thread) {
+  updateState((state)=>Object.values(state.phone.entries).forEach((entry)=>{if(entry.kind==='message'&&entry.payload.thread===thread){entry.seenAt??=Date.now();entry.openedAt??=entry.seenAt;}}));
+}
+
+function changePhoneCall(id,nextState) {
+  let changed=false;
+  updateState((state)=>{const entry=state.phone.entries[id];if(!entry||entry.kind!=='call')return;entry.payload.callState=nextState;entry.status=nextState;entry.openedAt??=Date.now();changed=true;});
+  return changed;
+}
+
+function setPhoneSilence(duration,reason='transition') {
+  updateState((state)=>{state.phone.scheduler.silenceUntil=Math.max(state.phone.scheduler.silenceUntil,Date.now()+duration);state.phone.scheduler.decisions=[...state.phone.scheduler.decisions,{at:Date.now(),definition:`silence:${reason}`,forced:false,level:state.phone.activity.level,delay:duration}].slice(-24);});
+  armScheduler();
+}
+
+function presentArrival(entry) {
+  const isCall=entry.kind==='call'&&entry.payload.callState==='ringing';
+  if(isCall){audioManager.duck(['ambience'],{depth:.42,attack:.04,hold:.8,release:.9});audioManager.playEvent('phone.incoming',{volume:.52});audioManager.playEvent('phone.vibration',{when:.04,volume:.46,duration:.8});}
+  else if(entry.payload.notify){audioManager.playEvent('phone.vibration',{volume:.36,duration:.42});audioManager.playEvent(/^(ODD|REACT|IMPOSSIBLE)_/.test(entry.definition)?'phone.message.odd':'phone.message.normal',{when:.12,volume:.38});}
+}
+
+function initPhoneSystem({refresh}={}) {
+  refreshView=refresh||refreshView;
+  const requestedSeed=Number(new URLSearchParams(location.search).get('phoneSeed'));
+  if(Number.isSafeInteger(requestedSeed)&&requestedSeed>=0)updateState((state)=>{state.phone.scheduler.seed=requestedSeed>>>0;state.phone.scheduler.cursor=0;});
+  bootstrapPhone();reconcilePhone();
+  if(initialized)return;initialized=true;
+  document.addEventListener('phone:arrival',(event)=>presentArrival(event.detail.entry));
+  document.addEventListener('phone:changed',requestPhoneRefresh);
+  document.addEventListener('behavior:signal',(event)=>{
+    const {type,payload={}}=event.detail||{};
+    if(type==='receiver')recordPhoneAction('receiver',payload);
+    if(type==='resource'||type==='empty-search'||type==='quarantine')recordPhoneAction('pc-action',payload);
+  });
+}
+
+exports.bootstrapPhone = bootstrapPhone;
+exports.schedulePhoneOccurrence = schedulePhoneOccurrence;
+exports.scheduleCanonicalPhoneEvent = scheduleCanonicalPhoneEvent;
+exports.reconcilePhone = reconcilePhone;
+exports.runPhoneDirector = runPhoneDirector;
+exports.recordPhoneAction = recordPhoneAction;
+exports.openPhoneEntry = openPhoneEntry;
+exports.markPhoneThreadSeen = markPhoneThreadSeen;
+exports.changePhoneCall = changePhoneCall;
+exports.setPhoneSilence = setPhoneSilence;
+exports.initPhoneSystem = initPhoneSystem;
 },
 "js/events/phone.js": function(module, exports, __require) {
 const { audioManager } = __require("js/audio.js");
-const { patchPhoneDevices } = __require("js/phone.js");
-const { signalBehavior } = __require("js/behavior-director.js");
 const { discoverPuzzle, getState, updateState } = __require("js/state.js");
 const { emitWorldEvent } = __require("js/worlds/world-events.js");
 const { Motion } = __require("js/motion-engine.js");
-const PHONE_ACTIONS = new Set([
-  'phone-toggle','phone-unlock','phone-home','phone-app','phone-thread','phone-confirm-memory',
-  'phone-audio','phone-call-audio','phone-gallery-open','phone-gallery-close','phone-share-evidence','phone-open-notification'
-  ,'phone-trace-memory'
+const { changePhoneCall, markPhoneThreadSeen, openPhoneEntry, reconcilePhone, recordPhoneAction } = __require("js/phone/runtime.js");
+const ACTIONS=new Set([
+  'phone-toggle','phone-unlock','phone-home','phone-back','phone-overview','phone-app','phone-thread',
+  'phone-back-messages','phone-back-thread','phone-open-notification','phone-attachment','phone-related-file',
+  'phone-file-item','phone-back-files','phone-open-archive','phone-gallery-item','phone-back-gallery','phone-back-camera',
+  'phone-save-metadata','phone-call-answer','phone-call-reject','phone-call-return','phone-play-audio'
 ]);
 
-function patch(options = { screen:true, status:true, badges:true }) {
-  patchPhoneDevices(getState(),options);
+const setRoute=(app,view='root',id=null)=>updateState((state)=>{state.phone.locked=false;state.phone.route={app,view,id};});
+const hasPhase12=()=>{const state=getState();return state.unlocked.includes('12')||state.completed.includes('12');};
+
+function destinationFor(entry) {
+  if(!entry)return {app:'home',view:'root',id:null};
+  if(entry.kind==='call')return {app:'calls',view:'root',id:null};
+  if(entry.kind==='gallery')return {app:entry.payload.archive?'camera':'gallery',view:'detail',id:entry.id};
+  if(entry.kind==='file')return {app:'files',view:'detail',id:entry.id};
+  if(entry.kind==='contact')return {app:'contacts',view:'root',id:null};
+  if(entry.kind==='phantom')return {app:'messages',view:'root',id:null};
+  return {app:'messages',view:'thread',id:entry.payload.thread||'unknown'};
 }
 
-function handlePhoneClick(action, button, context) {
-  if (!PHONE_ACTIONS.has(action)) return false;
-  if (action === 'phone-toggle') {
-    const wasOpen=getState().phone.open;
-    const open=!wasOpen;
-    updateState((state)=>{ state.phone.open=open; state.phone.interactionState=open?'lifting':'lowering'; if(open) state.phone.lastOpenedAt=Date.now(); });
-    const dock = button.closest('[data-phone-dock]');
-    const device=dock?.querySelector('.phone-dock__device');
-    if (open) {
-      device?.removeAttribute('hidden');
-      dock?.classList.remove('is-lowering');
-      dock?.classList.add('is-open','is-lifting');
-      requestAnimationFrame(()=>dock?.classList.add('is-picked-up'));
-      Motion.schedule('phone-pickup-finish',()=>{dock?.classList.remove('is-lifting');updateState((state)=>{state.phone.interactionState='held';});},Motion.reduced?0:620);
-    } else {
-      dock?.classList.remove('is-picked-up');
-      dock?.classList.add('is-lowering');
-      Motion.schedule('phone-lowering-finish',()=>{dock?.classList.remove('is-open','is-lowering');device?.setAttribute('hidden','');updateState((state)=>{state.phone.interactionState='resting';});},Motion.reduced?0:520);
-    }
-    button.setAttribute('aria-expanded',String(open));
-    audioManager.playEvent(open?'phone.pickup':'phone.lock',{volume:open ? .18 : .15});
-    if (open) signalBehavior('phone-open');
-    return true;
+function openPhone(entryReason='manual') {
+  updateState((state)=>{state.phone.open=true;});
+  recordPhoneAction('open',{entry:entryReason});reconcilePhone();
+  audioManager.playEvent('phone.pickup',{volume:.34});
+}
+
+function closePhone() {
+  updateState((state)=>{state.phone.open=false;state.phone.locked=true;});
+  recordPhoneAction('close');audioManager.playEvent('phone.lock',{volume:.26});
+}
+
+function handlePhoneClick(action,button,context) {
+  if(!ACTIONS.has(action))return false;
+  if(action==='phone-toggle'){
+    if(getState().phone.open)closePhone();else openPhone();
+    context.refresh?.();return true;
   }
-  if (action === 'phone-open-notification') {
-    updateState((state)=>{
-      state.phone.open=true;
-      state.phone.locked=false;
-      const destination={call:'calls',gallery:'gallery',files:'files',notes:'notes'}[button.dataset.kind] || 'messages';
-      state.phone.app=destination;
-      state.phone.thread=destination==='messages'?'unknown':null;
-      const notificationId=button.dataset.notification;
-      state.phone.notifications=state.phone.notifications.map((item)=>item.id===notificationId?{...item,status:'read',openedAt:Date.now()}:item);
-      const opened=state.phone.notifications.find((item)=>item.id===notificationId);if(opened?.eventId&&state.phone.eventLedger[opened.eventId])state.phone.eventLedger[opened.eventId]={...state.phone.eventLedger[opened.eventId],status:'read',openedAt:opened.openedAt};
-      state.phone.unread=state.phone.notifications.filter((item)=>item.status!=='read').length;
-      state.phone.lastOpenedAt=Date.now();
-      state.phone.interactionState='lifting';
-    });
-    if (getState().phone.open) signalBehavior('phone-open');
-    button.dataset.action='phone-toggle';
-    button.removeAttribute('data-kind');
-    button.removeAttribute('data-notification');
-    patch();
-    document.querySelectorAll('[data-phone-dock]').forEach((dock)=>{
-      dock.classList.add('is-open');
-      dock.classList.remove('has-notification','is-waking','has-preview');
-      dock.classList.add('is-lifting');
-      dock.querySelector('.phone-dock__device')?.removeAttribute('hidden');
-      requestAnimationFrame(()=>dock.classList.add('is-picked-up'));
-      Motion.schedule('phone-notification-pickup-finish',()=>{dock.classList.remove('is-lifting');updateState((state)=>{state.phone.interactionState='held';});},Motion.reduced?0:620);
-    });
-    audioManager.playEvent('phone.unlock',{volume:.07});
-    return true;
+  if(action==='phone-open-notification'){
+    const id=button.dataset.entry;const entry=getState().phone.entries[id];
+    openPhone('notification');openPhoneEntry(id);
+    updateState((state)=>{state.phone.locked=false;state.phone.route=destinationFor(state.phone.entries[id]);});
+    if(entry?.kind==='message')markPhoneThreadSeen(entry.payload.thread||'unknown');
+    recordPhoneAction('item',{kind:'notification',id});audioManager.playEvent('phone.unlock',{volume:.2});context.refresh?.();return true;
   }
-  if (['phone-unlock','phone-home','phone-app','phone-thread'].includes(action)) {
-    updateState((state)=>{
-      if (action==='phone-unlock') { state.phone.locked=false; state.phone.app='home'; }
-      if (action==='phone-home') { state.phone.locked=false; state.phone.app='home'; state.phone.thread=null; state.phone.galleryItem=null; }
-      if (action==='phone-app') { state.phone.app=button.dataset.phoneApp || 'home'; state.phone.thread=null; state.phone.galleryItem=null; }
-      if (action==='phone-thread') { state.phone.app='messages'; state.phone.thread=button.dataset.thread || 'j'; }
-      if ((action==='phone-app' && ['messages','calls'].includes(state.phone.app)) || action==='phone-thread') {
-        const kinds=state.phone.app==='calls'?['call']:['message'];
-        state.phone.notifications=state.phone.notifications.map((item)=>kinds.includes(item.kind)?{...item,status:'read',openedAt:item.openedAt||Date.now()}:item);
-        state.phone.unread=state.phone.notifications.filter((item)=>item.status!=='read').length;
-      }
-    });
-    patch();
-    document.querySelectorAll('[data-phone-dock]').forEach((dock)=>dock.classList.remove('has-notification','is-waking','has-preview'));
-    const appSound={messages:'phone.app.messages',gallery:'phone.app.gallery',files:'phone.app.files',recorder:'phone.app.recorder',calls:'phone.app.calls',calendar:'phone.app.calendar',camera:'phone.app.camera'};
-    const sound = action === 'phone-unlock' ? 'phone.unlock' : action === 'phone-app' ? (appSound[button.dataset.phoneApp]||'phone.app.open') : 'phone.tap';
-    audioManager.playEvent(sound,{volume:.05});
-    if (action==='phone-thread' && button.dataset.thread==='j' && getState().unlocked.includes('12') && !getState().discovered.includes('12')) {
-      discoverPuzzle('12','phone-thread');
-      context.navigate?.('12');
-    }
-    return true;
+  if(action==='phone-unlock'){
+    setRoute('home');recordPhoneAction('app',{app:'home'});audioManager.playEvent('phone.unlock',{volume:.2});context.refresh?.();return true;
   }
-  if (action === 'phone-gallery-open') {
-    updateState((state)=>{state.phone.galleryItem=button.dataset.gallery;});
-    patch({screen:true,status:false,badges:false});
-    audioManager.playEvent('phone.tap',{volume:.045});
-    return true;
+  if(action==='phone-home'||action==='phone-overview'){
+    setRoute('home');recordPhoneAction('app',{app:'home'});audioManager.playEvent('phone.tap',{volume:.16});context.refresh?.();return true;
   }
-  if (action === 'phone-gallery-close') {
-    updateState((state)=>{state.phone.galleryItem=null;});
-    patch({screen:true,status:false,badges:false});
-    return true;
+  if(action==='phone-back'){
+    const route=getState().phone.route;
+    if(route.app==='home')closePhone();else if(route.view!=='root')setRoute(route.app);else setRoute('home');
+    context.refresh?.();return true;
   }
-  if (action === 'phone-share-evidence') {
-    updateState((state)=>{state.discoveries=[...new Set([...state.discoveries,`phone-gallery:${button.dataset.gallery}`])];},{progress:true});
-    context.feedback('METADATA ANEXADA À INVESTIGAÇÃO LOCAL','good');
-    audioManager.playEvent('ui.accept',{volume:.07});
-    return true;
+  if(action==='phone-app'){
+    const app=button.dataset.phoneApp||'home';setRoute(app);recordPhoneAction('app',{app});audioManager.playEvent(`phone.app.${app}`,{volume:.16});context.refresh?.();return true;
   }
-  if (action === 'phone-trace-memory') {
-    const step=button.dataset.step;
-    updateState((state)=>{state.phone.memoryTrail=[...new Set([...state.phone.memoryTrail,step])];if(step==='message')state.phone.app='files';if(step==='files')state.phone.app='camera';},{progress:true});
-    patch({screen:true,status:false,badges:false});
-    context.feedback(step==='archive'?'CÓPIA DEGRADADA RECUPERADA':'ORIGEM SEGUINTE LOCALIZADA','good');
-    audioManager.playEvent('system.relay',{volume:.08});
-    return true;
+  if(action==='phone-thread'){
+    const thread=button.dataset.thread||'j';setRoute('messages','thread',thread);markPhoneThreadSeen(thread);recordPhoneAction('item',{kind:'thread',id:thread});
+    if(thread==='j'&&hasPhase12()&&!getState().discovered.includes('12')){discoverPuzzle('12','phone-thread');context.navigate?.('12');}
+    audioManager.playEvent('phone.tap',{volume:.14});context.refresh?.();return true;
   }
-  if (action === 'phone-confirm-memory') {
-    if (context.current() !== '12') {
-      context.feedback('EVIDÊNCIA DETECTADA // CONTEXTO FORENSE AINDA INCOMPLETO','warn');
-      return true;
-    }
-    updateState((state)=>{state.phone.events=[...new Set([...state.phone.events,'memory:2019'])];});
-    emitWorldEvent('phone.curitiba.attached');
-    context.correctAnswer('12','curitiba');
-    return true;
+  if(action==='phone-back-messages'){setRoute('messages');context.refresh?.();return true;}
+  if(action==='phone-back-thread'){setRoute('messages','thread','j');context.refresh?.();return true;}
+  if(action==='phone-attachment'){
+    const id=button.dataset.entry;setRoute('messages','attachment',id);recordPhoneAction('item',{kind:'attachment',id});audioManager.playEvent('phone.app.files',{volume:.18});context.refresh?.();return true;
   }
-  if (action === 'phone-audio' || action === 'phone-call-audio') {
-    if (getState().phone.foregroundPlayback) return true;
-    updateState((state)=>{state.phone.foregroundPlayback={id:button.dataset.signal||'source.03',startedAt:Date.now(),duration:7000};});
-    audioManager.playUnknownSource({ duration:7 });
-    button.textContent='REPRODUZINDO';
-    button.disabled=true;
-    button.closest('.phone-app')?.classList.add('is-playing');
-    button.closest('.phone-app')?.querySelector('[data-phone-call-caption]')?.replaceChildren(document.createTextNode('estática · três impactos · silêncio'));
-    Motion.schedule('phone-foreground-finish',()=>{
-      updateState((state)=>{state.phone.foregroundPlayback=null;});
-      if (button.isConnected) {button.disabled=false;button.textContent=action==='phone-call-audio'?'OUVIR':'REPRODUZIR';button.closest('.phone-app')?.classList.remove('is-playing');}
-    },7000);
-    return true;
+  if(action==='phone-related-file'||action==='phone-file-item'){
+    const id=button.dataset.entry;setRoute('files','detail',id);recordPhoneAction('item',{kind:'file',id});audioManager.playEvent('phone.app.files',{volume:.18});context.refresh?.();return true;
+  }
+  if(action==='phone-back-files'){setRoute('files');context.refresh?.();return true;}
+  if(action==='phone-open-archive'){setRoute('camera');recordPhoneAction('app',{app:'camera'});audioManager.playEvent('phone.app.camera',{volume:.2});context.refresh?.();return true;}
+  if(action==='phone-gallery-item'){
+    const id=button.dataset.entry;const archive=getState().phone.entries[id]?.payload.archive;setRoute(archive?'camera':'gallery','detail',id);recordPhoneAction('item',{kind:'gallery',id});audioManager.playEvent('phone.tap',{volume:.14});context.refresh?.();return true;
+  }
+  if(action==='phone-back-gallery'){setRoute('gallery');context.refresh?.();return true;}
+  if(action==='phone-back-camera'){setRoute('camera');context.refresh?.();return true;}
+  if(action==='phone-save-metadata'){
+    if(context.current()!=='12'){context.feedback('Os detalhes foram preservados no aparelho.','good');return true;}
+    updateState((state)=>{state.discoveries=[...new Set([...state.discoveries,'phone:metadata:curitiba'])];},{progress:true});
+    emitWorldEvent('phone.curitiba.attached');audioManager.playEvent('ui.accept',{volume:.24});context.correctAnswer('12','curitiba');return true;
+  }
+  if(action==='phone-call-answer'||action==='phone-call-reject'||action==='phone-call-return'){
+    const id=button.dataset.entry;const next=action==='phone-call-answer'?'answered':action==='phone-call-reject'?'rejected':'returned';
+    if(!changePhoneCall(id,next))return true;
+    recordPhoneAction(action==='phone-call-reject'?'call-rejected':action==='phone-call-return'?'call-returned':'call-answered',{id});
+    if(next==='answered'){audioManager.duck(['ambience'],{depth:.28,attack:.05,hold:2.2,release:1});audioManager.playEvent('phone.pickup',{volume:.3});if(getState().phone.entries[id]?.payload.signal==='silence')audioManager.playEvent('phone.call.silence',{when:.25,volume:.3,duration:2.4});}
+    else audioManager.playEvent('phone.lock',{volume:.24});context.refresh?.();return true;
+  }
+  if(action==='phone-play-audio'){
+    if(getState().phone.ui.playback)return true;
+    updateState((state)=>{state.phone.ui.playback={signal:button.dataset.signal||'normal',until:Date.now()+4000};});
+    audioManager.duck(['ambience'],{depth:.22,attack:.06,hold:3.2,release:.8});
+    if(button.dataset.signal==='normal')audioManager.playEvent('phone.recording',{volume:.45,duration:3.5});else audioManager.playUnknownSource({duration:4,volume:.7});
+    Motion.schedule('phone-playback-end',()=>{updateState((state)=>{state.phone.ui.playback=null;});context.refresh?.();},4000);context.refresh?.();return true;
   }
   return true;
 }
 
+function lowerPhoneFromKeyboard(context) {
+  if(!getState().phone.open)return false;
+  closePhone();context.refresh?.();return true;
+}
+
 exports.handlePhoneClick = handlePhoneClick;
+exports.lowerPhoneFromKeyboard = lowerPhoneFromKeyboard;
 },
 "js/events/receiver.js": function(module, exports, __require) {
 const { audioManager } = __require("js/audio.js");
@@ -6167,10 +6362,10 @@ const { syncHintPanel, syncMuteControls } = __require("js/dom-sync.js");
 const { useHint } = __require("js/hints.js");
 const { getState, resetState, unlockThrough } = __require("js/state.js");
 const { uiFeedback } = __require("js/ui-feedback.js");
-const { evaluateBehaviorDirector } = __require("js/behavior-director.js");
 const { releaseLocalCapture } = __require("js/local-capture.js");
 const { acceptPendingTransition, clearPendingTransition } = __require("js/transition-director.js");
-const ACTIONS = new Set(['navigate','accept-transition','hint','toggle-mute','play-final-music','dev-next','dev-event','dev-clear-transition','dev-reset']);
+const { bootstrapPhone, runPhoneDirector } = __require("js/phone/runtime.js");
+const ACTIONS = new Set(['navigate','accept-transition','hint','toggle-mute','play-final-music','dev-next','dev-force-phone','dev-clear-transition','dev-reset']);
 
 function handleNavigationClick(action,button,context) {
   if (!ACTIONS.has(action)) return false;
@@ -6200,15 +6395,18 @@ function handleNavigationClick(action,button,context) {
     context.go(next);
     return true;
   }
-  if (action === 'dev-event') {
-    const delivered=evaluateBehaviorDirector({force:button.dataset.event});
-    uiFeedback.toast(delivered?`EVENTO SIMULADO // ${delivered}`:'EVENTO INELEGÍVEL',{kind:delivered?'discovery':'error'});
+  if(action==='dev-force-phone'){
+    const id=button.closest('.dev-phone-console')?.querySelector('[data-dev-phone-event]')?.value;
+    const delivered=runPhoneDirector({force:id});
+    uiFeedback.toast(delivered?`EVENTO FORÇADO // ${delivered}`:'EVENTO NÃO ENCONTRADO',{kind:delivered?'discovery':'error'});
+    context.refresh?.();
     return true;
   }
   if (action === 'dev-clear-transition') { clearPendingTransition(); return true; }
   if (action === 'dev-reset' && confirm('Reiniciar esta sessão em memória?')) {
     releaseLocalCapture();
     resetState();
+    bootstrapPhone();
     context.go('01');
   }
   return true;
@@ -6221,12 +6419,14 @@ const { syncDocumentExtraction, syncForensicSelection, syncLocationSelection } =
 const { Motion } = __require("js/motion-engine.js");
 const { getState, updateState } = __require("js/state.js");
 const { uiFeedback } = __require("js/ui-feedback.js");
+const { DOCUMENT_TARGET_FREQUENCY, documentCommitState } = __require("js/computer-runtime.js");
 const ACTIONS = new Set(['document-row','memory-region','document-snapshot','commit-document','open-file','forensic-feature','ack-conflict','location-fragment']);
 
 function handlePuzzleClick(action,button,context) {
   if (!ACTIONS.has(action)) return false;
   if (action === 'document-row' || action === 'memory-region') {
     if (!getState().signalAnalyzer.locked) { context.feedback('SEM SIGNAL LOCK // AS REGIÕES AINDA NÃO SÃO CONFIÁVEIS','warn'); return true; }
+    if (!documentCommitState(getState()).validSnapshot) { context.feedback('CAPTURE UM SNAPSHOT VÁLIDO ANTES DE FIXAR REGIÕES','warn'); return true; }
     const token=button.dataset.token;
     Motion.emit('evidence:contact',{source:'document-comparison',row:button.dataset.row});
     if (!token) {
@@ -6244,8 +6444,14 @@ function handlePuzzleClick(action,button,context) {
     return true;
   }
   if (action === 'document-snapshot') {
+    const guard=documentCommitState(getState());
+    if (!guard.hasA || !guard.hasB) { context.feedback('REFERÊNCIA CRUZADA INCOMPLETA // ABRA AS CÓPIAS A E B','warn'); return true; }
+    if (!guard.locked || !guard.exactFrequency) { context.feedback('SEM SIGNAL LOCK // O ESTADO NÃO PODE SER CAPTURADO','warn'); return true; }
+    if (!guard.notFrozen) { context.feedback('SINAL JÁ CONSOLIDADO','warn'); return true; }
     updateState((state)=>{
-      state.documentRuntime.snapshots=[...state.documentRuntime.snapshots,{copy:'OVERLAY',revision:state.documentRuntime.revision,at:Date.now()}].slice(-6);
+      const capturedAt=Date.now();
+      const snapshot={copy:'OVERLAY',frequency:DOCUMENT_TARGET_FREQUENCY,revision:state.documentRuntime.revision,copies:['A','B'],capturedAt,at:capturedAt,valid:true};
+      state.documentRuntime.snapshots=[...state.documentRuntime.snapshots.map((item)=>item.valid?{...item,valid:false}:item),snapshot].slice(-6);
     },{progress:true});
     button.textContent='ESTADO ATUAL CAPTURADO';
     button.disabled=true;
@@ -6255,10 +6461,12 @@ function handlePuzzleClick(action,button,context) {
   }
   if (action === 'commit-document') {
     const order=['A DATA','ABRE','O ARQUIVO'];
-    const selected=order.filter((token)=>(getState().documentFragments||[]).includes(token));
-    if (!getState().documentRuntime.snapshots.length) { context.feedback('ESTADO VOLÁTIL // Capture um snapshot antes de consolidar.','warn'); return true; }
-    if (selected.length!==order.length) { context.feedback('EXTRAÇÃO INCOMPLETA // Fixe apenas o que não se move.','warn'); return true; }
-    if (!getState().signalAnalyzer.locked) { context.feedback('PORTADORA NÃO ESTABILIZADA','warn'); return true; }
+    const guard=documentCommitState(getState());
+    if (!guard.hasA || !guard.hasB) { context.feedback('REFERÊNCIA CRUZADA INCOMPLETA // ABRA AS CÓPIAS A E B','warn'); return true; }
+    if (!guard.exactFrequency || !guard.locked) { context.feedback('PORTADORA NÃO ESTABILIZADA EM 170.8','warn'); return true; }
+    if (!guard.validSnapshot) { context.feedback('ESTADO VOLÁTIL // CAPTURE UM SNAPSHOT VÁLIDO NESTE LOCK','warn'); return true; }
+    if (!guard.allInvariants) { context.feedback('EXTRAÇÃO INCOMPLETA // Fixe apenas o que não se move.','warn'); return true; }
+    if (!guard.notFrozen) { context.feedback('SINAL JÁ CONSOLIDADO','warn'); return true; }
     button.disabled=true;
     updateState((state)=>{state.signalAnalyzer.frozen=true;},{progress:true});
     Motion.emit('evidence:resolve',{source:'document-invariant'});

@@ -333,10 +333,6 @@ body.is-immersive .spotify-dock {
   font-size: .58rem;
 }
 
-.receiver-scene[data-puzzle-id="04"] .receiver-scene__equipment .tv-cabinet {
-  width: min(900px, 100%, max(310px, calc((100dvh - 285px) * 1.55)));
-}
-
 .receiver-puzzle__answer {
   width: min(760px, 100%);
   margin: 0 auto;
@@ -844,7 +840,6 @@ body.is-immersive .spotify-dock {
   }
   .receiver-scene > .puzzle-brief--floating { top: 48px; }
   .receiver-scene > .puzzle-brief--floating .puzzle-brief__drawer { max-height: 150px; }
-  .receiver-scene[data-puzzle-id="04"] .receiver-scene__equipment .tv-cabinet { width: min(300px, 100%); }
   .receiver-scene[data-puzzle-id="04"] > .puzzle-brief--floating .puzzle-brief__drawer { max-height: 85px; }
 }
 
@@ -893,12 +888,17 @@ body.is-immersive .spotify-dock {
 
 /* SPEC 05: Receiver centralizado; orientação lateral não reduz a altura útil. */
 @media (min-width:901px) {
-  .receiver-scene { grid-template-columns:minmax(190px,24vw) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);align-items:stretch; }
+  .receiver-scene { --receiver-brief-width:clamp(260px,18vw,340px);grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);align-items:stretch; }
   .receiver-scene__exit { grid-column:1/-1;grid-row:1; }
-  .receiver-scene > .puzzle-brief--floating { position:relative;z-index:7;grid-column:1;grid-row:2;top:auto;right:auto;align-self:center;width:auto;margin:18px 0 18px clamp(14px,3vw,46px); }
-  .receiver-scene__equipment { grid-column:2;grid-row:2;align-self:center;justify-self:center;width:min(980px,calc(100% - 34px));max-height:calc(100svh - 72px);padding:8px 0; }
-  .receiver-scene__equipment .tv-cabinet { width:min(920px,100%,calc((100svh - 120px)*1.45));margin:auto; }
-  .receiver-scene__floor { position:absolute;right:0;bottom:0;left:24vw;min-height:24px;padding-block:4px;pointer-events:none; }
+  .receiver-scene > .puzzle-brief--floating { position:absolute;z-index:7;top:50%;right:auto;left:clamp(14px,2vw,38px);width:var(--receiver-brief-width);margin:0;transform:translateY(-50%); }
+  .receiver-scene__equipment { grid-column:1/-1;grid-row:2;align-self:center;justify-self:center;width:100%;max-height:calc(100svh - 72px);padding:8px 0; }
+  .receiver-scene__equipment .tv-cabinet { width:min(920px,calc(100vw - var(--receiver-brief-width) - var(--receiver-brief-width) - 80px),calc((100svh - 120px)*1.45));margin-inline:auto; }
+  .receiver-scene__floor { position:absolute;right:0;bottom:0;left:0;min-height:24px;padding-block:4px;pointer-events:none; }
   .receiver-scene__assistance { top:auto;right:18px;bottom:28px; }
+}
+@media (min-width:901px) and (max-width:1300px) {
+  .receiver-scene { --receiver-brief-width:clamp(220px,20vw,280px); }
+  .receiver-scene > .puzzle-brief--floating { left:14px; }
+  .receiver-scene__equipment .tv-cabinet { width:min(720px,calc(100vw - var(--receiver-brief-width) - var(--receiver-brief-width) - 56px),calc((100svh - 120px)*1.45)); }
 }
 .puzzle-brief__intent { display:grid; gap:4px; color:var(--text); font-size:.72rem; line-height:1.5; }.puzzle-brief__intent span { color:var(--signal); font-size:.56rem; letter-spacing:.12em; }

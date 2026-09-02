@@ -215,7 +215,9 @@ export function handleDesktopClick(action, button) {
     setSelected(id);
     document.querySelector('[data-os-context-menu]')?.setAttribute('hidden','');
     play('ui.contact', { volume: .04 });
-    if (matchMedia('(max-width: 760px), (pointer: coarse)').matches) openResource(id,button.closest('[data-resource="quarantine"]')?'quarantine':'resource');
+    const resource=desktopResource(id,getState());
+    const currentPhaseApp=resource?.type==='program'&&resource.target===getState().currentPuzzle;
+    if (currentPhaseApp || matchMedia('(max-width: 760px), (pointer: coarse)').matches) openResource(id,button.closest('[data-resource="quarantine"]')?'quarantine':'resource');
     return true;
   }
   if (action === 'os-open-resource') return openResource(button.dataset.resource);

@@ -2,6 +2,7 @@ import { syncDocumentExtraction, syncForensicSelection, syncLocationSelection } 
 import { Motion } from '../motion-engine.js';
 import { getState, updateState } from '../state.js';
 import { uiFeedback } from '../ui-feedback.js';
+import { DOCUMENT_TARGET_FREQUENCY, documentCommitState } from '../computer-runtime.js';
 
 const ACTIONS = new Set(['document-row','memory-region','document-snapshot','commit-document','open-file','forensic-feature','ack-conflict','location-fragment']);
 
@@ -9,6 +10,7 @@ export function handlePuzzleClick(action,button,context) {
   if (!ACTIONS.has(action)) return false;
   if (action === 'document-row' || action === 'memory-region') {
     if (!getState().signalAnalyzer.locked) { context.feedback('SEM SIGNAL LOCK // AS REGIÕES AINDA NÃO SÃO CONFIÁVEIS','warn'); return true; }
+    if (!documentCommitState(getState()).validSnapshot) { context.feedback('CAPTURE UM SNAPSHOT VÁLIDO ANTES DE FIXAR REGIÕES','warn'); return true; }
     const token=button.dataset.token;
     Motion.emit('evidence:contact',{source:'document-comparison',row:button.dataset.row});
     if (!token) {
@@ -26,8 +28,14 @@ export function handlePuzzleClick(action,button,context) {
     return true;
   }
   if (action === 'document-snapshot') {
+    const guard=documentCommitState(getState());
+    if (!guard.hasA || !guard.hasB) { context.feedback('REFERÊNCIA CRUZADA INCOMPLETA // ABRA AS CÓPIAS A E B','warn'); return true; }
+    if (!guard.locked || !guard.exactFrequency) { context.feedback('SEM SIGNAL LOCK // O ESTADO NÃO PODE SER CAPTURADO','warn'); return true; }
+    if (!guard.notFrozen) { context.feedback('SINAL JÁ CONSOLIDADO','warn'); return true; }
     updateState((state)=>{
-      state.documentRuntime.snapshots=[...state.documentRuntime.snapshots,{copy:'OVERLAY',revision:state.documentRuntime.revision,at:Date.now()}].slice(-6);
+      const capturedAt=Date.now();
+      const snapshot={copy:'OVERLAY',frequency:DOCUMENT_TARGET_FREQUENCY,revision:state.documentRuntime.revision,copies:['A','B'],capturedAt,at:capturedAt,valid:true};
+      state.documentRuntime.snapshots=[...state.documentRuntime.snapshots.map((item)=>item.valid?{...item,valid:false}:item),snapshot].slice(-6);
     },{progress:true});
     button.textContent='ESTADO ATUAL CAPTURADO';
     button.disabled=true;
@@ -37,10 +45,12 @@ export function handlePuzzleClick(action,button,context) {
   }
   if (action === 'commit-document') {
     const order=['A DATA','ABRE','O ARQUIVO'];
-    const selected=order.filter((token)=>(getState().documentFragments||[]).includes(token));
-    if (!getState().documentRuntime.snapshots.length) { context.feedback('ESTADO VOLÁTIL // Capture um snapshot antes de consolidar.','warn'); return true; }
-    if (selected.length!==order.length) { context.feedback('EXTRAÇÃO INCOMPLETA // Fixe apenas o que não se move.','warn'); return true; }
-    if (!getState().signalAnalyzer.locked) { context.feedback('PORTADORA NÃO ESTABILIZADA','warn'); return true; }
+    const guard=documentCommitState(getState());
+    if (!guard.hasA || !guard.hasB) { context.feedback('REFERÊNCIA CRUZADA INCOMPLETA // ABRA AS CÓPIAS A E B','warn'); return true; }
+    if (!guard.exactFrequency || !guard.locked) { context.feedback('PORTADORA NÃO ESTABILIZADA EM 170.8','warn'); return true; }
+    if (!guard.validSnapshot) { context.feedback('ESTADO VOLÁTIL // CAPTURE UM SNAPSHOT VÁLIDO NESTE LOCK','warn'); return true; }
+    if (!guard.allInvariants) { context.feedback('EXTRAÇÃO INCOMPLETA // Fixe apenas o que não se move.','warn'); return true; }
+    if (!guard.notFrozen) { context.feedback('SINAL JÁ CONSOLIDADO','warn'); return true; }
     button.disabled=true;
     updateState((state)=>{state.signalAnalyzer.frozen=true;},{progress:true});
     Motion.emit('evidence:resolve',{source:'document-invariant'});

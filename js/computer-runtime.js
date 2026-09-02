@@ -40,6 +40,36 @@ export const FILE_BEHAVIORS = Object.freeze({
   recoverable:'Conteúdo danificado que pode ganhar identidade.'
 });
 
+export const DOCUMENT_TARGET_FREQUENCY = 170.8;
+
+export function documentFrequency(state) {
+  return Number(state.signalAnalyzer.coarse) + (Number(state.signalAnalyzer.fine) / 10);
+}
+
+export function documentCommitState(state) {
+  const copies = state.documentRuntime?.copiesSeen || [];
+  const frequency = documentFrequency(state);
+  const hasA = copies.includes('A');
+  const hasB = copies.includes('B');
+  const exactFrequency = frequency === DOCUMENT_TARGET_FREQUENCY;
+  const locked = Boolean(state.signalAnalyzer?.locked) && exactFrequency;
+  const validSnapshot = (state.documentRuntime?.snapshots || []).some((snapshot) => (
+    snapshot.valid === true
+    && snapshot.frequency === DOCUMENT_TARGET_FREQUENCY
+    && snapshot.revision === state.documentRuntime.revision
+    && Number.isFinite(snapshot.capturedAt)
+    && snapshot.copies?.includes('A')
+    && snapshot.copies?.includes('B')
+  ));
+  const required = ['A DATA', 'ABRE', 'O ARQUIVO'];
+  const allInvariants = required.every((token) => (state.documentFragments || []).includes(token));
+  const notFrozen = !state.signalAnalyzer?.frozen;
+  return {
+    hasA, hasB, frequency, exactFrequency, locked, validSnapshot, allInvariants, notFrozen,
+    canCommit: hasA && hasB && exactFrequency && locked && validSnapshot && allInvariants && notFrozen
+  };
+}
+
 export function fileRuntime(state,id) {
   return state.computer?.files?.[id] || null;
 }

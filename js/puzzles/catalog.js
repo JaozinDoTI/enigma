@@ -90,8 +90,8 @@ const ENTRY_POINTS_BY_PHASE = Object.freeze({
 });
 
 const BEHAVIOR_HOOKS_BY_PHASE = Object.freeze({
-  '02':['repeated-file','wrong-folders'],'03':['receiver-interactions','phone-ignored'],'06':['wrong-invariant','window-reopen','snapshot'],
-  '10':['backtracking','repeated-file'],'11':['object-c-open'],'12':['phone-ignored'],'17':['receiver-interactions'],'21':['early-99'],'23':['clock-return']
+  '02':['repeated-file','wrong-folders'],'03':['receiver-interactions','REACT_IGNORED_PHONE'],'06':['wrong-invariant','window-reopen','snapshot'],
+  '10':['backtracking','repeated-file'],'11':['object-c-open'],'12':['REACT_IGNORED_PHONE'],'17':['receiver-interactions'],'21':['early-99'],'23':['clock-return']
 });
 
 const TRANSITIONS_BY_PHASE = Object.freeze({
@@ -100,7 +100,7 @@ const TRANSITIONS_BY_PHASE = Object.freeze({
   '03':{mode:'AUTO_CONTINUE',label:'ACOMPANHAR A PORTADORA',motion:'receiver-lock'},
   '04':{mode:'WORLD_HANDOFF',label:'VOLTAR À MESA DO COMPUTADOR',motion:'seat-tv-to-computer'},
   '05':{mode:'DIEGETIC_ENTRY',label:'ABRIR A UNIDADE MONTADA',motion:'archive-mounted'},
-  '06':{mode:'WORLD_HANDOFF',label:'FECHAR O COMPARADOR E VOLTAR AO PC',motion:'document-to-computer'},
+  '06':{mode:'DIEGETIC_ENTRY',label:'ABRIR VX_NET',motion:'desktop-awaken'},
   '07':{mode:'DIEGETIC_ENTRY',label:'ABRIR O PACOTE RECUPERADO',motion:'desktop-awaken'},
   '08':{mode:'DIEGETIC_ENTRY',label:'USAR LUA COMO CHAVE DE BUSCA',motion:'desktop-awaken'},
   '09':{mode:'DIEGETIC_ENTRY',label:'REABRIR O REGISTRO ALTERADO',motion:'desktop-awaken'},
@@ -191,7 +191,7 @@ export const PUZZLES = Object.freeze([
     mutations:[{id:'dump-reader',when:{unlocked:'08'},phaseApp:'dump-app',notice:'DUMP_24.bin SALVO EM C:\\DOWNLOADS'}],
     narrative:'A versão correta guarda 24 bits já separados em três blocos.', objective:'Converter os blocos em um objeto.', interaction:'ler três bytes como caracteres', successMeaning:'Um objeto conhecido ganha função investigativa.', solution:{accepted:['lua']}, completion:{message:'OBJETO RECUPERADO // LUA'}, ui:{inputLabel:'Palavra formada pelos três bytes',placeholder:'objeto recuperado',submitLabel:'INDEXAR OBJETO',wrongFeedback:'Os bytes não formam esse objeto.'} }),
   P({ id:'09', act:2, family:'computer', world:'computer', area:'images', code:'OBJETO_L01', title:'referência material', renderer:'moon-one', integrity:26, next:['10'], controller:'archive', prerequisites:['08'], discoveries:['vx-04-moon'],
-    mutations:[{id:'analyzer',when:{unlocked:'09'},icons:['analyzer-app']}],
+    mutations:[{id:'analyzer',when:{unlocked:'09'},icons:['analyzer-app'],phaseApp:'analyzer-app',notice:'ANALISADOR.exe INDEXOU A CHAVE LUA'}],
     narrative:'LUA é uma chave de busca. Imagem, log e cache preservam partes diferentes do mesmo scan.', objective:'Cruzar os três resultados e recuperar a marca no canal residual.', interaction:'ajustar contraste, canal e correlação de arquivos', successMeaning:'VX-04 ganha uma origem digital verificável.', solution:{accepted:['vx 04','vx04']}, completion:{message:'CAMADA VX-04 RECUPERADA',effects:['moonFirstFound']}, ui:{inputLabel:'Marca recuperada no scan',placeholder:'identificador',submitLabel:'ANEXAR MARCA',wrongFeedback:'Essa marca não pertence ao canal residual.'} }),
   P({ id:'10', act:2, family:'computer', area:'archive', code:'SOMA_DIVERGENTE', title:'um arquivo conhecido mudou', renderer:'return-event', integrity:31, next:['11'], controller:'archive', prerequisites:['09','02'], discoveries:['shared-event'], archiveEffects:['evento-1010:v2'], fileBehaviors:['event-1010:temporal','event-old:mirror','tmp1:parasite'],
     mutations:[{id:'event-rewrite',when:{unlocked:'10'},wallpaper:'alert'}],
@@ -199,7 +199,7 @@ export const PUZZLES = Object.freeze([
   P({ id:'11', act:3, family:'forensic', area:'evidence', code:'OBJETO_NAO_CATALOGADO', title:'objeto não catalogado', renderer:'conflict', integrity:35, next:['12'], controller:'forensic', prerequisites:['10'], discoveries:['object-c'], motionCue:'memory-reconstruction',
     narrative:'Fotografias cortadas, metadata e uma transparência chegaram à mesa com duas distrações.', objective:'Montar uma silhueta incompleta sem receber categorias prontas.', interaction:'mover, girar, sobrepor e testar a composição', successMeaning:'A forma têxtil recorrente surge visualmente; a identidade permanece desconhecida.', ui:{status:(s)=>s.paperEngine.boards['11']?.solved?'SILHUETA ESTABILIZADA':'MESA // COMPOSIÇÃO ABERTA'} }),
   P({ id:'12', act:3, family:'phone', area:'messages', code:'IDENTIDADE_OBJETO_C', title:'uma fotografia antiga', renderer:'phone-memory', integrity:39, next:['13'], controller:'phone', prerequisites:['11'], discoveries:['memory-curitiba'],
-    narrative:'A conversa aponta para um anexo quebrado; o aparelho ainda preserva thumbnail e arquivo de câmera.', objective:'Seguir a origem entre Mensagens, Arquivos e CAM Archive.', interaction:'rastrear referências e recuperar a cópia antes de anexar metadata', successMeaning:'OBJETO C recebe seu nome humano: CURITIBA.', solution:{accepted:[GAME_CONFIG.memoryAnswer,...GAME_CONFIG.memoryAliases]}, completion:{message:'OBJETO C → CURITIBA // METADATA ANEXADA',effects:['curitibaConfirmed']}, ui:{wrongFeedback:'Essa identidade não corresponde ao objeto reconstruído.'} }),
+    narrative:'J. enviou uma fotografia que o chat não consegue abrir; os detalhes do arquivo ainda apontam para uma cópia local.', objective:'Descobrir o nome preservado na fotografia antiga.', interaction:'abrir o anexo, consultar seus detalhes e navegar pelos apps ligados à origem', successMeaning:'OBJETO C recebe seu nome humano: CURITIBA.', solution:{accepted:[GAME_CONFIG.memoryAnswer,...GAME_CONFIG.memoryAliases]}, completion:{message:'OBJETO C → CURITIBA // DETALHES PRESERVADOS',effects:['curitibaConfirmed']}, ui:{wrongFeedback:'Essa identidade não corresponde ao objeto reconstruído.'} }),
   P({ id:'13', act:3, family:'device', area:'receiver', code:'RECEPTOR_VX', title:'imagem residual', renderer:'tv-sequence', integrity:43, next:['14'], controller:'receiver', prerequisites:['12','03'], discoveries:['receiver-afterimage'], motionCue:'tv-afterimage',
     narrative:'O Receiver mudou enquanto estava fora de uso.', objective:'Descobrir o que permanece depois que a portadora some.', interaction:'operar canal e power', successMeaning:'FIM · 01 · COMEÇO fica gravado no fósforo como relação, não senha.', ui:{status:(s)=>s.flags.tvChannel11Primed?'CANAL 11 // PORTADORA AUSENTE':`CAN ${String(s.tv.channel).padStart(2,'0')}`} }),
   P({ id:'14', act:3, family:'computer', area:'images', code:'BOOKSCAN_END01START', title:'captura degradada da estante', renderer:'books', integrity:47, next:['15'], prerequisites:['13'], discoveries:['book-time'], physicalEffect:'books',

@@ -1,6 +1,8 @@
 import { GAME_CONFIG } from '../config.js';
 import { clarityFor } from '../puzzles/clarity.js';
 import { escapeHtml } from '../utils.js';
+import { PHONE_EVENT_CATALOG } from '../phone/catalog.js';
+import { phoneDebugSummary } from '../phone/selectors.js';
 
 export function renderPuzzleBrief(puzzle, state, { compact = false, floating = false } = {}) {
   const contract = clarityFor(puzzle.id);
@@ -48,13 +50,11 @@ export function renderReturnControl(puzzle, state, label = 'VOLTAR AO SISTEMA') 
 export function renderDevPanel(state) {
   const dev = GAME_CONFIG.devMode || new URLSearchParams(location.search).get('dev') === '1';
   if (!dev) return '';
+  const phone=phoneDebugSummary(state);
+  const eventOptions=PHONE_EVENT_CATALOG.map((event)=>`<option value="${escapeHtml(event.definition)}">${escapeHtml(event.definition)}</option>`).join('');
   return `<details class="dev-panel scene-dev-panel"><summary>console de manutenção</summary><div class="dev-actions">
     <button type="button" class="micro-button" data-action="dev-next">liberar próximo</button>
-    <button type="button" class="micro-button" data-action="dev-event" data-event="same-file-four">simular repetição</button>
-    <button type="button" class="micro-button" data-action="dev-event" data-event="wrong-answer-chain">simular erro</button>
-    <button type="button" class="micro-button" data-action="dev-event" data-event="phone-ignored">simular abandono</button>
-    <button type="button" class="micro-button" data-action="dev-event" data-event="receiver-obsession">simular receiver</button>
     <button type="button" class="micro-button" data-action="dev-clear-transition">limpar transição</button>
     <button type="button" class="danger-button" data-action="dev-reset">reiniciar</button>
-  </div><p>SEED ${state.director.seed} · CURSOR ${state.director.cursor} · EVENTOS ${state.director.delivered.length}</p><pre class="dev-state">${JSON.stringify(state, null, 2)}</pre></details>`;
+  </div><div class="dev-phone-console"><strong>PHONE // NÍVEL ${phone.level}</strong><label>FORÇAR <select data-dev-phone-event>${eventOptions}</select><button type="button" class="micro-button" data-action="dev-force-phone">executar</button></label><p>SEED ${phone.seed} · CURSOR ${phone.cursor} · PENDENTES ${phone.pending.length} · LOCKS ${phone.locks.length}</p><pre>${escapeHtml(JSON.stringify({eligible:phone.eligible,pending:phone.pending,lastDecision:phone.lastDecision,totals:phone.totals,recent:phone.recent},null,2))}</pre></div></details>`;
 }

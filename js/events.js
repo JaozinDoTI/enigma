@@ -13,18 +13,19 @@ import { syncIdentityRelations, syncRoomState } from './dom-sync.js';
 import { handleComputerClick, handleComputerKeydown, returnComputerToTask } from './events/computer.js';
 import { handleReconstructionClick } from './events/reconstruction.js';
 import { handleDesktopBackgroundClick, handleDesktopChange, handleDesktopClick, handleDesktopContextMenu, handleDesktopDoubleClick, handleDesktopKeydown, handleDesktopPointerDown, handleDesktopPointerMove, handleDesktopPointerUp, handleDesktopSubmit } from './events/desktop-os.js';
-import { handlePhoneClick } from './events/phone.js';
+import { handlePhoneClick, lowerPhoneFromKeyboard } from './events/phone.js';
 import { handleReceiverClick } from './events/receiver.js';
 import { handleClockClick } from './events/clock.js';
 import { handleBookscanClick } from './events/bookscan.js';
 import { handleNavigationClick } from './events/navigation.js';
 import { handlePuzzleClick } from './events/puzzle-actions.js';
 import { emitWorldEvent } from './worlds/world-events.js';
-import { beginSimulatedReboot } from './computer-runtime.js';
+import { beginSimulatedReboot, documentFrequency } from './computer-runtime.js';
 import { signalBehavior } from './behavior-director.js';
 import { offerPhaseTransition } from './transition-director.js';
 import { evaluatePaperBoard, ensurePaperBoard } from './paper-engine.js';
 import { handlePaperClick, handlePaperPointerDown, handlePaperPointerMove, handlePaperPointerUp } from './events/paper.js';
+import { setPhoneSilence } from './phone/runtime.js';
 
 let refresh = () => {};
 let go = () => {};
@@ -38,7 +39,8 @@ function feedback(message, kind = '') {
 
 function progress(id, next, message = 'REGISTRO ACEITO', { delay = null } = {}) {
   if (getState().completed.includes(id)) return;
-  const narrativeMilestones = new Set(['05', '09', '12', '19']);
+  const phoneQuiet=['21','24','25'].includes(id)?8000:2400;
+  setPhoneSilence(Motion.reduced?300:phoneQuiet,`phase:${id}:reveal`);
   const loadingLabels = {
     '11': 'COMPARANDO ENTIDADES',
     '12': 'RESOLVENDO CONFLITO',
@@ -46,13 +48,12 @@ function progress(id, next, message = 'REGISTRO ACEITO', { delay = null } = {}) 
     '20': 'VALIDANDO MODELO DO QUARTO',
     '24': 'FUNDINDO RELAÇÕES'
   };
-  completePuzzle(id, next);
+  completePuzzle(id, next, message);
   signalBehavior('progress',{id});
   addEvent('puzzle-complete', id);
-  uiFeedback.success(message, { impact: narrativeMilestones.has(id) ? 'dramatic' : false });
   Motion.play('narrative-loading', { target: document.querySelector('[data-narrative-loader]'), label: loadingLabels[id] || 'INDEXANDO BLOCOS DE MEMÓRIA' });
   go(id);
-  uiFeedback.schedule('title-reveal-clear',()=>updateState((state)=>{if(state.ui.titleReveal?.id===id) state.ui.titleReveal=null;}),Motion.reduced?800:2600);
+  uiFeedback.schedule(`title-reveal-consume:${id}`,()=>updateState((state)=>{if(state.ui.titleReveal?.id===id&&state.ui.titleReveal.status!=='consumed')state.ui.titleReveal={...state.ui.titleReveal,status:'consumed',consumedAt:Date.now()};}),Motion.reduced?800:2600);
   offerPhaseTransition(id,{delay});
 }
 
@@ -180,13 +181,13 @@ function handleClick(event) {
   if (handleDesktopClick(action, button, event)) return;
   if (handleComputerClick(action, button)) return;
   if (handleReconstructionClick(action, button)) return;
-  if (handlePhoneClick(action,button,{ current, feedback, correctAnswer, navigate:go })) return;
+  if (handlePhoneClick(action,button,{ current, feedback, correctAnswer, navigate:go, refresh })) return;
   if (handleReceiverClick(action,button,{ current, feedback, progress, toast:(message)=>uiFeedback.toast(message,{kind:'discovery'}) })) return;
   if (handleClockClick(action,{ current, feedback, wrong, progress })) return;
   if (handleBookscanClick(action,button,{ feedback, wrong })) return;
   if (handlePaperClick(action,button)) return refresh();
   if (handlePuzzleClick(action,button,{ feedback, wrong, progress, correctAnswer })) return;
-  if (handleNavigationClick(action,button,{ go, current, last })) return;
+  if (handleNavigationClick(action,button,{ go, current, last, refresh })) return;
   if (action === 'boot-fragment') return initializeSystem(button);
   if (action === 'signal-lock') {
     const state=getState();const exact=state.signalAnalyzer.coarse===170&&state.signalAnalyzer.fine===8;
@@ -204,9 +205,18 @@ function handleClick(event) {
     updateState((state)=>{if(action==='vx-page'){const url=button.dataset.url;state.vxNet.history=state.vxNet.history.slice(0,state.vxNet.index+1);state.vxNet.history.push(url);state.vxNet.index=state.vxNet.history.length-1;state.vxNet.url=url;}if(action==='vx-back')state.vxNet.index=Math.max(0,state.vxNet.index-1);if(action==='vx-forward')state.vxNet.index=Math.min(state.vxNet.history.length-1,state.vxNet.index+1);state.vxNet.url=state.vxNet.history[state.vxNet.index];});return refresh();
   }
   if (action === 'moon-recover') {
-    const root=button.closest('[data-moon-forensics]');const contrast=Number(root?.querySelector('[data-moon-control="contrast"]')?.value||0);const channel=root?.querySelector('[data-moon-control="channel"]')?.value;
-    if(contrast<65||channel!=='infra')return feedback('CRUZAMENTO INSUFICIENTE // O RESÍDUO NÃO ESTÁ NO CANAL VISÍVEL','warn');
-    updateState((state)=>{state.computer.files['webcam-cache'].recovered=true;},{progress:true});return refresh();
+    const state=getState();
+    if(current()!=='09')return feedback('MÓDULO FORENSE FORA DO CONTEXTO DA FASE 09','warn');
+    if(state.moonForensics.contrast<65||state.moonForensics.channel!=='infra')return feedback('CRUZAMENTO INSUFICIENTE // O RESÍDUO NÃO ESTÁ NO CANAL VISÍVEL','warn');
+    updateState((draft)=>{draft.computer.files['webcam-cache'].recovered=true;Object.assign(draft.moonForensics,{status:'recovered',result:'VX-04'});},{progress:true});return refresh();
+  }
+  if (action === 'moon-commit') {
+    const state=getState();
+    if(state.completed.includes('09'))return true;
+    const valid=current()==='09'&&state.computer.files['webcam-cache'].recovered===true&&state.moonForensics.channel==='infra'&&state.moonForensics.status==='recovered'&&state.moonForensics.result==='VX-04';
+    if(!valid)return feedback('MARCA AINDA NÃO RECUPERADA PELO CRUZAMENTO FORENSE','warn');
+    updateState((draft)=>{draft.moonForensics.status='committed';},{progress:true});
+    return correctAnswer('09','vx04');
   }
   if (action === 'paper-validate') {
     const boardId=button.dataset.board;const evaluation=evaluatePaperBoard(getState(),boardId);
@@ -377,6 +387,37 @@ function handleSubmit(event) {
 
 function handleInput(event) {
   if (handleDesktopChange(event)) return;
+  if (event.target.matches('[data-moon-control]')) {
+    const key=event.target.dataset.moonControl;
+    if(!['contrast','channel'].includes(key))return;
+    const value=key==='contrast'?Math.max(0,Math.min(100,Number(event.target.value)||0)):event.target.value;
+    if(key==='channel'&&!['rgb','blue','infra'].includes(value))return;
+    updateState((state)=>{
+      if(state.moonForensics.status==='committed')return;
+      state.moonForensics[key]=value;
+      const stillRecovered=state.moonForensics.contrast>=65&&state.moonForensics.channel==='infra'&&state.moonForensics.result==='VX-04';
+      if(!stillRecovered){state.moonForensics.status='forensics';state.moonForensics.result=null;state.computer.files['webcam-cache'].recovered=false;}
+      else if(state.moonForensics.status==='searching')state.moonForensics.status='forensics';
+    },{progress:true});
+    const state=getState();
+    const panel=event.target.closest('[data-moon-forensics]');
+    const ready=state.moonForensics.contrast>=65&&state.moonForensics.channel==='infra';
+    const channelLabel=state.moonForensics.channel==='infra'?'RESÍDUO':state.moonForensics.channel.toUpperCase();
+    panel?.classList.toggle('is-ready',ready);
+    if(panel)panel.dataset.moonChannel=state.moonForensics.channel;
+    panel?.style.setProperty('--moon-contrast-filter',`${Math.round(45+(state.moonForensics.contrast*1.15))}%`);
+    panel?.style.setProperty('--moon-brightness-filter',`${Math.round(40+(state.moonForensics.contrast*.42))}%`);
+    panel?.style.setProperty('--moon-blur-filter',`${Math.max(0,3-(state.moonForensics.contrast*.03)).toFixed(2)}px`);
+    const output=panel?.querySelector('[data-moon-contrast-output]');
+    if(output)output.textContent=`${state.moonForensics.contrast}%`;
+    const status=panel?.querySelector('[data-moon-ready]');
+    if(status)status.textContent=ready?'CRUZAMENTO PRONTO':'FONTE AINDA INSTÁVEL';
+    const readout=panel?.querySelector('[data-moon-readout]');
+    if(readout)readout.textContent=`${ready?'CRUZAMENTO PRONTO':'FONTE AINDA INSTÁVEL'} // CONTRASTE ${state.moonForensics.contrast}% // ${channelLabel}`;
+    const recover=panel?.querySelector('[data-action="moon-recover"]');
+    if(recover)recover.textContent=ready?'EXECUTAR CRUZAMENTO':'CRUZAR LOG + CACHE + IMAGEM';
+    return;
+  }
   if (event.target.matches('[data-document-overlay]')) {
     const value=Math.max(0,Math.min(100,Number(event.target.value)||0));
     updateState((state)=>{state.documentRuntime.overlay=value;});
@@ -387,8 +428,28 @@ function handleInput(event) {
   }
   if (event.target.matches('[data-signal-control]')) {
     const key=event.target.dataset.signalControl;const value=Number(event.target.value);
-    updateState((state)=>{state.signalAnalyzer[key]=value;state.signalAnalyzer.locked=false;});
+    updateState((state)=>{
+      state.signalAnalyzer[key]=value;
+      state.signalAnalyzer.locked=false;
+      state.documentFragments=[];
+      state.documentRuntime.snapshots=state.documentRuntime.snapshots.map((snapshot)=>snapshot.valid?{...snapshot,valid:false,invalidatedAt:Date.now()}:snapshot);
+    });
     const output=event.target.closest('label')?.querySelector('output');if(output)output.textContent=key==='fine'?`.${value}`:String(value);
+    const state=getState();
+    const distance=Math.abs(documentFrequency(state)-170.8);
+    const strength=Math.max(0,Math.min(1,1-(distance/6)));
+    const puzzle=event.target.closest('.document-puzzle');
+    puzzle?.classList.remove('has-signal-lock');
+    puzzle?.classList.add('is-degraded');
+    puzzle?.style.setProperty('--signal-strength',String(strength));
+    puzzle?.querySelectorAll('.signal-spectrum i').forEach((bar,index)=>{
+      const peak=Math.max(0,1-(Math.abs(index-18)/8));
+      const noise=((index*19)%77)/100;
+      bar.style.setProperty('--amp',`${Math.round(12+(noise*(1-strength)*62)+(peak*strength*82))}%`);
+    });
+    const lockLabel=puzzle?.querySelector('[data-signal-status]');if(lockLabel)lockLabel.textContent='SEM SINCRONIA';
+    const snapshot=puzzle?.querySelector('[data-action="document-snapshot"]');if(snapshot)snapshot.disabled=true;
+    syncDocumentExtraction(state);
     return;
   }
   if (event.target.matches('.answer-input')) uiFeedback.clearFieldState(event.target);
@@ -478,6 +539,7 @@ function handleKeydown(event) {
   if (handleDesktopKeydown(event)) return;
   if (handleComputerKeydown(event)) return;
   if (event.key !== 'Escape') return;
+  if (lowerPhoneFromKeyboard({refresh})) return;
   if (getState().ui?.archiveView) {
     document.querySelector('[data-action="close-archive-record"]')?.click();
     return;

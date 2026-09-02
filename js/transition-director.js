@@ -36,14 +36,17 @@ export function offerPhaseTransition(fromId,{delay=null}={}) {
     fromWorld:worldOf(puzzle),toWorld:worldOf(target),fromTarget:cameraTargetFor(puzzle),toTarget:cameraTargetFor(target),status:'preparing',createdAt:Date.now()
   };
   updateState((state)=>{state.pendingTransition=plan;if(state.ui.titleReveal?.id===fromId) state.ui.titleReveal.transitionId=instanceId;});
-  const wait=Motion.reduced?350:Math.max(1500,Number(delay)||2200);
-  Motion.schedule('transition-offer',()=>{
+  const wait=Motion.reduced?180:Math.max(650,Number(delay)||1000);
+  Motion.schedule(`transition-offer:${instanceId}`,()=>{
     const current=getState().pendingTransition;
     if (!current || current.instanceId!==instanceId || current.status!=='preparing') return;
-    updateState((state)=>{state.pendingTransition={...state.pendingTransition,status:'offered'};});
+    updateState((state)=>{
+      if (state.ui.titleReveal?.id===fromId) state.ui.titleReveal={...state.ui.titleReveal,status:'consumed',consumedAt:Date.now()};
+      state.pendingTransition={...state.pendingTransition,status:'offered'};
+    });
     refreshView();
     requestAnimationFrame(()=>document.querySelector('[data-action="accept-transition"]')?.focus({preventScroll:true}));
-    if (contract.mode==='AUTO_CONTINUE' || contract.mode==='FINAL') Motion.schedule('transition-auto-accept',acceptPendingTransition,Motion.reduced?180:520);
+    if (contract.mode==='AUTO_CONTINUE' || contract.mode==='FINAL') Motion.schedule(`transition-auto-accept:${instanceId}`,()=>acceptPendingTransition(instanceId),Motion.reduced?180:520);
   },wait);
   return plan;
 }
@@ -65,9 +68,9 @@ function ensureOverlay(plan) {
   return overlay;
 }
 
-export function acceptPendingTransition() {
+export function acceptPendingTransition(expectedInstanceId = null) {
   const plan=getState().pendingTransition;
-  if (!plan || !['preparing','offered'].includes(plan.status)) return false;
+  if (!plan || (expectedInstanceId && plan.instanceId!==expectedInstanceId) || !['preparing','offered'].includes(plan.status)) return false;
   const sameTarget=plan.fromTarget===plan.toTarget;
   updateState((state)=>{state.pendingTransition={...state.pendingTransition,status:'moving'};setRoomCamera(state,plan.toTarget,plan.motion);});
   if (sameTarget) {
@@ -83,15 +86,17 @@ export function acceptPendingTransition() {
   const bedside=plan.toTarget==='BEDSIDE'||plan.fromTarget==='BEDSIDE';
   const swapAt=Motion.reduced?80:(bedside?820:sameSurface?360:620);
   const finishAt=Motion.reduced?180:(bedside?1780:sameSurface?820:1380);
-  Motion.schedule('transition-world-swap',()=>{
+  Motion.schedule(`transition-world-swap:${plan.instanceId}`,()=>{
+    if (getState().pendingTransition?.instanceId!==plan.instanceId) return;
     discoverPuzzle(plan.to,`handoff:${plan.from}`);
     updateState((state)=>{if(state.pendingTransition?.instanceId===plan.instanceId)state.pendingTransition={...state.pendingTransition,status:'arrived'};});
     navigateTo(plan.to);
   },swapAt);
-  Motion.schedule('transition-world-finish',()=>{
+  Motion.schedule(`transition-world-finish:${plan.instanceId}`,()=>{
+    if (getState().pendingTransition?.instanceId!==plan.instanceId) { overlay.remove(); return; }
     overlay.classList.add('is-arrived');
     updateState((state)=>{if(state.pendingTransition?.instanceId===plan.instanceId)state.pendingTransition=null;state.roomCamera.locked=false;state.roomCamera.transition=null;});
-    Motion.schedule('transition-world-remove',()=>overlay.remove(),Motion.reduced?20:260);
+    Motion.schedule(`transition-world-remove:${plan.instanceId}`,()=>overlay.remove(),Motion.reduced?20:260);
   },finishAt);
   return true;
 }
@@ -104,8 +109,10 @@ export function renderTransitionOffer(state) {
 }
 
 export function clearPendingTransition() {
-  Motion.cancel('transition-offer');
-  Motion.cancel('transition-auto-accept');
+  const instanceId=getState().pendingTransition?.instanceId;
+  if (instanceId) {
+    ['transition-offer','transition-auto-accept','transition-same-target','transition-world-swap','transition-world-finish','transition-world-remove'].forEach((key)=>Motion.cancel(`${key}:${instanceId}`));
+  }
   updateState((state)=>{state.pendingTransition=null;});
   document.querySelector('[data-world-handoff]')?.remove();
   refreshView();

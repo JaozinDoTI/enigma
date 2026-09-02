@@ -7,6 +7,7 @@ import { escapeHtml, formatDuration, daysSince } from './utils.js';
 import { evaluateRoom } from './room-model.js';
 import { clarityFor } from './puzzles/clarity.js';
 import { renderPaperBoard } from './paper-engine.js';
+import { documentCommitState } from './computer-runtime.js';
 
 const answerForm = (id, placeholderFallback = 'resposta necessária', buttonFallback = 'VERIFICAR') => {
   const contract = clarityFor(id);
@@ -59,6 +60,11 @@ const yardNodeGate = (state) => `<section class="external-auth external-auth--ya
 function documentScene(state) {
   const selected = state.documentFragments || [];
   const order = ['A DATA', 'ABRE', 'O ARQUIVO'];
+  const guard=documentCommitState(state);
+  if (!guard.hasA || !guard.hasB) {
+    const missing=[!guard.hasA?'A':null,!guard.hasB?'B':null].filter(Boolean).join(' + ');
+    return `<section class="document-puzzle is-source-incomplete"><header class="document-puzzle__intro"><span>REL_1708 // COMPARADOR DE ESTADOS</span><p>O comparador só cruza evidências abertas no filesystem. Ele não pode reconstruir uma cópia ausente.</p></header><div class="document-source-gate"><strong>REFERÊNCIA ${escapeHtml(missing)} AUSENTE</strong><p>Abra REL_1708.A em V:\\ARCHIVE_170491. A referência revelará REL_1708.B em C:\\BACKUP. Depois, abra o comparador novamente.</p><button type="button" class="primary-button" data-action="navigate" data-target="05">VOLTAR À WORKSTATION</button></div></section>`;
+  }
   const revision=state.documentRuntime.revision%3;
   const a=[['o índice reconhece a data','o índice rejeita a data','o índice esqueceu a data'][revision],'A DATA','ABRE','O ARQUIVO',['quando a cópia se move','antes que a cópia responda','depois que a janela retorna'][revision]];
   const b=[['a origem preserva a hora','a origem nega a hora','a origem troca a hora'][revision],'A DATA','ABRE','O ARQUIVO',['enquanto ainda existe nome','quando o nome desaparece','se a leitura for repetida'][revision]];
@@ -69,12 +75,20 @@ function documentScene(state) {
     return `<button type="button" class="document-overlay__region${active?' is-selected':''}" style="--region:${index}" data-action="memory-region" data-row="${index}" ${token?`data-token="${escapeHtml(token)}"`:''} aria-pressed="${Boolean(active)}"><span>${active?'REGIÃO FIXADA':'FIXAR REGIÃO'}</span></button>`;
   }).join('');
   const slots = order.map((token, index) => `<span class="document-extraction__slot${selected.includes(token) ? ' is-filled' : ''}" data-document-slot="${escapeHtml(token)}"><small>0${index + 1}</small>${selected.includes(token) ? escapeHtml(token) : 'TRECHO AUSENTE'}</span>`).join('');
-  const locked = state.signalAnalyzer.locked;
-  return `<section class="document-puzzle ${locked ? 'has-signal-lock' : 'is-degraded'}">
+  const locked = guard.locked;
+  const distance=Math.abs(guard.frequency-170.8);
+  const signalStrength=Math.max(0,Math.min(1,1-(distance/6)));
+  const spectrum=Array.from({ length:37 },(_,index)=>{
+    const peak=Math.max(0,1-(Math.abs(index-18)/8));
+    const noise=((index*19)%77)/100;
+    const amplitude=Math.round(12+(noise*(1-signalStrength)*62)+(peak*signalStrength*82));
+    return `<i style="--amp:${amplitude}%"></i>`;
+  }).join('');
+  return `<section class="document-puzzle ${locked ? 'has-signal-lock' : 'is-degraded'}" style="--signal-strength:${signalStrength}">
     <header class="document-puzzle__intro"><span>REL_1708 // COMPARADOR DE ESTADOS</span><p>As duas cópias continuam mudando. Sobreponha os estados e fixe apenas as regiões que não produzem ghosting.</p></header>
     <section class="signal-analyzer" data-signal-analyzer>
-      <header><span>PORTADORA DERIVADA DOS METADADOS // 17-08</span><strong>${locked ? 'SIGNAL LOCK' : 'SEM SINCRONIA'}</strong></header>
-      <div class="signal-spectrum">${Array.from({ length: 37 }, (_, index) => `<i style="--amp:${18 + ((index * 19) % 77)}%"></i>`).join('')}</div>
+      <header><span>PORTADORA DERIVADA DOS METADADOS // 17-08</span><strong data-signal-status>${locked ? 'SIGNAL LOCK' : 'SEM SINCRONIA'}</strong></header>
+      <div class="signal-spectrum">${spectrum}</div>
       <label>COARSE <input type="range" min="160" max="180" step="1" value="${state.signalAnalyzer.coarse}" data-signal-control="coarse"><output>${state.signalAnalyzer.coarse}</output></label>
       <label>FINE <input type="range" min="0" max="9" step="1" value="${state.signalAnalyzer.fine}" data-signal-control="fine"><output>.${state.signalAnalyzer.fine}</output></label>
       <button type="button" data-action="signal-lock">TESTAR PORTADORA</button>
@@ -83,11 +97,10 @@ function documentScene(state) {
       ${layer('A',a)}${layer('B',b)}<div class="document-overlay__regions">${regions}</div>
     </div>
     <label class="document-overlay__control"><span>TRANSPARÊNCIA A/B</span><input type="range" min="0" max="100" value="${state.documentRuntime.overlay}" data-document-overlay><output data-document-overlay-output>${state.documentRuntime.overlay}%</output></label>
-    <div class="document-snapshot"><span>${state.documentRuntime.snapshots.length?'ESTADO CAPTURADO DISPONÍVEL':'NENHUM ESTADO CAPTURADO'}</span><button type="button" data-action="document-snapshot">CAPTURAR ESTADO ATUAL</button></div>
+    <div class="document-snapshot"><span data-document-snapshot-status>${guard.validSnapshot?'SNAPSHOT VÁLIDO PARA 170.8':'NENHUM SNAPSHOT VÁLIDO'}</span><button type="button" data-action="document-snapshot" ${locked&&guard.notFrozen&&!guard.validSnapshot?'':'disabled'}>CAPTURAR ESTADO ATUAL</button></div>
     <footer class="document-extraction">
       <div class="document-extraction__result"><span>REGIÕES ESTABILIZADAS <strong data-document-count>${selected.length}</strong></span><div class="document-extraction__slots">${slots}</div></div>
-      ${locked&&selected.length===order.length?'<code class="document-carrier-reference">REF EXTERNA // mirror://final</code>':''}
-      <button type="button" class="primary-button document-extraction__commit" data-action="commit-document" ${locked && selected.length === order.length && state.documentRuntime.snapshots.length ? '' : 'disabled'}>CONGELAR SINAL E CONSOLIDAR</button>
+      <button type="button" class="primary-button document-extraction__commit" data-action="commit-document" ${guard.canCommit ? '' : 'disabled'}>CONGELAR SINAL E CONSOLIDAR</button>
     </footer>
     <div class="feedback document-puzzle__feedback" data-feedback data-document-status aria-live="polite">${selected.length === order.length ? 'AS REGIÕES FIXAS FORMAM UMA INSTRUÇÃO' : 'MOVIMENTE A TRANSPARÊNCIA E OBSERVE O DESALINHAMENTO'}</div>
   </section>`;
@@ -116,8 +129,16 @@ function binary() {
 }
 
 function moonDigital(state) {
-  const recovered=Boolean(state.computer.files['webcam-cache']?.recovered);
-  return `<section class="moon-search"><header><span>BUSCA LOCAL // LUA</span><strong>3 RESULTADOS EM ORIGENS DIFERENTES</strong></header><div class="moon-results"><article><span>IMAGEM</span><strong>tecido_scan.bmp</strong><small>CACHE / scanner local / canais danificados</small></article><article><span>LOG</span><strong>SCAN_LUA_04.log</strong><small>realce incompleto · referência VX</small></article><article><span>CACHE</span><strong>webcam-frame-0017.jpg</strong><small>thumbnail sem origem</small></article></div><div class="moon-forensics ${recovered?'is-recovered':''}" data-moon-forensics><figure><img src="./assets/images/moon-scan.svg" alt="Scan degradado de um tecido com lua"><div class="moon-channel-noise"></div></figure><div><label>CONTRASTE <input type="range" min="0" max="100" value="${recovered?78:20}" data-moon-control="contrast"></label><label>CANAL <select data-moon-control="channel"><option>RGB</option><option value="blue">AZUL</option><option value="infra">RESÍDUO</option></select></label><button type="button" data-action="moon-recover">CRUZAR LOG + CACHE + IMAGEM</button></div></div>${recovered?`<div class="moon-recovered-code"><span>MARCA RECUPERADA NO TECIDO</span><strong>VX-04</strong></div>${answerForm('09','marca recuperada')}`:'<p class="system-message">A marca não pertence a nenhum resultado isolado.</p>'}</section>`;
+  const forensic=state.moonForensics || {status:'searching',contrast:20,channel:'rgb',result:null};
+  const recovered=['recovered','committed'].includes(forensic.status) && forensic.result==='VX-04' && Boolean(state.computer.files['webcam-cache']?.recovered);
+  const committed=state.completed.includes('09') || forensic.status==='committed';
+  const ready=!recovered && forensic.contrast>=65 && forensic.channel==='infra';
+  const contrastFilter=Math.round(45+(forensic.contrast*1.15));
+  const brightnessFilter=Math.round(40+(forensic.contrast*.42));
+  const blurFilter=Math.max(0,3-(forensic.contrast*.03)).toFixed(2);
+  const option=(value,label)=>`<option value="${value}" ${forensic.channel===value?'selected':''}>${label}</option>`;
+  const status=recovered?'CORRELAÇÃO CONCLUÍDA':ready?'CRUZAMENTO PRONTO':'FONTE AINDA INSTÁVEL';
+  return `<section class="moon-search"><header><span>BUSCA LOCAL // LUA</span><strong>3 RESULTADOS EM ORIGENS DIFERENTES</strong></header><div class="moon-results"><article><span>01 // IMAGEM</span><strong>tecido_scan.bmp</strong><small>CACHE / scanner local / canais danificados</small></article><article><span>02 // LOG</span><strong>SCAN_LUA_04.log</strong><small>realce incompleto · referência VX</small></article><article><span>03 // CACHE</span><strong>webcam-frame-0017.jpg</strong><small>thumbnail sem origem</small></article></div><div class="moon-forensics ${recovered?'is-recovered':''} ${ready?'is-ready':''}" data-moon-forensics data-moon-status="${escapeHtml(forensic.status)}" data-moon-channel="${escapeHtml(forensic.channel)}" style="--moon-contrast-filter:${contrastFilter}%;--moon-brightness-filter:${brightnessFilter}%;--moon-blur-filter:${blurFilter}px"><figure><img src="./assets/images/moon-scan.svg" alt="Scan degradado de um tecido com lua"><div class="moon-channel-noise"></div><figcaption data-moon-readout>${escapeHtml(status)} // CONTRASTE ${forensic.contrast}% // ${forensic.channel==='infra'?'RESÍDUO':forensic.channel.toUpperCase()}</figcaption></figure><div class="moon-forensics__controls"><header><span>ANÁLISE FORENSE</span><strong data-moon-ready>${escapeHtml(status)}</strong></header><label>CONTRASTE <output data-moon-contrast-output>${forensic.contrast}%</output><input type="range" min="0" max="100" value="${forensic.contrast}" data-moon-control="contrast" ${recovered?'disabled':''}></label><label>CANAL <select data-moon-control="channel" ${recovered?'disabled':''}>${option('rgb','RGB')}${option('blue','AZUL')}${option('infra','RESÍDUO')}</select></label><p>Eleve o contraste até estabilizar a camada e procure o canal que preserva apenas o resíduo.</p><button type="button" data-action="moon-recover" ${recovered?'disabled':''}>${recovered?'FONTES CRUZADAS':ready?'EXECUTAR CRUZAMENTO':'CRUZAR LOG + CACHE + IMAGEM'}</button></div></div>${recovered?`<div class="moon-recovered-code"><span>MARCA RECUPERADA NO TECIDO</span><strong>VX-04</strong><button type="button" class="primary-button" data-action="moon-commit" ${committed?'disabled':''}>${committed?'MARCA ANEXADA':'ANEXAR MARCA AO REGISTRO'}</button></div>`:'<p class="system-message" data-moon-instruction>A marca não pertence a nenhum resultado isolado. Ajuste as duas variáveis antes de cruzar as fontes.</p>'}</section>`;
 }
 
 function booksNode(state) {

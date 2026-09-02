@@ -3,6 +3,7 @@ import { LOCATION_FRAGMENTS } from '../data/records.js';
 import { clarityFor } from './puzzles/clarity.js';
 import { evaluateRoom } from './room-model.js';
 import { tvPresentation } from './tv.js';
+import { documentCommitState } from './computer-runtime.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -35,9 +36,16 @@ export function syncDocumentExtraction(state) {
   const count = document.querySelector('[data-document-count]');
   if (count) count.textContent = `${selected.length} / ${order.length}`;
   const commit = document.querySelector('[data-action="commit-document"]');
-  if (commit) commit.disabled = selected.length !== order.length || !(state.documentRuntime?.snapshots?.length);
+  const guard=documentCommitState(state);
+  if (commit) commit.disabled = !guard.canCommit;
+  const snapshot = document.querySelector('[data-action="document-snapshot"]');
+  if (snapshot) snapshot.disabled = !guard.locked || !guard.hasA || !guard.hasB || !guard.notFrozen || guard.validSnapshot;
+  const snapshotStatus = document.querySelector('[data-document-snapshot-status]');
+  if (snapshotStatus) snapshotStatus.textContent = guard.validSnapshot ? 'SNAPSHOT VÁLIDO PARA 170.8' : 'NENHUM SNAPSHOT VÁLIDO';
   const status = document.querySelector('[data-document-status]');
-  if (status) status.textContent = selected.length === order.length
+  if (status) status.textContent = !guard.validSnapshot
+    ? 'CAPTURE UM SNAPSHOT VÁLIDO EM 170.8 ANTES DE FIXAR REGIÕES'
+    : selected.length === order.length
     ? 'INSTRUÇÃO RECONSTRUÍDA // PRONTA PARA EXTRAÇÃO'
     : selected.length
       ? `${selected.length} TRECHO${selected.length > 1 ? 'S' : ''} PRESERVADO${selected.length > 1 ? 'S' : ''} // CONTINUE COMPARANDO`

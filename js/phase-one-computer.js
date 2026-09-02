@@ -10,7 +10,7 @@ const RESOURCE_LIST = [
   { id:'notes', name:'NOTAS.txt', type:'text', parent:'desktop', created:'09/10/2025 21:02', modified:'09/10/2025 21:06', size:'1 KB', origin:'C:\\DOCUMENTOS', body:['devolver o adaptador','comprar pilhas','não mexer no relógio do sistema'] },
   { id:'trash', name:'Lixeira', type:'trash', parent:'desktop', path:'LIXEIRA', children:['old-image','draft'] },
   { id:'receiver-app', name:'RECEPTOR.exe', type:'program', parent:'desktop', created:'10/10/2025 10:10', modified:'10/10/2025 10:10', size:'31 KB', origin:'REGISTRO ISOLADO', target:'03' },
-  { id:'analyzer-app', name:'ANALISADOR.exe', type:'program', parent:'desktop', created:'10/10/2025 10:11', modified:'10/10/2025 10:11', size:'82 KB', origin:'PACOTE RECUPERADO', target:'09' },
+  { id:'analyzer-app', name:'ANALISADOR.exe', type:'program', parent:'desktop', created:'10/10/2025 10:11', modified:'10/10/2025 10:11', size:'82 KB', origin:'PACOTE RECUPERADO', target:'09', phaseApp:true },
   { id:'recovery-app', name:'RECUPERAR.exe', type:'program', parent:'desktop', created:'10/10/2025 14:25', modified:'10/10/2025 14:25', size:'101 KB', origin:'MODELO RELACIONAL', target:'20' },
   { id:'bookscan-app', name:'BOOKSCAN.exe', type:'program', parent:'desktop', created:'10/10/2025 13:14', modified:'10/10/2025 13:14', size:'67 KB', origin:'IMAGEM RESIDUAL', target:'14' },
   { id:'truth-app', name:'INTEGRIDADE.exe', type:'program', parent:'desktop', created:'10/10/2025 23:10', modified:'10/10/2025 23:10', size:'131 KB', origin:'SISTEMA', target:'21' },
